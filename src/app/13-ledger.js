@@ -55,6 +55,14 @@
       .filter((payment) => payment.rentMonth === nextMonth && payment.method === 'Advance');
   }
 
+  function getRowCreditCarryIntoMonth(state, tenantId, monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return 0;
+    const previousMonth = addMonths(normalizedMonth, -1);
+    if (!previousMonth || previousMonth === normalizedMonth) return 0;
+    return normalizeAmount(getPrepaidNext(state, tenantId, previousMonth));
+  }
+
   function monthsLate(previousDue, actualRent) {
     if (!previousDue || !actualRent) return 0;
     return Math.round(previousDue / actualRent);
@@ -474,7 +482,8 @@
       .reduce((totals, payment) => {
         const amount = Number(payment.amount || 0);
         if (!(amount > 0)) return totals;
-        const isPriorAdvance = payment.method === 'Advance';
+        if (payment.method === 'Advance') return totals;
+        const isPriorAdvance = false;
         if (isPriorAdvance) {
           totals.priorAdvancePaid += amount;
         } else if (isPreContractMonth && payment.method !== 'Advance') {
@@ -511,23 +520,25 @@
       if (openingCarryOverride != null) {
         openingCarry = openingCarryOverride;
       }
+      const rowCreditCarry = getRowCreditCarryIntoMonth(state, tenant.id, monthPointer);
+      const effectiveOpeningCredit = normalizeAmount(openingCredit + rowCreditCarry);
       const due = normalizeAmount(getMonthlyRentDue(tenant, monthPointer, anchorMonth, rentDue));
       const previousPaid = normalizeAmount(Math.min(getTenantDuePaidAmount(state, tenant.id, monthPointer), openingCarry));
       const paymentBreakdown = getMonthPaymentBreakdown(state, tenant, monthPointer, anchorMonth, rentDue);
       const directPaidRaw = normalizeAmount(paymentBreakdown.directPaid);
       const priorAdvancePaidRaw = normalizeAmount(paymentBreakdown.priorAdvancePaid);
       const occupancyPaidRaw = normalizeAmount(paymentBreakdown.occupancyPaid);
-      const prepaidFromBefore = normalizeAmount(Math.min(due, openingCredit + priorAdvancePaidRaw));
+      const prepaidFromBefore = normalizeAmount(Math.min(due, effectiveOpeningCredit + priorAdvancePaidRaw));
       const dueAfterPrepaid = normalizeAmount(Math.max(due - prepaidFromBefore, 0));
       const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, dueAfterPrepaid));
       const remainingCurrent = normalizeAmount(Math.max(dueAfterPrepaid - directPaidRaw, 0));
       const paid = normalizeAmount(prepaidFromBefore + directPaidApplied + occupancyPaidRaw);
       const closingCarry = normalizeAmount(Math.max(openingCarry - previousPaid + remainingCurrent, 0));
-      const closingCredit = normalizeAmount(Math.max(openingCredit + priorAdvancePaidRaw + directPaidRaw - due, 0));
+      const closingCredit = normalizeAmount(Math.max(effectiveOpeningCredit + priorAdvancePaidRaw + directPaidRaw - due, 0));
       ledger.push({
         monthKey: monthPointer,
         openingCarry,
-        openingCredit,
+        openingCredit: effectiveOpeningCredit,
         previousPaid,
         due,
         prepaidFromBefore,
@@ -620,12 +631,13 @@
       ))
       : null;
     const handoverArchivedView = handoverArchivedTenant ? getArchivedTenantDisplayView(state, handoverArchivedTenant, selectedMonth) : null;
+    const rowCreditAppliedCurrent = getRowCreditCarryIntoMonth(state, tenant.id, selectedMonth);
     const displayPaidCurrent = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent))
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const displayPaidCurrentRaw = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent))
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
