@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tenants</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css?v=34">
+</head>
+<body data-page="tenants">
+  <div class="workspace-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <p class="eyebrow">Landlord Panel</p>
+        <h2>Property Manager</h2>
+        <span id="sidebarUser" class="sidebar-user">owner@local</span><div class="sidebar-actions"><button type="button" class="sidebar-logout" data-logout-button>Log out</button></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-link" href="buildings.html">2. Buildings</a>
+        <a class="nav-link active" href="tenants.html">3. Tenants</a>
+        <a class="nav-link" href="history.html">4. History</a>
+        <a class="nav-link" href="activity.html">7. Activity</a>
+        <a class="nav-link" data-admin-link href="admin.html">8. Admin</a>
+      </nav>
+    </aside>
+    <div class="page-shell wide-page-shell tenant-page-shell">
+      <header class="hero compact-hero">
+        <div>
+          <p class="eyebrow">Tenants</p>
+          <h1>Tenant management</h1>
+          <p class="hero-copy">Filter by building and month, then click a vacant row to create a tenant in that exact unit or click an existing tenant to edit their profile.</p>
+        </div>
+      </header>
+      <main class="layout">
+        <section class="panel tenant-panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Tenants</p>
+              <h2>Tenant view by month</h2>
+            </div>
+            <div class="toolbar">
+              <select id="tenantBuildingFilter">
+                <option value="all">All buildings</option>
+              </select>
+              <input type="search" id="tenantSearch" placeholder="Search tenant, unit, phone">
+              <select id="statusFilter">
+                <option value="all">All statuses</option>
+                <option value="paid">Paid</option>
+                <option value="partial">Partial</option>
+                <option value="overdue">Late</option>
+                <option value="upcoming">Unpaid</option>
+                <option value="vacant">Vacant</option>
+              </select>
+            </div>
+          </div>
+          <div id="tenantMonthTabs" class="month-tabs"></div>
+          <div id="tenantList" class="tenant-list"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="hawali-seeds.generated.js?v=4"></script>
+  <script src="extra-seeds.generated.js?v=2"></script>
+  <script src="db-state.generated.js?v=2"></script>
+  <script src="app-config.js?v=2"></script>
+  <script src="app-seed-data.js?v=2"></script>
+  <script src="app.js?v=177"></script>
+</body>
+</html>
+
+
+
+

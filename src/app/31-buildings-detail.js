@@ -1,0 +1,542 @@
+  function findTenantRow(tenantId) {
+    return Array.from(document.querySelectorAll('[data-tenant-row]')).find((row) => row.dataset.tenantRow === tenantId) || null;
+  }
+
+  function findDetailInput(attributeName, tenantId) {
+    return Array.from(document.querySelectorAll(`[${attributeName}]`)).find((node) => node.getAttribute(attributeName) === tenantId) || null;
+  }
+
+  function captureBuildingRowUiState(tenantId) {
+    const row = findTenantRow(tenantId);
+    if (!row) return null;
+    return {
+      tenantId: String(tenantId || '').trim(),
+      top: row.getBoundingClientRect().top,
+      unitId: String(row.dataset.rowUnitId || '').trim(),
+      sourceTenantId: String(row.dataset.rowSourceTenantId || '').trim(),
+      building: String(row.dataset.rowBuilding || '').trim(),
+      unit: String(row.dataset.rowUnit || '').trim(),
+      floor: normalizeFloorLabel(row.dataset.rowFloor || '')
+    };
+  }
+
+  function findBuildingRowByUiState(snapshot) {
+    if (!snapshot) return null;
+    const rows = Array.from(document.querySelectorAll('[data-tenant-row]'));
+    if (snapshot.unitId) {
+      const byUnitId = rows.find((row) => String(row.dataset.rowUnitId || '').trim() === snapshot.unitId);
+      if (byUnitId) return byUnitId;
+    }
+    if (snapshot.sourceTenantId) {
+      const bySourceTenant = rows.find((row) => String(row.dataset.rowSourceTenantId || '').trim() === snapshot.sourceTenantId);
+      if (bySourceTenant) return bySourceTenant;
+    }
+    return rows.find((row) => (
+      String(row.dataset.rowBuilding || '').trim() === snapshot.building
+      && String(row.dataset.rowUnit || '').trim() === snapshot.unit
+      && normalizeFloorLabel(row.dataset.rowFloor || '') === snapshot.floor
+    )) || null;
+  }
+
+  function restoreBuildingRowUiState(state, snapshot) {
+    const row = findBuildingRowByUiState(snapshot);
+    if (!row) return;
+    const delta = row.getBoundingClientRect().top - Number(snapshot.top || 0);
+    if (Math.abs(delta) > 1) {
+      window.scrollBy(0, delta);
+    }
+    toggleTenantRowDetail(state, row.dataset.tenantRow || snapshot.tenantId, row);
+  }
+
+  function findVisibleTenantByRowContext(state, row, monthKey) {
+    if (!row) return null;
+    const unitId = String(row.dataset.rowUnitId || '').trim();
+    const sourceTenantId = String(row.dataset.rowSourceTenantId || '').trim();
+    const buildingName = String(row.dataset.rowBuilding || '').trim();
+    const unit = String(row.dataset.rowUnit || '').trim();
+    const floor = normalizeFloorLabel(row.dataset.rowFloor);
+    if (!buildingName) return null;
+    const visibleRows = getBuildingDisplayTenants(state, buildingName, monthKey);
+    if (unitId) {
+      const exactByUnitId = visibleRows.find((item) => String(item && item.unitId || '').trim() === unitId);
+      if (exactByUnitId) return exactByUnitId;
+    }
+    if (sourceTenantId) {
+      const exactBySourceTenant = visibleRows.find((item) => String(item && (item.sourceTenantId || item.id) || '').trim() === sourceTenantId);
+      if (exactBySourceTenant) return exactBySourceTenant;
+    }
+    if (!unit) return null;
+    const exactVisible = visibleRows.find((item) => {
+      if (!item) return false;
+      if (String(item.building || '').trim() !== buildingName) return false;
+      if (String(item.unit || '').trim() !== unit) return false;
+      return normalizeFloorLabel(item.floor) === floor;
+    });
+    if (exactVisible) return exactVisible;
+    if (unitId && typeof getAllVisibleUnitRows === 'function') {
+      const unitMatchedView = getAllVisibleUnitRows(state, monthKey).find((item) => String(item && item.unitId || '').trim() === unitId);
+      if (unitMatchedView) return unitMatchedView;
+    }
+    const liveTenant = (state.tenants || []).find((item) => {
+      if (!item || item.isArchived) return false;
+      if (sourceTenantId && String(item.id || '').trim() === sourceTenantId) return true;
+      if (String(item.building || '').trim() !== buildingName) return false;
+      const profile = getEffectiveTenantProfile(state, item, monthKey);
+      const profileUnit = String((profile ? profile.unit : item.unit) || '').trim();
+      const profileFloor = normalizeFloorLabel(profile ? profile.floor : item.floor);
+      if (profileUnit !== unit) return false;
+      return profileFloor === floor;
+    });
+    return liveTenant ? getTenantView(state, liveTenant, monthKey) : null;
+  }
+
+  function getCurrentBuildingDetailColspan() {
+    return window.__buildingVisibleColumnCount || BUILDING_TABLE_COLUMN_COUNT;
+  }
+
+  function usesDecimalAmountInputs(tenant) {
+    if (!tenant) return false;
+    const buildingName = String(tenant.building || '').trim().toLowerCase();
+    const unit = String(tenant.unit || '').trim();
+    const name = String(tenant.name || '').trim();
+    const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
+    return buildingName === 'fahaheel'
+      && (unit === 'سطح' || name === 'شبكة' || sourceTenantId === 'fahaheel-سطح');
+  }
+
+  function normalizeAmountInputValue(value, allowDecimals) {
+    const numericValue = Math.max(0, Number(value || 0));
+    return allowDecimals ? normalizeAmount(numericValue) : Math.round(numericValue);
+  }
+
+  function getAmountInputStep(tenant) {
+    return usesDecimalAmountInputs(tenant) ? '0.001' : '1';
+  }
+
+  function formatBlankAmountInputValue(value, allowDecimals) {
+    const normalized = normalizeAmountInputValue(value, !!allowDecimals);
+    return normalized > 0 ? String(normalized) : '';
+  }
+
+  function getDetailNumericInputValue(input, fallbackValue) {
+    if (!input) return Math.max(0, Number(fallbackValue || 0));
+    const rawValue = String(input.value || '').trim();
+    if (!rawValue) return 0;
+    return Math.max(0, Number(rawValue || 0));
+  }
+
+  function getDetailTextInputValue(input, fallbackValue) {
+    if (!input) return String(fallbackValue || '').trim();
+    return String(input.value || '').trim();
+  }
+
+  function toggleTenantRowDetail(state, tenantId, rowElement) {
+    const row = rowElement || findTenantRow(tenantId);
+    if (!row) return;
+    const existing = row.nextElementSibling;
+    if (existing && existing.matches('[data-tenant-detail]')) {
+      existing.remove();
+      return;
+    }
+    document.querySelectorAll('[data-tenant-detail]').forEach((node) => node.remove());
+    const selectedMonth = getSelectedBuildingMonth();
+    const storedTenant = state.tenants.find((item) => item.id === tenantId) || null;
+    const allVisibleRows = typeof getAllVisibleUnitRows === 'function'
+      ? getAllVisibleUnitRows(state, selectedMonth)
+      : [];
+    const visibleTenant = storedTenant
+      ? getTenantView(state, storedTenant, selectedMonth)
+      : (allVisibleRows.find((item) => item.id === tenantId)
+        || getBuildingDisplayTenants(state, window.__selectedBuildingName || '', selectedMonth).find((item) => item.id === tenantId)
+        || null);
+    const tenant = visibleTenant || findVisibleTenantByRowContext(state, row, selectedMonth);
+    if (!tenant) return;
+    const isLockedBaseline = isBuildingMonthLocked(tenant.building, selectedMonth);
+    const readOnlyAttr = isLockedBaseline ? ' readonly aria-readonly="true"' : '';
+    const disabledAttr = isLockedBaseline ? ' disabled aria-disabled="true"' : '';
+    const editablePrepaidAmount = getPrepaidNext(state, tenant.id, selectedMonth);
+    const detailRow = document.createElement('tr');
+    detailRow.setAttribute('data-tenant-detail', tenantId);
+    if (tenant.isArchivedSnapshot) {
+      detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><span class="label">Archived tenant</span><strong>${escapeHtml(tenant.name)}</strong></div>
+          <div class="detail-item"><span class="label">Unit</span><strong>${escapeHtml(tenant.unit)}</strong></div>
+          <div class="detail-item"><span class="label">Vacated on</span><strong>${formatDate(tenant.archivedOn || tenant.contractEnd || '')}</strong></div>
+          <div class="detail-item detail-item-wide"><span class="label">Note</span><strong>This is a vacated tenant snapshot for ${escapeHtml(formatMonth(selectedMonth))}. Edit the vacant row for this unit to change vacant details.</strong></div>
+        </div>
+      </td>`;
+      row.insertAdjacentElement('afterend', detailRow);
+      return;
+    }
+    if (tenant.isVacant) {
+      const archivedTenant = getLatestArchivedTenantForUnit(state, tenant.building, tenant.unit, selectedMonth);
+      const canUndoVacate = !!archivedTenant;
+      const storedVacantTenant = state.tenants.find((item) => item.id === tenant.id && item.isVacant && !item.isArchived);
+      const vacantDiscount = normalizeAmount(Math.max(0, Number(tenant.discount || 0)));
+      const vacantLastContractRent = normalizeAmount(Math.max(0, Number(tenant.lastContractRent || 0)));
+      const vacantLastActualRent = normalizeAmount(Math.max(
+        0,
+        Number(tenant.lastActualRent || Math.max(vacantLastContractRent - vacantDiscount, 0))
+      ));
+      detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><span class="label">Vacant unit</span><strong>${escapeHtml(tenant.unit)}</strong></div>
+          <div class="detail-item"><span class="label">Last tenant</span><strong>${escapeHtml(archivedTenant && archivedTenant.name || '-')}</strong></div>
+          <div class="detail-item"><span class="label">Last contract rent</span><input type="number" step="0.001" min="0" data-vacant-last-contract="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(vacantLastContractRent))}"${readOnlyAttr}></div>
+          <div class="detail-item"><span class="label">Discount</span><input type="number" step="0.001" min="0" data-vacant-discount="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(vacantDiscount))}"${readOnlyAttr}></div>
+          <div class="detail-item"><span class="label">Last actual rent</span><input type="number" step="0.001" min="0" data-vacant-last-actual="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(vacantLastActualRent))}"${readOnlyAttr}></div>
+          <div class="detail-item"><span class="label">Vacant since</span><input type="date" data-vacant-since="${escapeHtml(tenant.id)}" value="${escapeHtml(tenant.vacantSince || tenant.vacatedOn || '')}"${readOnlyAttr}></div>
+          <div class="detail-item"><span class="label">Old tenant due paid</span><input type="number" step="1" min="0" data-old-tenant-due-note="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth)))}" placeholder="0"${readOnlyAttr}></div>
+          <div class="detail-item"><span class="label">Save</span><button type="button" class="secondary-action" data-save-vacant-meta="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save changes'}</button></div>
+          ${!storedVacantTenant ? `<div class="detail-item"><span class="label">Note</span><strong>Pre-start vacancy for ${escapeHtml(formatMonth(selectedMonth))}</strong></div>` : ''}
+          ${canUndoVacate ? `<div class="detail-item detail-item-wide"><span class="label">Undo vacate</span><button type="button" class="secondary-action" data-undo-vacate="${escapeHtml(tenant.id)}"${disabledAttr}>Restore tenant</button></div>` : ''}
+          ${isLockedBaseline ? `<div class="detail-item detail-item-wide"><span class="label">Baseline lock</span><strong>${escapeHtml(getBuildingMonthLockMessage(tenant.building, selectedMonth))}</strong></div>` : ''}
+        </div>
+      </td>`;
+      row.insertAdjacentElement('afterend', detailRow);
+      const saveVacantButton = detailRow.querySelector('[data-save-vacant-meta]');
+      if (saveVacantButton) {
+        saveVacantButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          saveVacantUnitMeta(state, tenant.id, selectedMonth, tenant);
+        });
+      }
+      const contractInput = findDetailInput('data-vacant-last-contract', tenant.id);
+      const discountInput = findDetailInput('data-vacant-discount', tenant.id);
+      const actualInput = findDetailInput('data-vacant-last-actual', tenant.id);
+      const updateVacantActual = () => {
+        if (!contractInput || !actualInput) return;
+        const contractValue = normalizeAmount(Math.max(0, Number(contractInput.value || 0)));
+        const discountValue = normalizeAmount(Math.max(0, Number(discountInput && discountInput.value || 0)));
+        actualInput.value = formatBlankAmountInputValue(Math.max(contractValue - discountValue, 0));
+      };
+      if (contractInput) contractInput.addEventListener('input', updateVacantActual);
+      if (discountInput) discountInput.addEventListener('input', updateVacantActual);
+      const undoButton = detailRow.querySelector('[data-undo-vacate]');
+      if (undoButton) {
+        undoButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          void undoVacateTenantFromBuilding(state, tenantId);
+        });
+      }
+      return;
+    }
+    const showMoveInDetail = !!tenant.moveInDate && !!tenant.contractStart && tenant.moveInDate !== tenant.contractStart;
+    const suggestedVacateDate = tenant.plannedVacateDate || '';
+    const canMarkUnpaid = hasUndoablePaidActionForMonth(state, tenant, selectedMonth);
+    const markSelectedMonthLabel = canMarkUnpaid ? 'Mark unpaid' : 'Mark as paid';
+    const allowDecimalAmounts = usesDecimalAmountInputs(tenant);
+    const amountInputStep = getAmountInputStep(tenant);
+    detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
+      <div class="detail-grid">
+        <div class="detail-item"><span class="label">Mark selected month</span><button type="button" class="secondary-action" data-mark-paid="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : markSelectedMonthLabel}</button></div>
+        <div class="detail-item"><span class="label">Unpaid total</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.totalDue, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Current month</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-current-month="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Contract amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-contract="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.contractRent, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Discount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-discount="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.discount, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Vacant amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-vacant-amount="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayVacantAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Actual rent</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-actual-rent="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayActualRent != null ? tenant.displayActualRent : tenant.rentDue, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Last paid month</span><strong>${escapeHtml(tenant.lastPaidMonthLabel)}${tenant.lateMonths ? ` · Late ${tenant.lateMonths} months` : ''}</strong></div>
+        <div class="detail-item"><span class="label">Paid through</span><strong>${escapeHtml(formatMonth(tenant.paidThroughMonth))}</strong></div>
+        <div class="detail-item"><span class="label">Advance covers</span><strong>${tenant.prepaidMonths > 0 ? `${tenant.prepaidMonths} month${tenant.prepaidMonths > 1 ? 's' : ''}` : '0 months'}</strong></div>
+        <div class="detail-item"><span class="label">Contract start</span><strong>${formatDate(tenant.contractStart)}</strong></div>
+        <div class="detail-item"><span class="label">Contract end</span><strong>${formatDate(tenant.contractEnd)}</strong></div>
+        ${showMoveInDetail ? `<div class="detail-item"><span class="label">Move in</span><strong>${formatDate(tenant.moveInDate)}</strong></div>` : ''}
+        <div class="detail-item"><span class="label">Insurance amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-insurance-current="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Insurance paid month</span><input type="month" max="${escapeHtml(selectedMonth)}" data-edit-insurance-paid-month="${escapeHtml(tenant.id)}" value="${escapeHtml(tenant.insurancePaidMonth || '')}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Old tenant due paid</span><input type="number" step="0.001" min="0" data-old-tenant-due-note="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, getSelectedBuildingMonth())))}" placeholder="0"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Prepaid amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(editablePrepaidAmount, allowDecimalAmounts))}" placeholder="0"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Prepaid action</span><button type="button" class="secondary-action" data-save-prepaid="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : (editablePrepaidAmount > 0 ? 'Update / clear prepaid' : 'Save prepaid')}</button></div>
+        <div class="detail-item"><span class="label">Partial amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-partial-paid="${escapeHtml(tenant.id)}" value="" placeholder="0"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Partial action</span><button type="button" class="secondary-action" data-save-partial-paid="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save partial / clear'}</button></div>
+        <div class="detail-item"><span class="label">Planned vacate date</span><input type="date" data-vacate-date="${escapeHtml(tenant.id)}" value="${escapeHtml(suggestedVacateDate)}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Vacate unit</span><button type="button" class="secondary-action" data-vacate-tenant="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Vacate tenant'}</button></div>
+        <div class="detail-item detail-item-wide detail-item-notes"><span class="label">Notes</span><textarea rows="3" data-edit-notes="${escapeHtml(tenant.id)}" placeholder="Add notes"${readOnlyAttr}>${escapeHtml(tenant.notes || '')}</textarea></div>
+        <div class="detail-item detail-item-wide detail-item-save"><span class="label">Save all changes</span><button type="button" data-save-tenant="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save changes'}</button></div>
+        ${isLockedBaseline ? `<div class="detail-item detail-item-wide"><span class="label">Baseline lock</span><strong>${escapeHtml(getBuildingMonthLockMessage(tenant.building, selectedMonth))}</strong></div>` : ''}
+      </div>
+    </td>`;
+    row.insertAdjacentElement('afterend', detailRow);
+    const saveButton = detailRow.querySelector('[data-save-tenant]');
+    if (saveButton) {
+      saveButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        saveTenantInlineEdit(state, tenantId);
+      });
+    }
+    const paidButton = detailRow.querySelector('[data-mark-paid]');
+    if (paidButton) {
+      paidButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rowUiState = captureBuildingRowUiState(tenantId);
+        if (canMarkUnpaid) {
+          markTenantUnpaidForCurrentMonth(state, tenantId);
+        } else {
+          markTenantPaidForCurrentMonth(state, tenantId);
+        }
+        restoreBuildingRowUiState(state, rowUiState);
+      });
+    }
+    const partialPaidButton = detailRow.querySelector('[data-save-partial-paid]');
+    if (partialPaidButton) {
+      partialPaidButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const rowUiState = captureBuildingRowUiState(tenantId);
+        const partialInput = findDetailInput('data-edit-partial-paid', tenantId);
+        const partialAmount = Number(partialInput && partialInput.value || 0);
+        if (partialAmount > 0) {
+          applyTenantPartialPaid(state, tenantId);
+        } else {
+          markTenantUnpaidForCurrentMonth(state, tenantId);
+        }
+        restoreBuildingRowUiState(state, rowUiState);
+      });
+    }
+    const prepaidButton = detailRow.querySelector('[data-save-prepaid]');
+    if (prepaidButton) {
+      prepaidButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const prepaidInput = findDetailInput('data-edit-prepaid', tenantId);
+        const prepaidAmount = Number(prepaidInput && prepaidInput.value || 0);
+        if (prepaidAmount > 0) {
+          saveTenantPrepaidAmount(state, tenantId);
+        } else {
+          deleteTenantPrepaidAmount(state, tenantId);
+        }
+      });
+    }
+    const vacateButton = detailRow.querySelector('[data-vacate-tenant]');
+    if (vacateButton) {
+      vacateButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void vacateTenantFromBuilding(state, tenantId);
+      });
+    }
+    const plannedVacateInput = findDetailInput('data-vacate-date', tenantId);
+    if (plannedVacateInput) {
+      plannedVacateInput.addEventListener('change', (event) => {
+        event.stopPropagation();
+        savePlannedVacateDate(state, tenantId);
+      });
+    }
+    const previousDueInput = findDetailInput('data-edit-previous-due', tenantId);
+    const paidPreviousInput = findDetailInput('data-edit-paid-previous', tenantId);
+    const contractInput = findDetailInput('data-edit-contract', tenantId);
+    const discountInput = findDetailInput('data-edit-discount', tenantId);
+    const vacantAmountInput = findDetailInput('data-edit-vacant-amount', tenantId);
+    const actualRentInput = findDetailInput('data-edit-actual-rent', tenantId);
+    bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput);
+    bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts);
+  }
+
+  function bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput) {
+    if (!previousDueInput || !paidPreviousInput) return;
+    let linkedTotal = Math.max(
+      0,
+      normalizeAmount(Number(previousDueInput.value || 0)) + normalizeAmount(Number(paidPreviousInput.value || 0))
+    );
+    let syncing = false;
+    previousDueInput.addEventListener('input', () => {
+      if (syncing) return;
+      const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
+      const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
+      previousDueInput.value = formatBlankAmountInputValue(previousValue);
+      linkedTotal = previousValue + paidValue;
+    });
+    paidPreviousInput.addEventListener('input', () => {
+      if (syncing) return;
+      syncing = true;
+      const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
+      paidPreviousInput.value = formatBlankAmountInputValue(paidValue);
+      previousDueInput.value = formatBlankAmountInputValue(Math.max(linkedTotal - paidValue, 0));
+      syncing = false;
+    });
+  }
+
+  function bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts) {
+    if (!contractInput || !actualRentInput) return;
+    let manualOverride = false;
+    const updateActualRent = () => {
+      if (manualOverride) return;
+      const contractValue = normalizeAmountInputValue(contractInput.value || 0, allowDecimalAmounts);
+      const discountValue = normalizeAmountInputValue(discountInput && discountInput.value || 0, allowDecimalAmounts);
+      const vacantValue = normalizeAmountInputValue(vacantAmountInput && vacantAmountInput.value || 0, allowDecimalAmounts);
+      actualRentInput.value = formatBlankAmountInputValue(Math.max(contractValue - discountValue - vacantValue, 0), allowDecimalAmounts);
+    };
+    const markManualOverride = () => {
+      manualOverride = true;
+    };
+    actualRentInput.addEventListener('input', markManualOverride);
+    if (contractInput) contractInput.addEventListener('input', updateActualRent);
+    if (discountInput) discountInput.addEventListener('input', updateActualRent);
+    if (vacantAmountInput) vacantAmountInput.addEventListener('input', updateActualRent);
+    updateActualRent();
+  }
+
+  function getLatestArchivedTenantForUnit(state, buildingName, unit, monthKey) {
+    return state.tenants
+      .filter((tenant) => tenant.building === buildingName && tenant.unit === unit && tenant.isArchived && !tenant.isVacant)
+      .filter((tenant) => !monthKey || getMonthKeyFromDate(tenant.archivedOn || tenant.contractEnd || '') === monthKey)
+      .sort((a, b) => new Date(String(b.archivedOn || b.contractEnd || '1900-01-01')) - new Date(String(a.archivedOn || a.contractEnd || '1900-01-01')))[0] || null;
+  }
+
+  function getLatestArchivedTenantForUnitUpToMonth(state, buildingName, unit, monthKey, floor) {
+    const normalizedFloor = normalizeFloorLabel(floor);
+    return state.tenants
+      .filter((tenant) => tenant.building === buildingName && tenant.unit === unit && tenant.isArchived && !tenant.isVacant)
+      .filter((tenant) => !normalizedFloor || normalizeFloorLabel(tenant.floor) === normalizedFloor)
+      .filter((tenant) => {
+        if (!monthKey) return true;
+        const archivedMonth = getMonthKeyFromDate(tenant.archivedOn || tenant.contractEnd || '');
+        return !archivedMonth || compareMonthKeys(archivedMonth, monthKey) <= 0;
+      })
+      .sort((a, b) => new Date(String(b.archivedOn || b.contractEnd || '1900-01-01')) - new Date(String(a.archivedOn || a.contractEnd || '1900-01-01')))[0] || null;
+  }
+
+  function findVacantRow(tenantId) {
+    return Array.from(document.querySelectorAll('[data-vacant-row]')).find((row) => row.getAttribute('data-vacant-row') === tenantId) || null;
+  }
+
+  function getLatestKnownVacateDate(state, buildingName, unit, floor) {
+    const normalizedFloor = normalizeFloorLabel(floor);
+    const vacantRecord = state.tenants.find((tenant) => (
+      tenant.building === buildingName
+      && tenant.unit === unit
+      && (!normalizedFloor || normalizeFloorLabel(tenant.floor) === normalizedFloor)
+      && tenant.isVacant
+      && !tenant.isArchived
+      && tenant.vacatedOn
+    ));
+    if (vacantRecord && vacantRecord.vacatedOn) return vacantRecord.vacatedOn;
+    const archivedTenant = state.tenants
+      .filter((tenant) => tenant.building === buildingName && tenant.unit === unit && tenant.isArchived && !tenant.isVacant)
+      .filter((tenant) => !normalizedFloor || normalizeFloorLabel(tenant.floor) === normalizedFloor)
+      .sort((a, b) => new Date(String(b.archivedOn || b.contractEnd || '1900-01-01')) - new Date(String(a.archivedOn || a.contractEnd || '1900-01-01')))[0];
+    return archivedTenant ? String(archivedTenant.archivedOn || archivedTenant.contractEnd || '') : '';
+  }
+
+  function saveTenantInlineEdit(state, tenantId) {
+    const tenant = state.tenants.find((item) => item.id === tenantId);
+    if (!tenant) return;
+    const rowUiState = captureBuildingRowUiState(tenantId);
+    const selectedMonth = getSelectedBuildingMonth();
+    if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
+      return;
+    }
+    if (typeof preserveVisibleBuildingOrderForBuilding === 'function') {
+      preserveVisibleBuildingOrderForBuilding(state, tenant.building, selectedMonth);
+    }
+    const previousDueInput = findDetailInput('data-edit-previous-due', tenantId);
+    const paidPreviousInput = findDetailInput('data-edit-paid-previous', tenantId);
+    const currentMonthInput = findDetailInput('data-edit-current-month', tenantId);
+    const contractInput = findDetailInput('data-edit-contract', tenantId);
+    const discountInput = findDetailInput('data-edit-discount', tenantId);
+    const actualRentInput = findDetailInput('data-edit-actual-rent', tenantId);
+    const vacantAmountInput = findDetailInput('data-edit-vacant-amount', tenantId);
+    const insuranceCurrentInput = findDetailInput('data-edit-insurance-current', tenantId);
+    const insurancePaidMonthInput = findDetailInput('data-edit-insurance-paid-month', tenantId);
+    const oldTenantDuePaidNoteInput = findDetailInput('data-old-tenant-due-note', tenantId);
+    const prepaidInput = findDetailInput('data-edit-prepaid', tenantId);
+    const notesInput = findDetailInput('data-edit-notes', tenantId);
+    const vacateInput = findDetailInput('data-vacate-date', tenantId);
+    const allowDecimalAmounts = usesDecimalAmountInputs(tenant);
+    const unpaidTotalAmount = normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenant.totalDue || tenant.previousDue || 0), allowDecimalAmounts);
+    const paidPreviousAmount = normalizeAmountInputValue(getDetailNumericInputValue(paidPreviousInput, 0), allowDecimalAmounts);
+    const currentMonthAmount = normalizeAmountInputValue(getDetailNumericInputValue(currentMonthInput, tenant.paidCurrent || 0), allowDecimalAmounts);
+    const contractRent = normalizeAmountInputValue(getDetailNumericInputValue(contractInput, tenant.contractRent || 0), allowDecimalAmounts);
+    const discount = normalizeAmountInputValue(getDetailNumericInputValue(discountInput, tenant.discount || 0), allowDecimalAmounts);
+    const actualRentAmount = normalizeAmountInputValue(getDetailNumericInputValue(actualRentInput, tenant.displayActualRent || tenant.baseActualRent || tenant.actualRent || 0), allowDecimalAmounts);
+    const vacantAmount = normalizeAmountInputValue(getDetailNumericInputValue(vacantAmountInput, tenant.displayVacantAmount || 0), allowDecimalAmounts);
+    const insuranceAmount = Math.max(0, getDetailNumericInputValue(insuranceCurrentInput, tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0));
+    const insurancePaidMonth = getDetailTextInputValue(insurancePaidMonthInput, tenant.insurancePaidMonth || '');
+    if (insurancePaidMonth && compareMonthKeys(insurancePaidMonth, selectedMonth) > 0) {
+      showFlashMessage('Insurance paid month cannot be after the selected month.');
+      return;
+    }
+    const oldTenantDuePaidNote = normalizeAmountInputValue(getDetailNumericInputValue(oldTenantDuePaidNoteInput, 0), allowDecimalAmounts);
+    const prepaidAmount = normalizeAmountInputValue(getDetailNumericInputValue(prepaidInput, 0), allowDecimalAmounts);
+    tenant.contractRent = contractRent;
+    tenant.discount = discount;
+    tenant.actualRent = Math.max(contractRent - discount, 0);
+    if (actualRentAmount !== tenant.actualRent) {
+      setActualRentOverride(state, tenantId, selectedMonth, actualRentAmount);
+    } else {
+      setActualRentOverride(state, tenantId, selectedMonth, null);
+    }
+    if (vacantAmount > 0) {
+      setVacantAmountOverride(state, tenantId, selectedMonth, vacantAmount);
+    } else {
+      setVacantAmountOverride(state, tenantId, selectedMonth, null);
+    }
+    const effectiveRentDue = Math.max(actualRentAmount, 0);
+    const prepaidFromBeforeAmount = normalizeAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts);
+    const remainingCurrentAmount = Math.max(effectiveRentDue - prepaidFromBeforeAmount - currentMonthAmount, 0);
+    const previousDueAmount = Math.max(unpaidTotalAmount - remainingCurrentAmount, 0);
+    setCarryOverride(state, tenantId, selectedMonth, previousDueAmount + paidPreviousAmount);
+    if (insuranceAmount > 0 && insurancePaidMonth) {
+      tenant.insuranceAmount = insuranceAmount;
+      tenant.insurancePaidMonth = insurancePaidMonth;
+      tenant.insurancePreviousAmount = insurancePaidMonth < selectedMonth ? insuranceAmount : 0;
+      tenant.insuranceCurrentAmount = insurancePaidMonth === selectedMonth ? insuranceAmount : 0;
+    } else {
+      tenant.insuranceAmount = 0;
+      tenant.insurancePaidMonth = '';
+      tenant.insurancePreviousAmount = 0;
+      tenant.insuranceCurrentAmount = 0;
+    }
+    tenant.plannedVacateDate = getDetailTextInputValue(vacateInput, '');
+    setOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth, oldTenantDuePaidNote);
+    setNotesOverride(state, tenantId, selectedMonth, getDetailTextInputValue(notesInput, tenant.notes || ''));
+    setPaidOverride(state, tenantId, selectedMonth, currentMonthAmount);
+    setTenantDuePaidAmount(state, tenantId, selectedMonth, paidPreviousAmount);
+    const prepaidSaveResult = setTenantPrepaidAmount(state, tenantId, prepaidAmount);
+    if (prepaidSaveResult === undefined && prepaidAmount > 0) {
+      return;
+    }
+    saveState(state);
+    if (typeof syncBuildingInlineEditToDb === 'function') {
+      syncBuildingInlineEditToDb({
+        sourceTenantId: tenant.id,
+        monthKey: selectedMonth,
+        contractRent,
+        discount,
+        baseActualRent: tenant.actualRent,
+        actualRentOverride: actualRentAmount,
+        vacantAmount,
+        carryOverride: previousDueAmount + paidPreviousAmount,
+        paidOverride: currentMonthAmount,
+        insuranceAmount,
+        insurancePaidMonth,
+        oldTenantDuePaid: oldTenantDuePaidNote,
+        prepaidAmount,
+        plannedVacateDate: tenant.plannedVacateDate,
+        notes: getDetailTextInputValue(notesInput, tenant.notes || '')
+      });
+    }
+    logActivity(state, 'Tenant updated', `${tenant.building} ${tenant.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${tenant.insurancePaidMonth || 'not set'} / planned vacate ${tenant.plannedVacateDate || 'not set'} / notes updated`);
+    renderAll(state, tenant.building);
+    restoreBuildingRowUiState(state, rowUiState);
+    showFlashMessage(`Saved ${tenant.building} ${tenant.unit}.`);
+  }
+
+  function savePlannedVacateDate(state, tenantId) {
+      const tenant = state.tenants.find((item) => item.id === tenantId);
+      if (!tenant || tenant.isVacant || tenant.isArchived) return;
+      const rowUiState = captureBuildingRowUiState(tenantId);
+      const selectedMonth = getSelectedBuildingMonth();
+      if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
+        return;
+      }
+      const vacateInput = findDetailInput('data-vacate-date', tenantId);
+      const plannedVacateDate = getDetailTextInputValue(vacateInput, '');
+      tenant.plannedVacateDate = plannedVacateDate;
+      saveState(state);
+      if (typeof syncPlannedVacateToDb === 'function') {
+        syncPlannedVacateToDb(tenant.id, plannedVacateDate);
+      }
+      logActivity(state, 'Planned vacate updated', `${tenant.building} ${tenant.unit} planned vacate ${plannedVacateDate || 'cleared'}.`);
+      renderAll(state, tenant.building);
+      restoreBuildingRowUiState(state, rowUiState);
+    }

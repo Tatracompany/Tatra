@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css?v=34">
+</head>
+<body data-page="admin">
+  <div class="workspace-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <p class="eyebrow">Landlord Panel</p>
+        <h2>Property Manager</h2>
+        <span id="sidebarUser" class="sidebar-user">owner@local</span><div class="sidebar-actions"><button type="button" class="sidebar-logout" data-logout-button>Log out</button></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-link" href="buildings.html">2. Buildings</a>
+        <a class="nav-link" href="tenants.html">3. Tenants</a>
+        <a class="nav-link" href="history.html">4. History</a>
+        <a class="nav-link" href="activity.html">7. Activity</a>
+        <a class="nav-link active" data-admin-link href="admin.html">8. Admin</a>
+      </nav>
+    </aside>
+    <div class="page-shell">
+      <header class="hero compact-hero">
+        <div>
+          <p class="eyebrow">Admin</p>
+          <h1>Accounts control</h1>
+          <p class="hero-copy">Create employee accounts, change passwords, and disable access when needed.</p>
+        </div>
+      </header>
+      <main class="layout">
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">New account</p>
+              <h2>Create employee</h2>
+            </div>
+          </div>
+          <form id="accountForm" class="account-form">
+            <label>Username<input type="text" name="username" required></label>
+            <label>Password<input type="text" name="password" required></label>
+            <label>Role<select name="role"><option value="employee">Employee</option><option value="admin">Admin</option></select></label>
+            <div class="account-form-actions">
+              <button type="submit">Create account</button>
+            </div>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Accounts</p>
+              <h2>Current users</h2>
+            </div>
+            <div id="accountSummary" class="inline-metrics"></div>
+          </div>
+          <div id="accountList" class="account-list"></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Database</p>
+              <h2>State export</h2>
+            </div>
+          </div>
+          <div class="account-list">
+            <article class="account-card">
+              <div class="account-main">
+                <div>
+                  <strong>Export live app state</strong>
+                  <div class="small-note">Downloads the current local app state as JSON so we can import it into the SQLite database.</div>
+                </div>
+              </div>
+              <div class="account-actions">
+                <button type="button" class="secondary-action" data-export-app-state>Download state JSON</button>
+              </div>
+              <div id="stateExportMessage" class="small-note"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="hawali-seeds.generated.js?v=4"></script>
+  <script src="extra-seeds.generated.js?v=2"></script>
+  <script src="db-state.generated.js?v=2"></script>
+  <script src="app-config.js?v=2"></script>
+  <script src="app-seed-data.js?v=2"></script>
+  <script src="app.js?v=177"></script>
+</body>
+</html>
+
+
+
+

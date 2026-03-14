@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buildings</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css?v=34">
+</head>
+<body data-page="buildings">
+  <div class="workspace-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <p class="eyebrow">Landlord Panel</p>
+        <h2>Property Manager</h2>
+        <span id="sidebarUser" class="sidebar-user">owner@local</span><div class="sidebar-actions"><button type="button" class="sidebar-logout" data-logout-button>Log out</button></div>
+      </div>
+  <nav class="sidebar-nav"><a class="nav-link active" href="buildings.html">2. Buildings</a><a class="nav-link" href="tenants.html">3. Tenants</a><a class="nav-link" href="history.html">4. History</a><a class="nav-link" href="activity.html">7. Activity</a><a class="nav-link" data-admin-link href="admin.html">8. Admin</a></nav>
+    </aside>
+    <div class="page-shell wide-page-shell">
+      <header class="hero compact-hero">
+        <div>
+          <p class="eyebrow">Buildings</p>
+          <h1>Compact building view</h1>
+          <p class="hero-copy">Click a building card, then click any tenant row to see contract details, arrears, and the last paid month.</p>
+        </div>
+      </header>
+      <main class="layout">
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Areas</p>
+              <h2>Property areas</h2>
+            </div>
+          </div>
+          <div id="buildingGrid" class="stats-grid"></div>
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Buildings</p>
+              <h2>Buildings in selected area</h2>
+            </div>
+          </div>
+          <div id="areaBuildingGrid" class="stats-grid"></div>
+        </section>
+        <section class="panel compact-panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Building details</p>
+              <h2 id="buildingDetailsTitle">Select a building</h2>
+              <p id="buildingDetailsMeta" class="building-details-meta"></p>
+            </div>
+          </div>
+          <div id="buildingMonthTabs" class="month-tabs"></div>
+          <div class="toolbar building-filter-bar">
+            <input id="buildingSearch" type="search" placeholder="Search tenant name">
+            <select id="buildingUnitFilter">
+              <option value="all">All units</option>
+            </select>
+            <select id="buildingStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="upcoming">Unpaid</option>
+              <option value="overdue">Late</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+            </select>
+              <div class="sort-toggle-group">
+                <button type="button" id="sortUnitButton" class="sort-toggle" aria-label="Sort by unit">?</button>
+                <button type="button" id="sortStatusButton" class="sort-toggle" aria-label="Sort by status">?</button>
+              </div>
+              <button type="button" id="printBuildingButton" class="secondary-action print-building-button">Print</button>
+            </div>
+          <div id="buildingDetails" class="building-details-list"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <section id="printSheet" class="print-sheet" aria-hidden="true">
+    <h1 id="printBuildingTitle" class="print-sheet-title"></h1>
+    <p id="printBuildingMonth" class="print-sheet-month"></p>
+    <div id="printBuildingTable" class="print-sheet-table"></div>
+  </section>
+  <script src="hawali-seeds.generated.js?v=4"></script>
+  <script src="extra-seeds.generated.js?v=2"></script>
+  <script src="db-state.generated.js?v=2"></script>
+  <script src="app-config.js?v=2"></script>
+<script src="app-seed-data.js?v=2"></script>
+  <script src="app.js?v=177"></script>
+</body>
+</html>
+
+
+
+
+
+
+

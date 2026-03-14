@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Landlord Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css?v=34">
+</head>
+<body data-page="index">
+  <main class="landing-shell">
+    <section class="landing-card">
+      <p class="eyebrow">Landlord Only</p>
+      <h1>Property tracking dashboard</h1>
+      <p class="muted">Sign in with your admin or employee account to open the dashboard.</p>
+      <p class="muted">This fresh reset keeps the old design while giving us a cleaner codebase to rebuild month by month.</p>
+      <form id="loginForm" class="landing-login-form">
+        <label>Username<input type="text" name="username" autocomplete="username" required></label>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <div class="landing-actions">
+          <button type="submit" class="button-primary">Log in</button>
+          <button type="button" id="useDefaultLogin" class="button-secondary">Use default admin</button>
+        </div>
+        <p class="small-note">Default admin for the fresh project: <code>yousef</code> / <code>145236</code>.</p>
+        <p id="loginMessage" class="small-note"></p>
+      </form>
+    </section>
+  </main>
+  <script src="hawali-seeds.generated.js?v=4"></script>
+  <script src="extra-seeds.generated.js?v=2"></script>
+  <script src="db-state.generated.js?v=2"></script>
+  <script src="app-config.js?v=2"></script>
+  <script src="app-seed-data.js?v=2"></script>
+  <script src="app.js?v=177"></script>
+</body>
+</html>
+
+
+

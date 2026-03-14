@@ -1,0 +1,21 @@
+{
+  "name": "tatra-landlord-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Fresh clean restart of the landlord dashboard project",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "generate:extras": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-extra-seeds.ps1",
+    "start": "npm run build && node scripts/serve.mjs",
+    "build": "node scripts/build-app.mjs",
+    "check": "npm run build && node --check app.js && node --check app-config.js && node --check app-seed-data.js && node --check hawali-seeds.generated.js && node --check extra-seeds.generated.js",
+    "db:init": "node scripts/init-db.mjs",
+    "db:import-state": "node scripts/import-state-json-to-db.mjs",
+    "db:export-snapshot": "node scripts/export-db-snapshot.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}
