@@ -548,6 +548,7 @@ function resetMonthDataInDatabase(payload) {
     database.prepare(`
       DELETE FROM payments
       WHERE rent_month = ?
+        AND COALESCE(method, '') <> 'Advance'
     `).run(monthKey);
     database.exec(`
       INSERT INTO app_meta(key, value)
