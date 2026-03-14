@@ -724,17 +724,15 @@
     const remainingCurrent = normalizeAmount(currentLedger.remainingCurrent);
     const totalDue = normalizeAmount(currentLedger.closingCarry);
     const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, selectedMonth);
+    const rowCreditAppliedCurrent = getRowCreditCarryIntoMonth(state, tenant.id, selectedMonth);
     const prepaidFromBefore = normalizeAmount(
       manualPrepaidFromBefore != null
         ? manualPrepaidFromBefore
-        : (
-          Number(currentLedger.prepaidFromBefore || 0) > 0
-            ? Number(currentLedger.prepaidFromBefore || 0)
-            : (
-              Number(currentLedger.due || 0) <= 0
-                ? Number(currentLedger.priorAdvancePaid || 0)
-                : 0
-            )
+        : Math.max(
+          Number(currentLedger.prepaidFromBefore || 0)
+          - Number(currentLedger.priorAdvancePaid || 0)
+          - rowCreditAppliedCurrent,
+          0
         )
     );
     const prepaidCredit = normalizeAmount(Number(currentLedger.closingCredit || 0));
@@ -763,7 +761,6 @@
       ))
       : null;
     const handoverArchivedView = handoverArchivedTenant ? getArchivedTenantDisplayView(state, handoverArchivedTenant, selectedMonth) : null;
-    const rowCreditAppliedCurrent = getRowCreditCarryIntoMonth(state, tenant.id, selectedMonth);
     const displayPaidCurrent = normalizeAmount(
       (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrent || 0)
