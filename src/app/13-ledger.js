@@ -36,6 +36,12 @@
     }
   }
 
+  function ensureOpeningCreditOverridesState(state) {
+    if (!state.openingCreditOverrides || typeof state.openingCreditOverrides !== 'object') {
+      state.openingCreditOverrides = {};
+    }
+  }
+
   function getCanonicalSourceTenantId(state, tenantId) {
     const normalizedTenantId = String(tenantId || '').trim();
     if (!normalizedTenantId) return '';
@@ -76,6 +82,33 @@
     return null;
   }
 
+  function getOpeningCreditOverride(state, tenantId, monthKey) {
+    ensureOpeningCreditOverridesState(state);
+    const normalizedMonth = String(monthKey || '').trim();
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    let matchedLocal = false;
+    let localTotal = 0;
+    candidateTenantIds.forEach((candidateId) => {
+      const tenantBucket = state.openingCreditOverrides[candidateId];
+      if (!tenantBucket || !Object.prototype.hasOwnProperty.call(tenantBucket, normalizedMonth)) return;
+      matchedLocal = true;
+      localTotal += Number(tenantBucket[normalizedMonth] || 0);
+    });
+    if (matchedLocal) return normalizeAmount(localTotal);
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      let matchedSnapshot = false;
+      let snapshotTotal = 0;
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, normalizedMonth, 'opening_credit');
+        if (!snapshotOverride) return;
+        matchedSnapshot = true;
+        snapshotTotal += Number(snapshotOverride.valueText || 0);
+      });
+      if (matchedSnapshot) return normalizeAmount(snapshotTotal);
+    }
+    return null;
+  }
+
   function setPrepaidNextOverride(state, tenantId, monthKey, amountOrNull) {
     ensurePrepaidNextOverridesState(state);
     const normalizedTenantId = getCanonicalSourceTenantId(state, tenantId);
@@ -92,6 +125,24 @@
     }
     if (!state.prepaidNextOverrides[normalizedTenantId]) state.prepaidNextOverrides[normalizedTenantId] = {};
     state.prepaidNextOverrides[normalizedTenantId][normalizedMonth] = normalizeAmount(amountOrNull);
+  }
+
+  function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
+    ensureOpeningCreditOverridesState(state);
+    const normalizedTenantId = getCanonicalSourceTenantId(state, tenantId);
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedTenantId || !normalizedMonth) return;
+    if (amountOrNull == null) {
+      if (state.openingCreditOverrides[normalizedTenantId]) {
+        delete state.openingCreditOverrides[normalizedTenantId][normalizedMonth];
+        if (!Object.keys(state.openingCreditOverrides[normalizedTenantId]).length) {
+          delete state.openingCreditOverrides[normalizedTenantId];
+        }
+      }
+      return;
+    }
+    if (!state.openingCreditOverrides[normalizedTenantId]) state.openingCreditOverrides[normalizedTenantId] = {};
+    state.openingCreditOverrides[normalizedTenantId][normalizedMonth] = normalizeAmount(amountOrNull);
   }
 
   function getAdvancePaymentCandidateTenantIds(state, tenantId) {
@@ -141,6 +192,8 @@
   function getRowCreditCarryIntoMonth(state, tenantId, monthKey) {
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedMonth) return 0;
+    const openingCredit = normalizeAmount(getOpeningCreditOverride(state, tenantId, normalizedMonth));
+    if (openingCredit > 0) return openingCredit;
     const previousMonth = addMonths(normalizedMonth, -1);
     if (!previousMonth || previousMonth === normalizedMonth) return 0;
     const overrideOrAdvanceAmount = normalizeAmount(getPrepaidNext(state, tenantId, previousMonth));

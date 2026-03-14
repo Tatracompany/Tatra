@@ -234,6 +234,9 @@
     if (typeof setPrepaidNextOverride === 'function') {
       setPrepaidNextOverride(state, canonicalSourceTenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
     }
+    if (typeof setOpeningCreditOverride === 'function') {
+      setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonth, desiredAmount > 0 ? desiredAmount : null);
+    }
     tenantRecord.prepaidNextMonth = desiredAmount > 0 ? desiredAmount : 0;
     if (desiredAmount > 0) {
       state.payments.push({

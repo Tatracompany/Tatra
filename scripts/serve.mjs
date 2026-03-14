@@ -121,6 +121,16 @@ function readRawBody(request) {
   });
 }
 
+function addMonths(monthKey, delta) {
+  const normalizedMonth = String(monthKey || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(normalizedMonth)) return normalizedMonth;
+  const [year, month] = normalizedMonth.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + Number(delta || 0), 1));
+  const nextYear = date.getUTCFullYear();
+  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${nextYear}-${nextMonth}`;
+}
+
 function exportSnapshotToBrowserFile() {
   const snapshot = readDatabaseSnapshot(databasePath);
   fs.writeFileSync(browserSnapshotPath, buildBrowserSnapshotScript(snapshot), 'utf8');
@@ -610,6 +620,7 @@ function saveBuildingInlineEditToDatabase(payload) {
     upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
     upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'notes', String(payload && payload.notes || '').trim());
     upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
+    upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
     upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
     database.exec(`
       INSERT INTO app_meta(key, value)

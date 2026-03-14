@@ -30,6 +30,7 @@
       tenants: [],
       payments: [],
       prepaidNextOverrides: {},
+      openingCreditOverrides: {},
       actualRentOverrides: {},
       vacantAmountOverrides: {},
       paidOverrides: {},
@@ -514,6 +515,7 @@
       }
       ensureTenantIdentityOverridesState(parsed);
       ensurePrepaidNextOverridesState(parsed);
+      ensureOpeningCreditOverridesState(parsed);
       ensureActualRentOverridesState(parsed);
       ensureVacantAmountOverridesState(parsed);
       ensurePaidOverridesState(parsed);
@@ -574,11 +576,12 @@
       const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
       const normalizedPrepaidNextIdsChanged = normalizePrepaidNextStorageToSourceTenantIds(parsed);
       const migratedPrepaidNextChanged = migrateAdvancePaymentsToPrepaidNextOverrides(parsed);
-      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v15']
+      const migratedOpeningCreditChanged = migratePrepaidNextToOpeningCreditOverrides(parsed);
+      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v16']
         ? resetCarriedMonthState(parsed, '2026-02')
         : false;
-      parsed.appliedFixes['reset-february-carry-v15'] = true;
-      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || normalizedPrepaidNextIdsChanged || migratedPrepaidNextChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
+      parsed.appliedFixes['reset-february-carry-v16'] = true;
+      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || normalizedPrepaidNextIdsChanged || migratedPrepaidNextChanged || migratedOpeningCreditChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;
     } catch (error) {
@@ -706,6 +709,7 @@
     if (clearWholeMonthOverrideBucket(state.paidOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.carryOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.notesOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthOverrideBucket(state.openingCreditOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.actualRentOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.vacantAmountOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthIdentityOverrideBucket(state.tenantIdentityOverrides, normalizedMonth)) changed = true;
@@ -791,6 +795,35 @@
       if (!canonicalId || canonicalId === paymentTenantId) return payment;
       changed = true;
       return Object.assign({}, payment, { tenantId: canonicalId });
+    });
+    state.appliedFixes[appliedKey] = true;
+    return changed;
+  }
+
+  function migratePrepaidNextToOpeningCreditOverrides(state) {
+    ensureAppliedFixesState(state);
+    const appliedKey = 'migrate-prepaid-next-to-opening-credit-v1';
+    if (state.appliedFixes[appliedKey]) return false;
+    if (typeof setOpeningCreditOverride !== 'function') {
+      state.appliedFixes[appliedKey] = true;
+      return false;
+    }
+    ensureOpeningCreditOverridesState(state);
+    let changed = false;
+    Object.keys(state.prepaidNextOverrides || {}).forEach((tenantId) => {
+      const tenantBucket = state.prepaidNextOverrides[tenantId];
+      if (!tenantBucket || typeof tenantBucket !== 'object') return;
+      Object.keys(tenantBucket).forEach((monthKey) => {
+        const amount = normalizeAmount(tenantBucket[monthKey]);
+        if (!(amount > 0)) return;
+        const nextMonth = addMonths(monthKey, 1);
+        const existingAmount = typeof getOpeningCreditOverride === 'function'
+          ? getOpeningCreditOverride(state, tenantId, nextMonth)
+          : null;
+        if (existingAmount != null && normalizeAmount(existingAmount) === amount) return;
+        setOpeningCreditOverride(state, tenantId, nextMonth, amount);
+        changed = true;
+      });
     });
     state.appliedFixes[appliedKey] = true;
     return changed;
