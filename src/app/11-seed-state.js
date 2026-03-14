@@ -572,12 +572,13 @@
       const normalizedInsuranceChanged = normalizeTenantInsuranceState(parsed);
       const clearedFreeTextNotesChanged = clearFreeTextTenantNotes(parsed);
       const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
+      const normalizedPrepaidNextIdsChanged = normalizePrepaidNextStorageToSourceTenantIds(parsed);
       const migratedPrepaidNextChanged = migrateAdvancePaymentsToPrepaidNextOverrides(parsed);
-      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v13']
+      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v14']
         ? resetCarriedMonthState(parsed, '2026-02')
         : false;
-      parsed.appliedFixes['reset-february-carry-v13'] = true;
-      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || migratedPrepaidNextChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
+      parsed.appliedFixes['reset-february-carry-v14'] = true;
+      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || normalizedPrepaidNextIdsChanged || migratedPrepaidNextChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;
     } catch (error) {
@@ -750,6 +751,46 @@
       if (existingAmount != null && normalizeAmount(existingAmount) === normalizeAmount(amount)) return;
       setPrepaidNextOverride(state, tenantId, sourceMonth, amount);
       changed = true;
+    });
+    state.appliedFixes[appliedKey] = true;
+    return changed;
+  }
+
+  function normalizePrepaidNextStorageToSourceTenantIds(state) {
+    ensureAppliedFixesState(state);
+    const appliedKey = 'normalize-prepaid-next-source-ids-v1';
+    if (state.appliedFixes[appliedKey]) return false;
+    const canonicalSourceById = new Map();
+    (state.tenants || []).forEach((tenant) => {
+      if (!tenant) return;
+      const rowId = String(tenant.id || '').trim();
+      const sourceId = String(tenant.sourceTenantId || tenant.id || '').trim();
+      if (!sourceId) return;
+      if (rowId) canonicalSourceById.set(rowId, sourceId);
+      canonicalSourceById.set(sourceId, sourceId);
+    });
+    let changed = false;
+    ensurePrepaidNextOverridesState(state);
+    Object.keys(state.prepaidNextOverrides || {}).forEach((tenantId) => {
+      const canonicalId = canonicalSourceById.get(String(tenantId || '').trim()) || String(tenantId || '').trim();
+      if (!canonicalId || canonicalId === tenantId) return;
+      const existingBucket = state.prepaidNextOverrides[tenantId];
+      if (!existingBucket || typeof existingBucket !== 'object') return;
+      if (!state.prepaidNextOverrides[canonicalId]) state.prepaidNextOverrides[canonicalId] = {};
+      Object.keys(existingBucket).forEach((monthKey) => {
+        const existingAmount = Number(state.prepaidNextOverrides[canonicalId][monthKey] || 0);
+        const nextAmount = Number(existingBucket[monthKey] || 0);
+        state.prepaidNextOverrides[canonicalId][monthKey] = normalizeAmount(existingAmount + nextAmount);
+      });
+      delete state.prepaidNextOverrides[tenantId];
+      changed = true;
+    });
+    state.payments = (state.payments || []).map((payment) => {
+      const paymentTenantId = String(payment && payment.tenantId || '').trim();
+      const canonicalId = canonicalSourceById.get(paymentTenantId) || paymentTenantId;
+      if (!canonicalId || canonicalId === paymentTenantId) return payment;
+      changed = true;
+      return Object.assign({}, payment, { tenantId: canonicalId });
     });
     state.appliedFixes[appliedKey] = true;
     return changed;

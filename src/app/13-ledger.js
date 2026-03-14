@@ -36,6 +36,19 @@
     }
   }
 
+  function getCanonicalSourceTenantId(state, tenantId) {
+    const normalizedTenantId = String(tenantId || '').trim();
+    if (!normalizedTenantId) return '';
+    const directRecord = (state.tenants || []).find((item) => (
+      String(item && item.id || '').trim() === normalizedTenantId
+      || String(item && item.sourceTenantId || '').trim() === normalizedTenantId
+    ));
+    if (directRecord) {
+      return String(directRecord.sourceTenantId || directRecord.id || normalizedTenantId).trim();
+    }
+    return normalizedTenantId;
+  }
+
   function getPrepaidNextOverride(state, tenantId, monthKey) {
     ensurePrepaidNextOverridesState(state);
     const normalizedMonth = String(monthKey || '').trim();
@@ -65,7 +78,7 @@
 
   function setPrepaidNextOverride(state, tenantId, monthKey, amountOrNull) {
     ensurePrepaidNextOverridesState(state);
-    const normalizedTenantId = String(tenantId || '').trim();
+    const normalizedTenantId = getCanonicalSourceTenantId(state, tenantId);
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedTenantId || !normalizedMonth) return;
     if (amountOrNull == null) {
@@ -83,8 +96,23 @@
 
   function getAdvancePaymentCandidateTenantIds(state, tenantId) {
     const normalizedTenantId = String(tenantId || '').trim();
-    const candidateIds = new Set(normalizedTenantId ? [normalizedTenantId] : []);
-    const tenantRecord = (state.tenants || []).find((item) => String(item && item.id || '').trim() === normalizedTenantId);
+    const canonicalSourceTenantId = getCanonicalSourceTenantId(state, normalizedTenantId);
+    const candidateIds = new Set();
+    if (normalizedTenantId) candidateIds.add(normalizedTenantId);
+    if (canonicalSourceTenantId) candidateIds.add(canonicalSourceTenantId);
+    const matchedRecords = (state.tenants || []).filter((item) => (
+      String(item && item.id || '').trim() === normalizedTenantId
+      || String(item && item.id || '').trim() === canonicalSourceTenantId
+      || String(item && item.sourceTenantId || '').trim() === normalizedTenantId
+      || String(item && item.sourceTenantId || '').trim() === canonicalSourceTenantId
+    ));
+    matchedRecords.forEach((item) => {
+      const linkedId = String(item && item.id || '').trim();
+      const sourceId = String(item && item.sourceTenantId || '').trim();
+      if (linkedId) candidateIds.add(linkedId);
+      if (sourceId) candidateIds.add(sourceId);
+    });
+    const tenantRecord = matchedRecords[0] || null;
     if (!tenantRecord) return candidateIds;
     const buildingName = String(tenantRecord.building || '').trim();
     const unit = String(tenantRecord.unit || '').trim();
@@ -95,7 +123,9 @@
       if (String(item.unit || '').trim() !== unit) return;
       if (normalizeFloorLabel(item.floor) !== floor) return;
       const linkedId = String(item.id || '').trim();
+      const sourceId = String(item.sourceTenantId || '').trim();
       if (linkedId) candidateIds.add(linkedId);
+      if (sourceId) candidateIds.add(sourceId);
     });
     return candidateIds;
   }

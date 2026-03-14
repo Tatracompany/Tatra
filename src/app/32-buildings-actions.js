@@ -209,9 +209,16 @@
     }
     const tenant = getTenantView(state, tenantRecord, selectedMonth);
     if (!tenant) return;
+    const canonicalSourceTenantId = String(
+      tenantRecord.sourceTenantId
+      || tenant.sourceTenantId
+      || tenantRecord.id
+      || tenantId
+      || ''
+    ).trim();
     const currentMonth = selectedMonth;
     const nextMonth = addMonths(currentMonth, 1);
-    const existingAdvancePayments = getAdvancePaymentsForNextMonth(state, tenantId, currentMonth);
+    const existingAdvancePayments = getAdvancePaymentsForNextMonth(state, canonicalSourceTenantId, currentMonth);
     const existingAmount = existingAdvancePayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
     if (desiredAmount > existingAmount && tenant.previousDue > 0) {
       alert('Prepaid is blocked because this tenant has previous due.');
@@ -225,13 +232,13 @@
     }
     state.payments = state.payments.filter((payment) => !existingAdvancePayments.some((advance) => advance.id === payment.id));
     if (typeof setPrepaidNextOverride === 'function') {
-      setPrepaidNextOverride(state, tenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
+      setPrepaidNextOverride(state, canonicalSourceTenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
     }
     tenantRecord.prepaidNextMonth = desiredAmount > 0 ? desiredAmount : 0;
     if (desiredAmount > 0) {
       state.payments.push({
         id: `payment-${Date.now()}-prepaid`,
-        tenantId,
+        tenantId: canonicalSourceTenantId,
         amount: desiredAmount,
         date: new Date().toISOString().slice(0, 10),
         rentMonth: nextMonth,
@@ -240,7 +247,7 @@
       });
     }
     saveState(state);
-    return { tenantRecord, nextMonth, existingAmount };
+    return { tenantRecord, nextMonth, existingAmount, sourceTenantId: canonicalSourceTenantId };
   }
 
   function saveTenantPrepaidAmount(state, tenantId) {
@@ -254,7 +261,7 @@
     if (!result) return;
     if (typeof syncBuildingInlineEditToDb === 'function') {
       syncBuildingInlineEditToDb({
-        sourceTenantId: tenantId,
+        sourceTenantId: result.sourceTenantId,
         monthKey: getSelectedBuildingMonth(),
         prepaidAmount
       });
@@ -268,7 +275,7 @@
     if (!result) return;
     if (typeof syncBuildingInlineEditToDb === 'function') {
       syncBuildingInlineEditToDb({
-        sourceTenantId: tenantId,
+        sourceTenantId: result.sourceTenantId,
         monthKey: getSelectedBuildingMonth(),
         prepaidAmount: 0
       });
