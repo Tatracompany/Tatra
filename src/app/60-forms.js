@@ -91,6 +91,26 @@
       const civilInput = findDetailInput('data-tenant-civil', tenantId);
       const nationalitySelect = findDetailInput('data-tenant-nationality', tenantId);
 
+      function updateCarriedMonthRowIdentity(monthKey, targetRowLike, nextValues) {
+        const normalizedMonth = String(monthKey || '').trim();
+        if (!normalizedMonth || typeof getCarriedMonthSnapshotRows !== 'function') return;
+        const carriedRows = getCarriedMonthSnapshotRows(state, normalizedMonth) || [];
+        if (!carriedRows.length) return;
+        const sourceTenantId = String(targetRowLike && (targetRowLike.sourceTenantId || targetRowLike.id) || '').trim();
+        const unitId = String(targetRowLike && targetRowLike.unitId || rowUnitId || '').trim();
+        const matchedRow = carriedRows.find((row) => {
+          if (!row) return false;
+          if (sourceTenantId && String(row.sourceTenantId || row.id || '').trim() === sourceTenantId) return true;
+          if (unitId && String(row.unitId || '').trim() === unitId) return true;
+          return false;
+        });
+        if (!matchedRow) return;
+        ['name', 'unit', 'floor', 'moveInDate', 'contractStart', 'contractEnd', 'phone', 'civilId', 'nationality'].forEach((field) => {
+          if (!Object.prototype.hasOwnProperty.call(nextValues, field)) return;
+          matchedRow[field] = nextValues[field];
+        });
+      }
+
       function freezeFutureTenantIdentity(targetRowLike) {
         if (!futureIdentityFreezeMonth || typeof getCarriedMonthSnapshotRows !== 'function') return;
         const futureRows = getCarriedMonthSnapshotRows(state, futureIdentityFreezeMonth) || [];
@@ -115,6 +135,7 @@
           setTenantIdentityOverride(state, sourceTenantId, 'civilId', futureIdentityFreezeMonth, futureRow.civilId);
           setTenantIdentityOverride(state, sourceTenantId, 'nationality', futureIdentityFreezeMonth, futureRow.nationality);
         }
+        updateCarriedMonthRowIdentity(futureIdentityFreezeMonth, targetRowLike, futureRow);
       }
 
       if (targetTenant.isVacant) {
@@ -208,6 +229,10 @@
         setTimeout(() => window.location.reload(), 200);
         return;
       } else if (rowUnitId) {
+        updateCarriedMonthRowIdentity(selectedMonth, targetTenant, {
+          unit: nextUnit,
+          floor: nextFloor
+        });
         saveState(state);
         logActivity(state, 'Vacant unit updated', `${targetTenant.building} ${nextUnit} vacant row updated for ${formatMonth(selectedMonth)}.`);
         renderAll(state, targetTenant.building);
@@ -266,6 +291,17 @@
       setTenantIdentityOverride(state, tenant.id, 'phone', selectedMonth, nextPhone);
       setTenantIdentityOverride(state, tenant.id, 'civilId', selectedMonth, nextCivilId);
       setTenantIdentityOverride(state, tenant.id, 'nationality', selectedMonth, nextNationality);
+      updateCarriedMonthRowIdentity(selectedMonth, tenant, {
+        name: nextName,
+        unit: nextUnit,
+        floor: nextFloor,
+        moveInDate: nextMoveInDate,
+        contractStart: nextContractStart,
+        contractEnd: nextContractEnd,
+        phone: nextPhone,
+        civilId: nextCivilId,
+        nationality: nextNationality
+      });
       if (previousOrderKey && nextOrderKey && previousOrderKey !== nextOrderKey) {
         replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
       }
