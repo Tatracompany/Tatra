@@ -570,7 +570,11 @@
       const normalizedInsuranceChanged = normalizeTenantInsuranceState(parsed);
       const clearedFreeTextNotesChanged = clearFreeTextTenantNotes(parsed);
       const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
-      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged) saveState(parsed, { kind: 'passive' });
+      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v1']
+        ? resetCarriedMonthState(parsed, '2026-02')
+        : false;
+      parsed.appliedFixes['reset-february-carry-v1'] = true;
+      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;
     } catch (error) {
@@ -586,6 +590,26 @@
     safeStorageSet(STORAGE_KEY, JSON.stringify(state));
     if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(state);
     if (saveKind === 'user' && typeof queueStateExtrasSync === 'function') queueStateExtrasSync(state);
+  }
+
+  function clearWholeMonthOverrideBucket(bucket, monthKey) {
+    if (!bucket || typeof bucket !== 'object') return false;
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    let changed = false;
+    Object.keys(bucket).forEach((entryKey) => {
+      const monthBucket = bucket[entryKey];
+      if (!monthBucket || typeof monthBucket !== 'object') return;
+      if (Object.prototype.hasOwnProperty.call(monthBucket, normalizedMonth)) {
+        delete monthBucket[normalizedMonth];
+        changed = true;
+      }
+      if (!Object.keys(monthBucket).length) {
+        delete bucket[entryKey];
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   function clearTenantMonthOverrideBucket(bucket, tenantIds, monthKey) {
@@ -608,6 +632,84 @@
         changed = true;
       }
     });
+    return changed;
+  }
+
+  function clearWholeMonthIdentityOverrideBucket(bucket, monthKey) {
+    if (!bucket || typeof bucket !== 'object') return false;
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    let changed = false;
+    Object.keys(bucket).forEach((tenantId) => {
+      const tenantBucket = bucket[tenantId];
+      if (!tenantBucket || typeof tenantBucket !== 'object') return;
+      Object.keys(tenantBucket).forEach((field) => {
+        const monthBucket = tenantBucket[field];
+        if (!monthBucket || typeof monthBucket !== 'object') return;
+        if (Object.prototype.hasOwnProperty.call(monthBucket, normalizedMonth)) {
+          delete monthBucket[normalizedMonth];
+          changed = true;
+        }
+        if (!Object.keys(monthBucket).length) {
+          delete tenantBucket[field];
+          changed = true;
+        }
+      });
+      if (!Object.keys(tenantBucket).length) {
+        delete bucket[tenantId];
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function clearWholeMonthNestedBucket(bucket, monthKey) {
+    if (!bucket || typeof bucket !== 'object') return false;
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    let changed = false;
+    Object.keys(bucket).forEach((groupKey) => {
+      const groupBucket = bucket[groupKey];
+      if (!groupBucket || typeof groupBucket !== 'object') return;
+      Object.keys(groupBucket).forEach((entryKey) => {
+        const monthBucket = groupBucket[entryKey];
+        if (!monthBucket || typeof monthBucket !== 'object') return;
+        if (Object.prototype.hasOwnProperty.call(monthBucket, normalizedMonth)) {
+          delete monthBucket[normalizedMonth];
+          changed = true;
+        }
+        if (!Object.keys(monthBucket).length) {
+          delete groupBucket[entryKey];
+          changed = true;
+        }
+      });
+      if (!Object.keys(groupBucket).length) {
+        delete bucket[groupKey];
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function resetCarriedMonthState(state, monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    let changed = false;
+    if (state.carriedMonthSnapshots && Object.prototype.hasOwnProperty.call(state.carriedMonthSnapshots, normalizedMonth)) {
+      delete state.carriedMonthSnapshots[normalizedMonth];
+      changed = true;
+    }
+    if (clearWholeMonthOverrideBucket(state.paidOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthOverrideBucket(state.carryOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthOverrideBucket(state.notesOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthOverrideBucket(state.actualRentOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthOverrideBucket(state.vacantAmountOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthIdentityOverrideBucket(state.tenantIdentityOverrides, normalizedMonth)) changed = true;
+    if (clearWholeMonthNestedBucket(state.oldTenantDuePaidNotes, normalizedMonth)) changed = true;
+    if (clearWholeMonthNestedBucket(state.tenantOrderOverrides, normalizedMonth)) changed = true;
+    const paymentsBefore = Array.isArray(state.payments) ? state.payments.length : 0;
+    state.payments = (state.payments || []).filter((payment) => String(payment && payment.rentMonth || '').trim() !== normalizedMonth);
+    if (state.payments.length !== paymentsBefore) changed = true;
     return changed;
   }
 
