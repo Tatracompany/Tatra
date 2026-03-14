@@ -974,12 +974,78 @@
     return dedupeBuildingDisplayTenants(filteredRows);
   }
 
+  function getMonthSpecificValueForCarriedRow(state, sourceTenantId, field, monthKey, fallbackValue) {
+    const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+    if (!normalizedSourceTenantId) return fallbackValue;
+    const overrideValue = getTenantIdentityOverride(state, normalizedSourceTenantId, field, monthKey);
+    if (overrideValue != null) return overrideValue;
+    return fallbackValue;
+  }
+
+  function materializeCarriedMonthRow(state, row, monthKey) {
+    if (!row) return row;
+    const selectedMonth = monthKey || getCurrentMonthKey();
+    const materializedRow = Object.assign({}, row);
+    const sourceTenantId = String(row.sourceTenantId || row.id || '').trim();
+    if (row.isVacant) {
+      if (!sourceTenantId) return materializedRow;
+      [
+        'name',
+        'unit',
+        'floor',
+        'moveInDate',
+        'contractStart',
+        'contractEnd',
+        'phone',
+        'civilId',
+        'nationality'
+      ].forEach((field) => {
+        materializedRow[field] = getMonthSpecificValueForCarriedRow(state, sourceTenantId, field, selectedMonth, materializedRow[field]);
+      });
+      return materializedRow;
+    }
+    const sourceTenant = (state.tenants || []).find((item) => (
+      item
+      && !item.isArchived
+      && String(item.id || '').trim() === sourceTenantId
+    )) || null;
+    if (sourceTenant) {
+      const profile = getEffectiveTenantProfile(state, sourceTenant, selectedMonth);
+      if (profile) {
+        materializedRow.name = profile.name;
+        materializedRow.unit = profile.unit;
+        materializedRow.floor = profile.floor;
+        materializedRow.moveInDate = profile.moveInDate;
+        materializedRow.contractStart = profile.contractStart;
+        materializedRow.contractEnd = profile.contractEnd;
+        materializedRow.phone = profile.phone;
+        materializedRow.civilId = profile.civilId;
+        materializedRow.nationality = profile.nationality;
+      }
+      return materializedRow;
+    }
+    [
+      'name',
+      'unit',
+      'floor',
+      'moveInDate',
+      'contractStart',
+      'contractEnd',
+      'phone',
+      'civilId',
+      'nationality'
+    ].forEach((field) => {
+      materializedRow[field] = getMonthSpecificValueForCarriedRow(state, sourceTenantId, field, selectedMonth, materializedRow[field]);
+    });
+    return materializedRow;
+  }
+
   function getBuildingUnitRows(state, buildingName, monthKey) {
     const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
       ? getCarriedMonthSnapshotRows(state, monthKey, buildingName)
       : null;
     if (carriedRows && carriedRows.length) {
-      return carriedRows.slice();
+      return carriedRows.map((row) => materializeCarriedMonthRow(state, row, monthKey));
     }
     const snapshotRows = getSnapshotBuildingUnitRows(state, buildingName, monthKey);
     if (snapshotRows && snapshotRows.length) {
@@ -1004,7 +1070,7 @@
       ? getCarriedMonthSnapshotRows(state, selectedMonth)
       : null;
     if (carriedRows && carriedRows.length) {
-      return carriedRows.slice();
+      return carriedRows.map((row) => materializeCarriedMonthRow(state, row, selectedMonth));
     }
     return (state.buildings || []).flatMap((buildingMeta) => (
       getBuildingUnitRows(state, buildingMeta.name, selectedMonth)
@@ -1032,7 +1098,7 @@
           && !!row.isVacant === !!tenant.isVacant
         );
       });
-      if (matchedCarriedRow) return Object.assign({}, matchedCarriedRow);
+      if (matchedCarriedRow) return materializeCarriedMonthRow(state, matchedCarriedRow, selectedMonth);
     }
     const profile = getEffectiveTenantProfile(state, tenant, selectedMonth);
     const effectiveUnit = profile ? profile.unit : tenant.unit;
@@ -1116,7 +1182,7 @@
       ? getCarriedMonthSnapshotRows(state, selectedMonth)
       : null;
     if (carriedRows && carriedRows.length) {
-      const views = carriedRows.slice();
+      const views = carriedRows.map((row) => materializeCarriedMonthRow(state, row, selectedMonth));
       renderCache.tenantViews.set(selectedMonth, views);
       return views;
     }
