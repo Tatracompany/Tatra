@@ -570,10 +570,10 @@
       const normalizedInsuranceChanged = normalizeTenantInsuranceState(parsed);
       const clearedFreeTextNotesChanged = clearFreeTextTenantNotes(parsed);
       const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
-      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v5']
+      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v6']
         ? resetCarriedMonthState(parsed, '2026-02')
         : false;
-      parsed.appliedFixes['reset-february-carry-v5'] = true;
+      parsed.appliedFixes['reset-february-carry-v6'] = true;
       if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;

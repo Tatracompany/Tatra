@@ -36,7 +36,7 @@
 
   async function runOneTimeMonthResetsBeforeLoad() {
     const resetMonthKey = '2026-02';
-    const resetMarkerKey = 'tatra-db-reset-month-2026-02-v1';
+    const resetMarkerKey = 'tatra-db-reset-month-2026-02-v2';
     if (typeof safeStorageGet !== 'function' || typeof safeStorageSet !== 'function') return;
     if (String(safeStorageGet(resetMarkerKey) || '').trim() === 'done') return;
     try {
