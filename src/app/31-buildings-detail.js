@@ -268,9 +268,13 @@
     row.insertAdjacentElement('afterend', detailRow);
     const saveButton = detailRow.querySelector('[data-save-tenant]');
     if (saveButton) {
-      saveButton.addEventListener('click', (event) => {
+      saveButton.addEventListener('click', async (event) => {
         event.stopPropagation();
-        saveTenantInlineEdit(state, tenantId);
+        try {
+          await saveTenantInlineEdit(state, tenantId);
+        } catch (error) {
+          showFlashMessage(String(error && error.message || error || 'Save failed.'));
+        }
       });
     }
     const paidButton = detailRow.querySelector('[data-mark-paid]');
@@ -424,7 +428,7 @@
     return archivedTenant ? String(archivedTenant.archivedOn || archivedTenant.contractEnd || '') : '';
   }
 
-  function saveTenantInlineEdit(state, tenantId) {
+  async function saveTenantInlineEdit(state, tenantId) {
     const tenant = state.tenants.find((item) => item.id === tenantId);
     if (!tenant) return;
     const rowUiState = captureBuildingRowUiState(tenantId);
@@ -509,9 +513,10 @@
       return;
     }
     saveState(state);
-    if (typeof syncBuildingInlineEditToDb === 'function') {
-      syncBuildingInlineEditToDb({
-        sourceTenantId: tenant.id,
+    const canonicalSourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
+    if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
+      await syncBuildingInlineEditToDb({
+        sourceTenantId: canonicalSourceTenantId,
         monthKey: selectedMonth,
         contractRent,
         discount,

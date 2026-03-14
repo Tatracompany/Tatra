@@ -906,8 +906,8 @@
   function syncBuildingInlineEditToDb(payload) {
     const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
     const monthKey = String(payload && payload.monthKey || '').trim();
-    if (!sourceTenantId || !monthKey) return;
-    postToLocalDbApi('/api/db/building-inline-save', {
+    if (!sourceTenantId || !monthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/building-inline-save', {
       sourceTenantId,
       monthKey,
       contractRent: Number(payload && payload.contractRent || 0),
