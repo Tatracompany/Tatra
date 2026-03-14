@@ -160,15 +160,28 @@
     const container = document.getElementById('buildingMonthTabs');
     if (!container) return;
     const selectedMonth = getSelectedBuildingMonth();
+    const selectedMode = typeof getSelectedBuildingMonthMode === 'function'
+      ? getSelectedBuildingMonthMode()
+      : 'saved';
     window.__selectedBuildingMonth = selectedMonth;
     const year = monthStart(selectedMonth).getFullYear();
-    container.innerHTML = getVisibleYearMonthKeysForBuilding(year, window.__selectedBuildingName || '').map((monthKey) => {
-      const active = monthKey === selectedMonth ? ' active' : '';
-      return `<button type="button" class="month-tab${active}" data-building-month="${escapeHtml(monthKey)}">${escapeHtml(formatMonth(monthKey).replace(` ${year}`, ''))}</button>`;
-    }).join('');
+    const tabButtons = [];
+    getVisibleYearMonthKeysForBuilding(year, window.__selectedBuildingName || '').forEach((monthKey) => {
+      const savedActive = monthKey === selectedMonth && selectedMode !== 'live-preview' ? ' active' : '';
+      tabButtons.push(`<button type="button" class="month-tab${savedActive}" data-building-month="${escapeHtml(monthKey)}" data-building-month-mode="saved">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`);
+      if (monthKey === getPreviewMonthKey()) {
+        const previewActive = monthKey === selectedMonth && selectedMode === 'live-preview' ? ' active' : '';
+        tabButtons.push(`<button type="button" class="month-tab month-tab-preview${previewActive}" data-building-month="${escapeHtml(monthKey)}" data-building-month-mode="live-preview">Feb live</button>`);
+      }
+    });
+    container.innerHTML = tabButtons.join('');
     container.querySelectorAll('[data-building-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedBuildingMonth = button.getAttribute('data-building-month') || getActiveMonthKey();
+        window.__selectedBuildingMonthMode = normalizeMonthSelectionMode(
+          window.__selectedBuildingMonth,
+          button.getAttribute('data-building-month-mode') || 'saved'
+        );
         saveBuildingViewPreference();
         renderAll(window.__appState, window.__selectedBuildingName || '');
       });
@@ -236,7 +249,10 @@
     if (filters.statusSort === 'desc') tenants.sort((a, b) => statusRank(b.status) - statusRank(a.status));
 
     if (title) title.innerHTML = renderBuildingDisplayNameHtml(buildingName);
-    if (meta) meta.textContent = `${formatMonth(selectedMonth)} · ${summary.occupied} tenants · ${summary.late} late · ${summary.unpaid} unpaid · ${formatCurrency(summary.totalDue)} due`;
+    const livePreviewMeta = (typeof getSelectedBuildingMonthMode === 'function' && getSelectedBuildingMonthMode() === 'live-preview')
+      ? ' · Live preview from January'
+      : '';
+    if (meta) meta.textContent = `${formatMonth(selectedMonth)}${livePreviewMeta} · ${summary.occupied} tenants · ${summary.late} late · ${summary.unpaid} unpaid · ${formatCurrency(summary.totalDue)} due`;
 
     if (!tenants.length) {
       container.innerHTML = '<div class="empty-state">No matching tenants.</div>';

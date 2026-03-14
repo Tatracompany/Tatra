@@ -1201,6 +1201,16 @@
   }
 
   function getBuildingUnitRows(state, buildingName, monthKey) {
+    if (typeof isCurrentPageLivePreviewMonth === 'function' && isCurrentPageLivePreviewMonth(monthKey)) {
+      const previewRows = typeof buildCarryForwardPreviewRows === 'function'
+        ? buildCarryForwardPreviewRows(state, getDefaultActiveMonthKey(), monthKey)
+        : [];
+      if (previewRows.length) {
+        return previewRows
+          .filter((row) => String(row && row.building || '').trim() === String(buildingName || '').trim())
+          .map((row) => materializeCarriedMonthRow(state, row, monthKey));
+      }
+    }
     const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
       ? getCarriedMonthSnapshotRows(state, monthKey, buildingName)
       : null;
@@ -1225,6 +1235,14 @@
   }
 
   function getAllVisibleUnitRows(state, monthKey) {
+    if (typeof isCurrentPageLivePreviewMonth === 'function' && isCurrentPageLivePreviewMonth(monthKey)) {
+      const previewRows = typeof buildCarryForwardPreviewRows === 'function'
+        ? buildCarryForwardPreviewRows(state, getDefaultActiveMonthKey(), monthKey)
+        : [];
+      if (previewRows.length) {
+        return dedupeBuildingDisplayTenants(previewRows.map((row) => materializeCarriedMonthRow(state, row, monthKey)));
+      }
+    }
     const selectedMonth = monthKey || getCurrentMonthKey();
     const activeRows = (state.tenants || [])
       .map((tenant) => getTenantView(state, tenant, selectedMonth))
@@ -1418,17 +1436,31 @@
     const container = document.getElementById('tenantMonthTabs');
     if (!container) return;
     const selectedMonth = getSelectedTenantMonth();
+    const selectedMode = typeof getSelectedTenantMonthMode === 'function'
+      ? getSelectedTenantMonthMode()
+      : 'saved';
     const buildingFilter = ((document.getElementById('tenantBuildingFilter') || {}).value || window.__selectedTenantBuilding || 'all');
     const buildingName = buildingFilter === 'all' ? '' : buildingFilter;
     window.__selectedTenantMonth = selectedMonth;
     const year = monthStart(selectedMonth).getFullYear();
-    container.innerHTML = getVisibleYearMonthKeysForBuilding(year, buildingName).map((monthKey) => {
-      const active = monthKey === selectedMonth ? ' active' : '';
-      return `<button type="button" class="month-tab${active}" data-tenant-month="${escapeHtml(monthKey)}">${escapeHtml(formatMonth(monthKey).replace(` ${year}`, ''))}</button>`;
-    }).join('');
+    const tabButtons = [];
+    getVisibleYearMonthKeysForBuilding(year, buildingName).forEach((monthKey) => {
+      const savedActive = monthKey === selectedMonth && selectedMode !== 'live-preview' ? ' active' : '';
+      tabButtons.push(`<button type="button" class="month-tab${savedActive}" data-tenant-month="${escapeHtml(monthKey)}" data-tenant-month-mode="saved">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`);
+      if (monthKey === getPreviewMonthKey()) {
+        const previewActive = monthKey === selectedMonth && selectedMode === 'live-preview' ? ' active' : '';
+        tabButtons.push(`<button type="button" class="month-tab month-tab-preview${previewActive}" data-tenant-month="${escapeHtml(monthKey)}" data-tenant-month-mode="live-preview">Feb live</button>`);
+      }
+    });
+    container.innerHTML = tabButtons.join('');
     container.querySelectorAll('[data-tenant-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedTenantMonth = button.getAttribute('data-tenant-month') || getActiveMonthKey();
+        window.__selectedTenantMonthMode = normalizeMonthSelectionMode(
+          window.__selectedTenantMonth,
+          button.getAttribute('data-tenant-month-mode') || 'saved'
+        );
+        saveTenantViewPreference(window.__selectedTenantBuildingFilter || ((document.getElementById('tenantBuildingFilter') || {}).value || 'all'));
         renderTenantMonthTabs();
         populateTenantSelectors(window.__appState);
         renderTenants(window.__appState);

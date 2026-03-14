@@ -61,7 +61,7 @@
       <p class="section-label">Working month</p>
       <div class="sidebar-month-head">
         <strong>${escapeHtml(formatMonth(activeMonth))}</strong>
-        <span class="small-note">January is the source month. February is carried forward from January once, then keeps its own saved state.</span>
+        <span class="small-note">January is the source month. February is a saved month, and Feb live is a read-only preview rebuilt from January any time.</span>
       </div>
       <div class="sidebar-month-controls">
         <button type="button" class="secondary-action" data-working-month-shift="-1"${disablePrev ? ' disabled' : ''}>Prev</button>
@@ -106,8 +106,11 @@
     }
     const selectedMonth = getCurrentInterfaceMonth();
     const isPreview = isPreviewOnlyMonth(selectedMonth);
+    const isLivePreview = typeof isCurrentPageLivePreviewMonth === 'function' && isCurrentPageLivePreviewMonth(selectedMonth);
     banner.classList.toggle('is-preview', isPreview);
-    banner.innerHTML = isPreview
+    banner.innerHTML = isLivePreview
+      ? `<strong>${escapeHtml(formatMonth(selectedMonth))} live preview.</strong><span>This is a read-only February preview rebuilt live from the current January values.</span>`
+      : isPreview
       ? `<strong>${escapeHtml(formatMonth(selectedMonth))} carried from January.</strong><span>This month started from January, but it now stands on its own and will not keep changing with later January edits.</span>`
       : `<strong>${escapeHtml(formatMonth(selectedMonth))} working month.</strong><span>You are working directly in January, which is the source month used to create February.</span>`;
   }

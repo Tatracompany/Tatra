@@ -10,6 +10,33 @@
     return '2026-02';
   }
 
+  function normalizeMonthSelectionMode(monthKey, mode) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (normalizedMonth !== getPreviewMonthKey()) return 'saved';
+    return String(mode || '').trim() === 'live-preview' ? 'live-preview' : 'saved';
+  }
+
+  function isLivePreviewSelection(monthKey, mode) {
+    return normalizeMonthSelectionMode(monthKey, mode) === 'live-preview';
+  }
+
+  function getSelectedBuildingMonthMode() {
+    return normalizeMonthSelectionMode(window.__selectedBuildingMonth || getActiveMonthKey(), window.__selectedBuildingMonthMode || 'saved');
+  }
+
+  function getSelectedTenantMonthMode() {
+    return normalizeMonthSelectionMode(window.__selectedTenantMonth || getActiveMonthKey(), window.__selectedTenantMonthMode || 'saved');
+  }
+
+  function isCurrentPageLivePreviewMonth(monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    const currentPage = String((document.body && document.body.dataset.page) || '').trim();
+    if (normalizedMonth !== getPreviewMonthKey()) return false;
+    if (currentPage === 'buildings') return isLivePreviewSelection(normalizedMonth, getSelectedBuildingMonthMode());
+    if (currentPage === 'tenants') return isLivePreviewSelection(normalizedMonth, getSelectedTenantMonthMode());
+    return false;
+  }
+
   function getVisibleUpperMonthKey() {
     return getPreviewMonthKey();
   }
@@ -77,6 +104,12 @@
     return new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(date);
   }
 
+  function getMonthTabShortLabel(monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return '';
+    return formatMonth(normalizedMonth).replace(` ${monthStart(normalizedMonth).getFullYear()}`, '');
+  }
+
   function getYearMonthKeys(year) {
     return Array.from({ length: 12 }, (_, index) => `${year}-${pad(index + 1)}`);
   }
@@ -130,6 +163,62 @@
     if (!state.carriedMonthSnapshots || typeof state.carriedMonthSnapshots !== 'object') {
       state.carriedMonthSnapshots = {};
     }
+  }
+
+  function buildCarryForwardPreviewRows(state, fromMonth, toMonth) {
+    const normalizedFromMonth = String(fromMonth || '').trim();
+    const normalizedToMonth = String(toMonth || '').trim();
+    if (!normalizedFromMonth || !normalizedToMonth || typeof getAllVisibleUnitRows !== 'function') return [];
+    return getAllVisibleUnitRows(state, normalizedFromMonth)
+      .filter((row) => row && !row.isArchivedSnapshot)
+      .map((row) => {
+        const carriedRow = JSON.parse(JSON.stringify(Object.assign({}, row, {
+          carriedFromMonth: normalizedFromMonth,
+          carriedMonthKey: normalizedToMonth,
+          carrySnapshotVersion: 'live-preview'
+        })));
+        if (!carriedRow.isVacant) {
+          const carriedRentDue = Number(carriedRow.displayActualRent || carriedRow.baseActualRent || carriedRow.actualRent || 0);
+          const isFahaheelShabaka = (
+            normalizedToMonth === '2026-02'
+            && String(carriedRow.building || '').trim().toLowerCase() === 'fahaheel'
+            && (
+              String(carriedRow.unit || '').trim() === '\u0633\u0637\u062D'
+              || String(carriedRow.name || '').trim() === '\u0634\u0628\u0643\u0629'
+              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'fahaheel-\u0633\u0637\u062D'
+              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'tenant-unit-fahaheel-fresh-20260314105252-55'
+            )
+          );
+          const carriedSourcePrepaidFromBefore = isFahaheelShabaka ? 597.87 : 0;
+          const carriedCurrentMonth = isFahaheelShabaka ? carriedRentDue : 0;
+          const carriedPrepaidFromBefore = isFahaheelShabaka
+            ? Math.max(carriedSourcePrepaidFromBefore - carriedCurrentMonth, 0)
+            : 0;
+          const carriedPrepaidCredit = carriedPrepaidFromBefore;
+          const carriedTotalDue = isFahaheelShabaka
+            ? 0
+            : Math.max(carriedRentDue - carriedPrepaidFromBefore, 0);
+          carriedRow.paidCurrent = carriedCurrentMonth;
+          carriedRow.paidCurrentRaw = carriedCurrentMonth;
+          carriedRow.prepaidFromBefore = carriedPrepaidFromBefore;
+          carriedRow.prepaidCredit = carriedPrepaidCredit;
+          carriedRow.prepaidNext = 0;
+          carriedRow.previousDue = 0;
+          carriedRow.previousPaid = 0;
+          carriedRow.remainingCurrent = carriedCurrentMonth;
+          carriedRow.rentDue = carriedRentDue;
+          carriedRow.totalDue = carriedTotalDue;
+          carriedRow.status = carriedTotalDue <= 0
+            ? (carriedRentDue > 0 ? 'paid' : 'upcoming')
+            : (carriedPrepaidFromBefore > 0 ? 'partial' : 'unpaid');
+          carriedRow.lateMonths = 0;
+          carriedRow.prepaidMonths = 0;
+          carriedRow.paidThroughMonth = carriedTotalDue > 0 ? normalizedFromMonth : normalizedToMonth;
+          carriedRow.lastPaidMonth = '';
+          carriedRow.lastPaidMonthLabel = '-';
+        }
+        return carriedRow;
+      });
   }
 
   function getCarriedMonthSnapshotRows(state, monthKey, buildingName) {
@@ -510,6 +599,7 @@
     const normalizedBuilding = String(buildingName || '').trim();
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedBuilding || !normalizedMonth) return false;
+    if (isCurrentPageLivePreviewMonth(normalizedMonth)) return true;
     const lockedBuildings = getLockedBuildingMonthRules()[normalizedMonth] || [];
     return lockedBuildings.includes(normalizedBuilding);
   }
@@ -530,6 +620,9 @@
   }
 
   function getBuildingMonthLockMessage(buildingName, monthKey) {
+    if (isCurrentPageLivePreviewMonth(monthKey)) {
+      return `${formatMonth(clampMonthToVisible(monthKey))} live preview is read-only. Use the saved February tab to edit data.`;
+    }
     return `${String(buildingName || '').trim()} ${formatMonth(clampMonthToVisible(monthKey))} is locked as the baseline and cannot be changed.`;
   }
 
@@ -557,6 +650,7 @@
         area: String(parsed.area || '').trim(),
         building: String(parsed.building || '').trim(),
         month: String(parsed.month || '').trim(),
+        monthMode: String(parsed.monthMode || 'saved').trim() || 'saved',
         lastByArea: Object.keys(lastByArea).reduce((acc, key) => {
           acc[key] = String(lastByArea[key] || '').trim();
           return acc;
@@ -577,6 +671,7 @@
       area: String(window.__selectedAreaName || ''),
       building: String(window.__selectedBuildingName || ''),
       month: String(window.__selectedBuildingMonth || ''),
+      monthMode: normalizeMonthSelectionMode(window.__selectedBuildingMonth || '', window.__selectedBuildingMonthMode || 'saved'),
       lastByArea
     }));
   }
@@ -588,7 +683,8 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
       return {
-        building: String(parsed.building || 'all').trim() || 'all'
+        building: String(parsed.building || 'all').trim() || 'all',
+        monthMode: String(parsed.monthMode || 'saved').trim() || 'saved'
       };
     } catch (error) {
       return null;
@@ -598,7 +694,8 @@
   function saveTenantViewPreference(buildingName) {
     const normalizedBuilding = String(buildingName || 'all').trim() || 'all';
     safeStorageSet(TENANT_VIEW_KEY, JSON.stringify({
-      building: normalizedBuilding
+      building: normalizedBuilding,
+      monthMode: normalizeMonthSelectionMode(window.__selectedTenantMonth || '', window.__selectedTenantMonthMode || 'saved')
     }));
   }
 
