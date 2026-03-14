@@ -443,6 +443,11 @@
       || tenantId
       || ''
     ).trim();
+    const canonicalUnitId = String(
+      visibleTenant && visibleTenant.unitId
+      || row && row.dataset && row.dataset.rowUnitId
+      || ''
+    ).trim();
     if (!tenant && canonicalSourceTenantId) {
       tenant = state.tenants.find((item) => String(item && item.id || '').trim() === canonicalSourceTenantId) || null;
     }
@@ -541,6 +546,7 @@
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
         sourceTenantId: canonicalSourceTenantId,
+        unitId: canonicalUnitId,
         monthKey: selectedMonth,
         contractRent,
         discount,

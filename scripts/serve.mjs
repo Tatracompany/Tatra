@@ -580,13 +580,27 @@ function resetMonthDataInDatabase(payload) {
 }
 
 function saveBuildingInlineEditToDatabase(payload) {
-  const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  let sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  const unitId = String(payload && payload.unitId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
-  if (!sourceTenantId || !monthKey) {
-    throw new Error('sourceTenantId and monthKey are required.');
+  if ((!sourceTenantId && !unitId) || !monthKey) {
+    throw new Error('sourceTenantId or unitId, and monthKey are required.');
   }
   const database = openDatabase(databasePath);
   try {
+    if (!sourceTenantId && unitId) {
+      const matchedTenancy = database.prepare(`
+        SELECT source_tenant_id AS sourceTenantId
+        FROM tenancies
+        WHERE unit_id = ? AND is_active = 1
+        ORDER BY updated_at DESC, created_at DESC, id DESC
+        LIMIT 1
+      `).get(unitId);
+      sourceTenantId = String(matchedTenancy && matchedTenancy.sourceTenantId || '').trim();
+    }
+    if (!sourceTenantId) {
+      throw new Error('No tenancy found for this row.');
+    }
     const result = database.prepare(`
       UPDATE tenancies
       SET

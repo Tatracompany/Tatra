@@ -650,7 +650,6 @@
         area: String(parsed.area || '').trim(),
         building: String(parsed.building || '').trim(),
         month: String(parsed.month || '').trim(),
-        monthMode: String(parsed.monthMode || 'saved').trim() || 'saved',
         lastByArea: Object.keys(lastByArea).reduce((acc, key) => {
           acc[key] = String(lastByArea[key] || '').trim();
           return acc;
@@ -671,7 +670,6 @@
       area: String(window.__selectedAreaName || ''),
       building: String(window.__selectedBuildingName || ''),
       month: String(window.__selectedBuildingMonth || ''),
-      monthMode: normalizeMonthSelectionMode(window.__selectedBuildingMonth || '', window.__selectedBuildingMonthMode || 'saved'),
       lastByArea
     }));
   }
@@ -683,8 +681,7 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
       return {
-        building: String(parsed.building || 'all').trim() || 'all',
-        monthMode: String(parsed.monthMode || 'saved').trim() || 'saved'
+        building: String(parsed.building || 'all').trim() || 'all'
       };
     } catch (error) {
       return null;
@@ -694,8 +691,7 @@
   function saveTenantViewPreference(buildingName) {
     const normalizedBuilding = String(buildingName || 'all').trim() || 'all';
     safeStorageSet(TENANT_VIEW_KEY, JSON.stringify({
-      building: normalizedBuilding,
-      monthMode: normalizeMonthSelectionMode(window.__selectedTenantMonth || '', window.__selectedTenantMonthMode || 'saved')
+      building: normalizedBuilding
     }));
   }
 
@@ -1002,10 +998,12 @@
 
   function syncBuildingInlineEditToDb(payload) {
     const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+    const unitId = String(payload && payload.unitId || '').trim();
     const monthKey = String(payload && payload.monthKey || '').trim();
-    if (!sourceTenantId || !monthKey) return Promise.resolve(null);
+    if ((!sourceTenantId && !unitId) || !monthKey) return Promise.resolve(null);
     return postToLocalDbApi('/api/db/building-inline-save', {
       sourceTenantId,
+      unitId,
       monthKey,
       contractRent: Number(payload && payload.contractRent || 0),
       discount: Number(payload && payload.discount || 0),
