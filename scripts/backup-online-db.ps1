@@ -1,11 +1,11 @@
-$ErrorActionPreference = 'Stop'
-
 param(
   [string]$ServiceUrl = 'https://tatra.onrender.com',
   [string]$BackupRoot = 'C:\Users\Y PC\Desktop\online-db-backup-tatra',
   [string]$Token = '',
-  [Int64]$MaxBackupBytes = 20GB
+  [Int64]$MaxBackupBytes = 21474836480
 )
+
+$ErrorActionPreference = 'Stop'
 
 if (-not $Token) {
   $Token = [Environment]::GetEnvironmentVariable('TATRA_BACKUP_TOKEN', 'User')
