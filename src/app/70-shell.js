@@ -169,7 +169,18 @@
       button.style.width = `${width}px`;
       button.style.minWidth = `${width}px`;
       button.style.maxWidth = `${width}px`;
-      button.onclick = () => sourceButton.click();
+      button.onclick = (event) => {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        sourceButton.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window
+        }));
+        window.requestAnimationFrame(() => window.requestAnimationFrame(syncFrozenUi));
+      };
     });
     host.classList.add('is-visible');
   }
