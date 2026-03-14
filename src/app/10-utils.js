@@ -377,14 +377,18 @@
 
   function safeStorageGet(key) {
     if (key === STORAGE_KEY) {
+      try {
+        const legacyValue = localStorage.getItem(key);
+        if (legacyValue != null) {
+          localStorage.removeItem(key);
+        }
+      } catch (error) {
+        // Ignore storage cleanup failures.
+      }
       if (memoryState) {
         return JSON.stringify(memoryState);
       }
-      try {
-        return localStorage.getItem(key);
-      } catch (error) {
-        return null;
-      }
+      return null;
     }
     try {
       return localStorage.getItem(key);
@@ -401,9 +405,9 @@
         memoryState = null;
       }
       try {
-        localStorage.setItem(key, value);
+        localStorage.removeItem(key);
       } catch (error) {
-        // Ignore storage write failures for live state.
+        // Ignore storage cleanup failures for live state.
       }
       return;
     }
