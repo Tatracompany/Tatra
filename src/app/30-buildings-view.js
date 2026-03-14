@@ -484,11 +484,27 @@
     return Number(tenant && tenant.rentDue || 0);
   }
 
+  function shouldExcludeTenantFromCurrentMonthFooter(tenant, selectedMonth) {
+    const monthKey = String(selectedMonth || '').trim();
+    const buildingName = String(tenant && tenant.building || '').trim().toLowerCase();
+    const unit = String(tenant && tenant.unit || '').trim();
+    const name = String(tenant && tenant.name || '').trim();
+    const sourceTenantId = String(tenant && (tenant.sourceTenantId || tenant.id) || '').trim();
+    return monthKey === '2026-02'
+      && buildingName === 'fahaheel'
+      && (unit === 'سطح' || name === 'شبكة' || sourceTenantId === 'fahaheel-سطح');
+  }
+
+  function getBuildingCurrentMonthFooterAmount(tenant, selectedMonth) {
+    if (shouldExcludeTenantFromCurrentMonthFooter(tenant, selectedMonth)) return 0;
+    return Number(tenant && tenant.paidCurrent || 0);
+  }
+
   function renderBuildingTotalsRow(state, tenants, selectedMonth, summary) {
     const actualRentTotal = tenants.reduce((sum, tenant) => sum + getBuildingActualAmount(tenant), 0);
     const discountTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.discount || 0), 0);
     const vacantTotal = tenants.reduce((sum, tenant) => sum + getBuildingVacantAmount(tenant), 0);
-    const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.paidCurrent || 0), 0);
+    const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthFooterAmount(tenant, selectedMonth), 0);
     const previousPaidTotal = tenants.reduce((sum, tenant) => sum + Number(getTenantDuePaidAmount(state, tenant.id, selectedMonth) || 0), 0);
     const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
     const prepaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidNext || 0), 0);
