@@ -151,14 +151,25 @@
     return `<tr class="totals-row totals-row-muted"><td colspan="12"><strong>Total units</strong></td><td class="center"><strong>${escapeHtml(String(totalUnits))}</strong></td></tr>`;
   }
 
+  function getTenantReorderBuilding(buildingFilter, tenants) {
+    const normalizedFilter = String(buildingFilter || 'all').trim() || 'all';
+    if (normalizedFilter !== 'all') return normalizedFilter;
+    const visibleBuildings = Array.from(new Set(
+      (Array.isArray(tenants) ? tenants : [])
+        .map((tenant) => String(tenant && tenant.building || '').trim())
+        .filter(Boolean)
+    ));
+    return visibleBuildings.length === 1 ? visibleBuildings[0] : '';
+  }
+
   function renderTenantBodyCell(state, tenant, column) {
     const selectedMonth = getSelectedTenantMonth();
     const isLockedBaseline = isTenantMonthLocked(tenant, selectedMonth);
     const readOnlyAttr = isLockedBaseline ? ' readonly aria-readonly="true"' : '';
     const disabledAttr = isLockedBaseline ? ' disabled aria-disabled="true"' : '';
-    const selectedBuilding = ((document.getElementById('tenantBuildingFilter') || {}).value || 'all');
+    const reorderBuilding = String(window.__tenantReorderBuilding || '').trim();
     if (column.key === 'drag') {
-      if (selectedBuilding === 'all' || isLockedBaseline) return '<td class="center">-</td>';
+      if (!reorderBuilding || isLockedBaseline) return '<td class="center">-</td>';
       return `<td class="center"><span class="drag-handle" draggable="true" data-tenant-row-drag-handle="${escapeHtml(getTenantRowOrderKey(tenant))}" title="Drag to reorder">&#8801;</span></td>`;
     }
     if (column.key === 'building') {
@@ -387,6 +398,8 @@
       const matchesBuilding = building === 'all' || tenant.building === building;
       return matchesSearch && matchesStatus && matchesBuilding;
     }).sort((a, b) => compareTenantOriginalPosition(state, a, b));
+    const reorderBuilding = getTenantReorderBuilding(building, tenants);
+    window.__tenantReorderBuilding = reorderBuilding;
     const orderedColumns = getTenantColumnDefinitions();
     const headerHtml = orderedColumns.map((column) => renderTenantHeaderCell(column)).join('');
     const rowsHtml = tenants.map((tenant) => {
@@ -394,9 +407,9 @@
         const rowClasses = [
           tenant.status === 'overdue' ? 'is-late' : '',
           tenant.isVacant ? 'is-vacant' : '',
-          (building !== 'all' && !isLockedBaseline) ? 'draggable-row' : ''
+          (reorderBuilding && !isLockedBaseline) ? 'draggable-row' : ''
         ].filter(Boolean).join(' ');
-        const dragAttr = (building !== 'all' && !isLockedBaseline) ? ` data-tenant-row-order="${escapeHtml(getTenantRowOrderKey(tenant))}"` : '';
+        const dragAttr = (reorderBuilding && !isLockedBaseline) ? ` data-tenant-row-order="${escapeHtml(getTenantRowOrderKey(tenant))}"` : '';
         return `<tr data-tenant-profile-row="${escapeHtml(tenant.id)}" data-tenant-profile-unit-id="${escapeHtml(tenant.unitId || '')}" data-tenant-profile-source-tenant-id="${escapeHtml(tenant.sourceTenantId || '')}" data-tenant-profile-building="${escapeHtml(tenant.building || '')}" data-tenant-profile-unit="${escapeHtml(tenant.unit || '')}" data-tenant-profile-floor="${escapeHtml(tenant.floor || '')}" class="${rowClasses}"${dragAttr}>${orderedColumns.map((column) => renderTenantBodyCell(state, tenant, column)).join('')}</tr>`;
       }).join('');
     const totalsHtml = renderTenantTotalsRow(state, tenants, building);
@@ -411,7 +424,7 @@
         saveTenantProfile(state, tenantId);
       });
     });
-    attachTenantRowDnD(state, building);
+    attachTenantRowDnD(state, reorderBuilding);
     container.querySelectorAll('[data-tenant-profile-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         toggleTenantProfileDetail(state, button.getAttribute('data-tenant-profile-toggle'));
