@@ -220,6 +220,10 @@
         </article>
       `;
     }).join('');
+
+    if (typeof applyResponsiveTableLabels === 'function') {
+      list.querySelectorAll('.tenant-history-table').forEach((tableNode) => applyResponsiveTableLabels(tableNode));
+    }
   }
 
   function bindTenantHistoryPage() {

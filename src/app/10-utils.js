@@ -296,6 +296,18 @@
       .replace(/'/g, '&#39;');
   }
 
+  function applyResponsiveTableLabels(tableNode) {
+    if (!tableNode || typeof tableNode.querySelectorAll !== 'function') return;
+    const headers = Array.from(tableNode.querySelectorAll('thead th')).map((header) => String(header && header.textContent || '').trim());
+    if (!headers.length) return;
+    tableNode.querySelectorAll('tbody tr').forEach((row) => {
+      Array.from(row.children).forEach((cell, index) => {
+        if (!cell || typeof cell.setAttribute !== 'function') return;
+        cell.setAttribute('data-cell-label', headers[index] || '');
+      });
+    });
+  }
+
   function isSummaryRowLike(value) {
     const text = String(value || '').replace(/\s+/g, '').toLowerCase();
     return text === 'Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ' || text === 'Ø§Ù„Ø§Ø¬Ù…Ø§Ù„ÙŠ' || text === 'Ù…Ø¬Ù…ÙˆØ¹' || text === 'total';

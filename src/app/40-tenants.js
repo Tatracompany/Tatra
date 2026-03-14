@@ -414,6 +414,9 @@
       }).join('');
     const totalsHtml = renderTenantTotalsRow(state, tenants, building);
     container.innerHTML = tenants.length ? `<div class="table-scroll"><table class="building-table tenant-table">${renderTenantColGroup()}<thead><tr>${headerHtml}</tr></thead><tbody>${rowsHtml}</tbody><tfoot>${totalsHtml}</tfoot></table></div>` : '<div class="empty-state">No tenants found.</div>';
+    if (typeof applyResponsiveTableLabels === 'function') {
+      applyResponsiveTableLabels(container.querySelector('.tenant-table'));
+    }
     container.querySelectorAll('[data-save-tenant-profile]').forEach((button) => {
       button.addEventListener('click', () => {
         const tenantId = button.getAttribute('data-save-tenant-profile');
