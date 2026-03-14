@@ -574,6 +574,7 @@
     const currentLedger = ledger[ledger.length - 1] || { openingCarry: 0, due: baseActualRent, paid: 0, remainingCurrent: baseActualRent, closingCarry: baseActualRent };
     const rentDue = normalizeAmount(Number(currentLedger.due || 0));
     const occupancyPaidCurrent = normalizeAmount(currentLedger.occupancyPaidRaw || 0);
+    const priorAdvanceAppliedCurrent = normalizeAmount(currentLedger.priorAdvancePaid || 0);
     const paidCurrentRaw = normalizeAmount((currentLedger.directPaidRaw || 0) + occupancyPaidCurrent);
     const paidCurrent = normalizeAmount(currentLedger.directPaidApplied || 0);
     const previousDue = normalizeAmount(Math.max(Number(currentLedger.openingCarry || 0) - Number(currentLedger.previousPaid || 0), 0));
@@ -620,11 +621,11 @@
       : null;
     const handoverArchivedView = handoverArchivedTenant ? getArchivedTenantDisplayView(state, handoverArchivedTenant, selectedMonth) : null;
     const displayPaidCurrent = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : paidCurrent)
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const displayPaidCurrentRaw = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : paidCurrentRaw)
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
