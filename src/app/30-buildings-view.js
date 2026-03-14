@@ -490,9 +490,11 @@
     const unit = String(tenant && tenant.unit || '').trim();
     const name = String(tenant && tenant.name || '').trim();
     const sourceTenantId = String(tenant && (tenant.sourceTenantId || tenant.id) || '').trim();
-    return monthKey === '2026-02'
+    const matchesProtectedRow = buildingName === 'fahaheel'
+      && (unit === '\u0633\u0637\u062D' || name === '\u0634\u0628\u0643\u0629' || sourceTenantId === 'fahaheel-\u0633\u0637\u062D');
+    return (monthKey === '2026-01' || monthKey === '2026-02')
       && buildingName === 'fahaheel'
-      && (unit === 'سطح' || name === 'شبكة' || sourceTenantId === 'fahaheel-سطح');
+      && matchesProtectedRow;
   }
 
   function getBuildingCurrentMonthFooterAmount(tenant, selectedMonth) {
