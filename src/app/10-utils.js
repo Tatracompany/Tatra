@@ -183,11 +183,6 @@
     ensureCarriedMonthSnapshotsState(state);
     if (Array.isArray(state.carriedMonthSnapshots[normalizedToMonth]) && state.carriedMonthSnapshots[normalizedToMonth].length) {
       const existingRows = state.carriedMonthSnapshots[normalizedToMonth];
-      const hasStalePaidCarry = existingRows.some((row) => (
-        row
-        && !row.isVacant
-        && (Number(row.paidCurrent || 0) > 0 || String(row.status || '').trim() === 'paid')
-      ));
       let upgradedRows = false;
       existingRows.forEach((row) => {
         if (!row) return;
@@ -196,9 +191,7 @@
         upgradedRows = true;
       });
       const seededExistingIdentityChanged = seedCarryForwardIdentityOverrides(state, existingRows, normalizedToMonth);
-      if (!hasStalePaidCarry) {
-        return upgradedRows || seededExistingIdentityChanged;
-      }
+      return upgradedRows || seededExistingIdentityChanged;
     }
     if (typeof getAllVisibleUnitRows !== 'function') return false;
     const sourceRows = getAllVisibleUnitRows(state, normalizedFromMonth)
