@@ -28,3 +28,9 @@ Notes:
 - The live source of truth remains SQLite.
 - The generated `db-state.generated.js` file is only a fallback snapshot.
 - On first deploy, if `/var/data/tatra.sqlite` does not exist yet, the app copies the bundled `db/tatra.sqlite` into the persistent disk automatically.
+
+Online DB backup to this computer:
+1. In Render, add `BACKUP_TOKEN` to the `tatra` service environment.
+2. On this computer, set a matching user environment variable named `TATRA_BACKUP_TOKEN`.
+3. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-online-db.ps1`.
+4. Backups are saved to `C:\Users\Y PC\Desktop\online-db-backup-tatra`.

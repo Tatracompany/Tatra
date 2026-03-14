@@ -12,6 +12,7 @@ const browserSnapshotPath = path.join(root, 'src', 'data', 'db-state.generated.j
 const schemaPath = path.join(root, 'db', 'schema.sql');
 const serverAuthUsername = String(process.env.APP_USERNAME || '').trim();
 const serverAuthPassword = String(process.env.APP_PASSWORD || '').trim();
+const backupToken = String(process.env.BACKUP_TOKEN || '').trim();
 
 const contentTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -73,6 +74,22 @@ function requestServerAuth(response) {
     'WWW-Authenticate': 'Basic realm="Tatra"'
   });
   response.end('Authentication required');
+}
+
+function isAuthorizedBackupRequest(request) {
+  if (!backupToken) return false;
+  const requestToken = String(request && request.headers && request.headers['x-tatra-backup-token'] || '').trim();
+  return !!requestToken && requestToken === backupToken;
+}
+
+function sendFile(response, filePath, filename) {
+  const safeFilename = String(filename || path.basename(filePath) || 'download.bin').trim() || 'download.bin';
+  response.writeHead(200, {
+    'Content-Type': 'application/octet-stream',
+    'Cache-Control': 'no-store',
+    'Content-Disposition': `attachment; filename="${safeFilename}"`
+  });
+  fs.createReadStream(filePath).pipe(response);
 }
 
 function readJsonBody(request) {
@@ -785,6 +802,25 @@ async function handleApiRequest(request, response, requestUrl) {
         error: String(error && error.message || error)
       });
     }
+    return true;
+  }
+
+  if (request.method === 'GET' && requestUrl.pathname === '/api/db/backup-download') {
+    if (!isAuthorizedBackupRequest(request)) {
+      sendJson(response, 403, {
+        ok: false,
+        error: 'Backup token is missing or invalid.'
+      });
+      return true;
+    }
+    if (!fs.existsSync(databasePath)) {
+      sendJson(response, 404, {
+        ok: false,
+        error: 'Database file was not found.'
+      });
+      return true;
+    }
+    sendFile(response, databasePath, `tatra-online-${new Date().toISOString().slice(0, 10)}.sqlite`);
     return true;
   }
 
