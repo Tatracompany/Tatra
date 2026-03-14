@@ -443,6 +443,92 @@ function upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideK
   `).run(sourceTenantId, sourceTenantId, monthKey, overrideKind, valueText);
 }
 
+function saveTenantMonthIdentityToDatabase(payload) {
+  const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  if (!sourceTenantId || !monthKey) {
+    throw new Error('sourceTenantId and monthKey are required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    database.exec('BEGIN');
+    [
+      ['name', String(payload && payload.name || '').trim()],
+      ['unit', String(payload && payload.unit || '').trim()],
+      ['floor', String(payload && payload.floor || '').trim()],
+      ['moveInDate', String(payload && payload.moveInDate || '').trim()],
+      ['contractStart', String(payload && payload.contractStart || '').trim()],
+      ['contractEnd', String(payload && payload.contractEnd || '').trim()],
+      ['phone', String(payload && payload.phone || '').trim()],
+      ['civilId', String(payload && payload.civilId || '').trim()],
+      ['nationality', String(payload && payload.nationality || 'Not set').trim() || 'Not set']
+    ].forEach(([overrideKind, valueText]) => {
+      upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+    });
+    database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_tenant_month_identity_sync_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+    database.exec('COMMIT');
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    database.close();
+  }
+  return exportSnapshotToBrowserFile();
+}
+
+function saveTenantMonthIdentityBulkToDatabase(payload) {
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+  if (!monthKey || !rows.length) {
+    throw new Error('monthKey and rows are required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    database.exec('BEGIN');
+    rows.forEach((row) => {
+      const sourceTenantId = String(row && row.sourceTenantId || '').trim();
+      if (!sourceTenantId) return;
+      [
+        ['name', String(row && row.name || '').trim()],
+        ['unit', String(row && row.unit || '').trim()],
+        ['floor', String(row && row.floor || '').trim()],
+        ['moveInDate', String(row && row.moveInDate || '').trim()],
+        ['contractStart', String(row && row.contractStart || '').trim()],
+        ['contractEnd', String(row && row.contractEnd || '').trim()],
+        ['phone', String(row && row.phone || '').trim()],
+        ['civilId', String(row && row.civilId || '').trim()],
+        ['nationality', String(row && row.nationality || 'Not set').trim() || 'Not set']
+      ].forEach(([overrideKind, valueText]) => {
+        upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+      });
+    });
+    database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_tenant_month_identity_bulk_sync_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+    database.exec('COMMIT');
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    database.close();
+  }
+  return exportSnapshotToBrowserFile();
+}
+
 function saveBuildingInlineEditToDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
@@ -954,6 +1040,42 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = saveTenantProfileToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-month-identity') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = saveTenantMonthIdentityToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-month-identity-bulk') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = saveTenantMonthIdentityBulkToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

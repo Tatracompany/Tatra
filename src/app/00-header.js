@@ -228,6 +228,24 @@
     return snapshot.payments.slice();
   }
 
+  function getDbSnapshotTenantMonthOverrides() {
+    const snapshot = getDbSnapshot();
+    if (!snapshot || !Array.isArray(snapshot.tenantMonthOverrides)) return [];
+    return snapshot.tenantMonthOverrides.slice();
+  }
+
+  function getDbSnapshotTenantMonthOverride(sourceTenantId, monthKey, overrideKind) {
+    const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    const normalizedOverrideKind = String(overrideKind || '').trim();
+    if (!normalizedSourceTenantId || !normalizedMonthKey || !normalizedOverrideKind) return null;
+    return getDbSnapshotTenantMonthOverrides().find((entry) => (
+      String(entry && entry.sourceTenantId || '').trim() === normalizedSourceTenantId
+      && String(entry && entry.monthKey || '').trim() === normalizedMonthKey
+      && String(entry && entry.overrideKind || '').trim() === normalizedOverrideKind
+    )) || null;
+  }
+
   function getDbSnapshotActivity() {
     const snapshot = getDbSnapshot();
     if (!snapshot || !Array.isArray(snapshot.activity)) return [];

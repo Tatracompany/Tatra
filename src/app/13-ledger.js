@@ -149,9 +149,14 @@
   function getTenantIdentityOverride(state, tenantId, field, monthKey) {
     ensureTenantIdentityOverridesState(state);
     const tenantBucket = state.tenantIdentityOverrides[tenantId];
-    if (!tenantBucket || !tenantBucket[field]) return null;
-    if (!Object.prototype.hasOwnProperty.call(tenantBucket[field], monthKey)) return null;
-    return String(tenantBucket[field][monthKey] || '').trim();
+    if (tenantBucket && tenantBucket[field] && Object.prototype.hasOwnProperty.call(tenantBucket[field], monthKey)) {
+      return String(tenantBucket[field][monthKey] || '').trim();
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, field);
+      if (snapshotOverride) return String(snapshotOverride.valueText || '').trim();
+    }
+    return null;
   }
 
   function setTenantIdentityOverride(state, tenantId, field, monthKey, value) {

@@ -111,7 +111,33 @@
         });
       }
 
-      function freezeFutureTenantIdentity(targetRowLike) {
+      function buildTenantMonthIdentityPayload(monthKey, sourceTenantId, values) {
+        const normalizedMonth = String(monthKey || '').trim();
+        const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+        if (!normalizedMonth || !normalizedSourceTenantId) return null;
+        return {
+          sourceTenantId: normalizedSourceTenantId,
+          monthKey: normalizedMonth,
+          name: String(values && values.name || '').trim(),
+          unit: String(values && values.unit || '').trim(),
+          floor: String(values && values.floor || '').trim(),
+          moveInDate: String(values && values.moveInDate || '').trim(),
+          contractStart: String(values && values.contractStart || '').trim(),
+          contractEnd: String(values && values.contractEnd || '').trim(),
+          phone: normalizePhone(values && values.phone || ''),
+          civilId: String(values && values.civilId || '').trim(),
+          nationality: String(values && values.nationality || 'Not set').trim() || 'Not set'
+        };
+      }
+
+      async function persistTenantMonthIdentity(monthKey, sourceTenantId, values) {
+        if (typeof syncTenantMonthIdentityToDb !== 'function') return;
+        const payload = buildTenantMonthIdentityPayload(monthKey, sourceTenantId, values);
+        if (!payload) return;
+        await syncTenantMonthIdentityToDb(payload);
+      }
+
+      async function freezeFutureTenantIdentity(targetRowLike) {
         if (!futureIdentityFreezeMonth || typeof getCarriedMonthSnapshotRows !== 'function') return;
         const futureRows = getCarriedMonthSnapshotRows(state, futureIdentityFreezeMonth) || [];
         if (!futureRows.length) return;
@@ -134,6 +160,7 @@
           setTenantIdentityOverride(state, sourceTenantId, 'phone', futureIdentityFreezeMonth, futureRow.phone);
           setTenantIdentityOverride(state, sourceTenantId, 'civilId', futureIdentityFreezeMonth, futureRow.civilId);
           setTenantIdentityOverride(state, sourceTenantId, 'nationality', futureIdentityFreezeMonth, futureRow.nationality);
+          await persistTenantMonthIdentity(futureIdentityFreezeMonth, sourceTenantId, futureRow);
         }
         updateCarriedMonthRowIdentity(futureIdentityFreezeMonth, targetRowLike, futureRow);
       }
@@ -146,7 +173,7 @@
         const nextFloor = String(floorSelect ? floorSelect.value : targetTenant.floor || '').trim();
 
       if (tenant) {
-        freezeFutureTenantIdentity(tenant);
+        await freezeFutureTenantIdentity(tenant);
         const previousUnit = String(tenant.unit || '').trim();
         const previousFloor = String(tenant.floor || '').trim();
 
@@ -165,7 +192,7 @@
           replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
         }
       } else if (vacantView && vacantView.sourceTenantId) {
-        freezeFutureTenantIdentity(vacantView);
+        await freezeFutureTenantIdentity(vacantView);
         const sourceTenant = state.tenants.find((item) => item.id === vacantView.sourceTenantId) || null;
         const sourceProfile = sourceTenant && typeof getEffectiveTenantProfile === 'function'
           ? (getEffectiveTenantProfile(state, sourceTenant, selectedMonth) || sourceTenant)
@@ -196,6 +223,17 @@
           : '';
         setTenantIdentityOverride(state, vacantView.sourceTenantId, 'unit', selectedMonth, nextUnit);
         setTenantIdentityOverride(state, vacantView.sourceTenantId, 'floor', selectedMonth, nextFloor);
+        await persistTenantMonthIdentity(selectedMonth, vacantView.sourceTenantId, {
+          name: String(sourceProfile && sourceProfile.name || '').trim(),
+          unit: nextUnit,
+          floor: nextFloor,
+          moveInDate: String(sourceProfile && sourceProfile.moveInDate || '').trim(),
+          contractStart: String(sourceProfile && sourceProfile.contractStart || '').trim(),
+          contractEnd: String(sourceProfile && sourceProfile.contractEnd || '').trim(),
+          phone: String(sourceProfile && sourceProfile.phone || '').trim(),
+          civilId: String(sourceProfile && sourceProfile.civilId || '').trim(),
+          nationality: String(sourceProfile && sourceProfile.nationality || 'Not set').trim() || 'Not set'
+        });
         if (linkedVacantRecord && shouldSyncSharedUnitIdentity) {
           linkedVacantRecord.unit = nextUnit;
           linkedVacantRecord.floor = nextFloor;
@@ -267,7 +305,7 @@
       const nextPhone = normalizePhone(phoneInput ? phoneInput.value : (currentProfile.phone || ''));
       const nextCivilId = String(civilInput ? civilInput.value : (currentProfile.civilId || '')).trim();
       const nextNationality = String(nationalitySelect ? nationalitySelect.value : (currentProfile.nationality || 'Not set')).trim() || 'Not set';
-      freezeFutureTenantIdentity(tenant);
+      await freezeFutureTenantIdentity(tenant);
       const previousOrderKey = typeof getTenantOrderKey === 'function'
         ? getTenantOrderKey({
           building: tenant.building,
@@ -306,6 +344,17 @@
         replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
       }
       saveState(state);
+      await persistTenantMonthIdentity(selectedMonth, tenant.id, {
+        name: nextName,
+        unit: nextUnit,
+        floor: nextFloor,
+        moveInDate: nextMoveInDate,
+        contractStart: nextContractStart,
+        contractEnd: nextContractEnd,
+        phone: nextPhone,
+        civilId: nextCivilId,
+        nationality: nextNationality
+      });
       if (shouldSyncSharedUnitIdentity && rowUnitId && typeof syncUnitIdentityToDb === 'function') {
         await syncUnitIdentityToDb({
           unitId: rowUnitId,

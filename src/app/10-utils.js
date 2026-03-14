@@ -250,6 +250,27 @@
       });
     state.carriedMonthSnapshots[normalizedToMonth] = sourceRows;
     seedCarryForwardIdentityOverrides(state, sourceRows, normalizedToMonth);
+    if (typeof syncTenantMonthIdentityBulkToDb === 'function') {
+      syncTenantMonthIdentityBulkToDb(
+        normalizedToMonth,
+        sourceRows
+          .filter((row) => row && !row.isVacant && String(row.sourceTenantId || row.id || '').trim())
+          .map((row) => ({
+            sourceTenantId: String(row.sourceTenantId || row.id || '').trim(),
+            name: row.name,
+            unit: row.unit,
+            floor: row.floor,
+            moveInDate: row.moveInDate,
+            contractStart: row.contractStart,
+            contractEnd: row.contractEnd,
+            phone: row.phone,
+            civilId: row.civilId,
+            nationality: row.nationality
+          }))
+      ).catch(() => {
+        // Keep month creation usable even if the DB sync is temporarily unavailable.
+      });
+    }
     return true;
   }
 
@@ -800,6 +821,46 @@
       moveInDate: String(profile && profile.moveInDate || '').trim(),
       contractStart: String(profile && profile.contractStart || '').trim(),
       contractEnd: String(profile && profile.contractEnd || '').trim()
+    });
+  }
+
+  function syncTenantMonthIdentityToDb(payload) {
+      const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+      const monthKey = String(payload && payload.monthKey || '').trim();
+      if (!sourceTenantId || !monthKey) return Promise.resolve(null);
+      return postToLocalDbApi('/api/db/tenant-month-identity', {
+        sourceTenantId,
+        monthKey,
+        name: String(payload && payload.name || '').trim(),
+        unit: String(payload && payload.unit || '').trim(),
+        floor: String(payload && payload.floor || '').trim(),
+        moveInDate: String(payload && payload.moveInDate || '').trim(),
+        contractStart: String(payload && payload.contractStart || '').trim(),
+        contractEnd: String(payload && payload.contractEnd || '').trim(),
+        phone: String(payload && payload.phone || '').trim(),
+        civilId: String(payload && payload.civilId || '').trim(),
+        nationality: String(payload && payload.nationality || 'Not set').trim() || 'Not set'
+      });
+  }
+
+  function syncTenantMonthIdentityBulkToDb(monthKey, rows) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    const normalizedRows = Array.isArray(rows) ? rows.map((row) => ({
+      sourceTenantId: String(row && row.sourceTenantId || '').trim(),
+      name: String(row && row.name || '').trim(),
+      unit: String(row && row.unit || '').trim(),
+      floor: String(row && row.floor || '').trim(),
+      moveInDate: String(row && row.moveInDate || '').trim(),
+      contractStart: String(row && row.contractStart || '').trim(),
+      contractEnd: String(row && row.contractEnd || '').trim(),
+      phone: String(row && row.phone || '').trim(),
+      civilId: String(row && row.civilId || '').trim(),
+      nationality: String(row && row.nationality || 'Not set').trim() || 'Not set'
+    })).filter((row) => row.sourceTenantId) : [];
+    if (!normalizedMonthKey || !normalizedRows.length) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/tenant-month-identity-bulk', {
+      monthKey: normalizedMonthKey,
+      rows: normalizedRows
     });
   }
 

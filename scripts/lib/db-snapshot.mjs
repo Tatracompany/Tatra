@@ -133,6 +133,16 @@ export function readDatabaseSnapshot(databasePath) {
     ORDER BY building_id, month_key, position
   `).all();
 
+  const tenantMonthOverrides = db.prepare(`
+    SELECT
+      source_tenant_id AS sourceTenantId,
+      month_key AS monthKey,
+      override_kind AS overrideKind,
+      value_text AS valueText
+    FROM tenant_month_overrides
+    ORDER BY source_tenant_id, month_key, override_kind
+  `).all();
+
   const payments = db.prepare(`
     SELECT
       id,
@@ -170,6 +180,7 @@ export function readDatabaseSnapshot(databasePath) {
       activeTenancies: activeTenancies.length,
       vacancyStates: vacancyStates.length,
       rowOrder: rowOrder.length,
+      tenantMonthOverrides: tenantMonthOverrides.length,
       tenantProfiles: tenantProfiles.length,
       tenancyHistory: tenancyHistory.length,
       payments: payments.length,
@@ -182,6 +193,7 @@ export function readDatabaseSnapshot(databasePath) {
     tenancyHistory,
     vacancyStates,
     rowOrder,
+    tenantMonthOverrides,
     payments,
     activity
   };
