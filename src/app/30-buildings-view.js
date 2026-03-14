@@ -516,20 +516,12 @@
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
     const totalCurrentMonth = previousPaidTotal
       + tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth), 0)
-      + prepaidTotal
       + insuranceCurrentTotal
       + oldTenantDuePaidTotal;
-    const previousMonth = addMonths(selectedMonth, -1);
-    const previousMonthPrepaidTotal = tenants.reduce((sum, tenant) => {
-      const tenantRecord = state.tenants.find((item) => item.id === tenant.id) || null;
-      if (!tenantRecord || tenantRecord.isVacant || tenantRecord.isArchived) return sum;
-      const previousMonthView = getTenantView(state, tenantRecord, previousMonth);
-      return sum + Number(previousMonthView && previousMonthView.prepaidNext || 0);
-    }, 0);
     const januaryBaselineAdjustment = tenants.reduce((sum, tenant) => (
       sum + getJanuaryBaselineBankAdjustment(tenant, selectedMonth)
     ), 0);
-    const totalInBank = totalCurrentMonth - previousMonthPrepaidTotal - januaryBaselineAdjustment;
+    const totalInBank = totalCurrentMonth - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
     const countRows = summary
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Empty units</strong></td><td colspan="${summaryValueColspan}"><strong>${Math.max(Number(summary.totalUnits || 0) - Number(summary.occupied || 0), 0)}</strong></td></tr>

@@ -471,10 +471,7 @@
       .reduce((totals, payment) => {
         const amount = Number(payment.amount || 0);
         if (!(amount > 0)) return totals;
-        const paymentMonth = getMonthKeyFromDate(payment.date || '');
-        const isPriorAdvance = payment.method === 'Advance'
-          && !!paymentMonth
-          && compareMonthKeys(paymentMonth, monthKey) < 0;
+        const isPriorAdvance = payment.method === 'Advance';
         if (isPriorAdvance) {
           totals.priorAdvancePaid += amount;
         } else if (isPreContractMonth && payment.method !== 'Advance') {
