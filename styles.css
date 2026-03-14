@@ -819,9 +819,10 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .flash-message {
   position: fixed;
   top: 18px;
-  right: 18px;
+  left: 50%;
   z-index: 3000;
   max-width: min(420px, calc(100vw - 36px));
+  width: max-content;
   background: #1f3a2c;
   color: #fff;
   border: 1px solid #173022;
@@ -833,12 +834,12 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
   white-space: normal;
   overflow-wrap: anywhere;
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translate(-50%, -8px);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .flash-message.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 @media (max-width: 720px) {
   .flash-message {
