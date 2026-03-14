@@ -29,6 +29,7 @@
       buildings: BUILDINGS.slice(),
       tenants: [],
       payments: [],
+      prepaidNextOverrides: {},
       actualRentOverrides: {},
       vacantAmountOverrides: {},
       paidOverrides: {},
@@ -512,6 +513,7 @@
         }
       }
       ensureTenantIdentityOverridesState(parsed);
+      ensurePrepaidNextOverridesState(parsed);
       ensureActualRentOverridesState(parsed);
       ensureVacantAmountOverridesState(parsed);
       ensurePaidOverridesState(parsed);

@@ -224,6 +224,10 @@
       return;
     }
     state.payments = state.payments.filter((payment) => !existingAdvancePayments.some((advance) => advance.id === payment.id));
+    if (typeof setPrepaidNextOverride === 'function') {
+      setPrepaidNextOverride(state, tenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
+    }
+    tenantRecord.prepaidNextMonth = desiredAmount > 0 ? desiredAmount : 0;
     if (desiredAmount > 0) {
       state.payments.push({
         id: `payment-${Date.now()}-prepaid`,
@@ -248,6 +252,13 @@
     }
     const result = setTenantPrepaidAmount(state, tenantId, prepaidAmount);
     if (!result) return;
+    if (typeof syncBuildingInlineEditToDb === 'function') {
+      syncBuildingInlineEditToDb({
+        sourceTenantId: tenantId,
+        monthKey: getSelectedBuildingMonth(),
+        prepaidAmount
+      });
+    }
     logActivity(state, 'Prepaid saved', `${result.tenantRecord.building} ${result.tenantRecord.unit} prepaid set to ${formatCurrency(prepaidAmount)} for ${formatMonth(result.nextMonth)}.`);
     renderAll(state, result.tenantRecord.building);
   }
@@ -255,6 +266,13 @@
   function deleteTenantPrepaidAmount(state, tenantId) {
     const result = setTenantPrepaidAmount(state, tenantId, 0);
     if (!result) return;
+    if (typeof syncBuildingInlineEditToDb === 'function') {
+      syncBuildingInlineEditToDb({
+        sourceTenantId: tenantId,
+        monthKey: getSelectedBuildingMonth(),
+        prepaidAmount: 0
+      });
+    }
     logActivity(state, 'Prepaid deleted', `${result.tenantRecord.building} ${result.tenantRecord.unit} prepaid removed for ${formatMonth(result.nextMonth)}.`);
     renderAll(state, result.tenantRecord.building);
   }
