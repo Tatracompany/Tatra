@@ -66,6 +66,9 @@
     try {
       const selectedMonth = getSelectedTenantMonth();
       const shouldSyncSharedUnitIdentity = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
+      const futureIdentityFreezeMonth = selectedMonth === getDefaultActiveMonthKey()
+        ? getPreviewMonthKey()
+        : '';
       const tenant = state.tenants.find((item) => item.id === tenantId);
       const profileRow = typeof findTenantProfileRow === 'function' ? findTenantProfileRow(tenantId) : null;
       const rowUnitId = String(profileRow && profileRow.getAttribute('data-tenant-profile-unit-id') || '').trim();
@@ -88,6 +91,32 @@
       const civilInput = findDetailInput('data-tenant-civil', tenantId);
       const nationalitySelect = findDetailInput('data-tenant-nationality', tenantId);
 
+      function freezeFutureTenantIdentity(targetRowLike) {
+        if (!futureIdentityFreezeMonth || typeof getCarriedMonthSnapshotRows !== 'function') return;
+        const futureRows = getCarriedMonthSnapshotRows(state, futureIdentityFreezeMonth) || [];
+        if (!futureRows.length) return;
+        const sourceTenantId = String(targetRowLike && (targetRowLike.sourceTenantId || targetRowLike.id) || '').trim();
+        const unitId = String(targetRowLike && targetRowLike.unitId || rowUnitId || '').trim();
+        const futureRow = futureRows.find((row) => {
+          if (!row) return false;
+          if (sourceTenantId && String(row.sourceTenantId || row.id || '').trim() === sourceTenantId) return true;
+          if (unitId && String(row.unitId || '').trim() === unitId) return true;
+          return false;
+        });
+        if (!futureRow) return;
+        if (sourceTenantId) {
+          setTenantIdentityOverride(state, sourceTenantId, 'name', futureIdentityFreezeMonth, futureRow.name);
+          setTenantIdentityOverride(state, sourceTenantId, 'unit', futureIdentityFreezeMonth, futureRow.unit);
+          setTenantIdentityOverride(state, sourceTenantId, 'floor', futureIdentityFreezeMonth, futureRow.floor);
+          setTenantIdentityOverride(state, sourceTenantId, 'moveInDate', futureIdentityFreezeMonth, futureRow.moveInDate);
+          setTenantIdentityOverride(state, sourceTenantId, 'contractStart', futureIdentityFreezeMonth, futureRow.contractStart);
+          setTenantIdentityOverride(state, sourceTenantId, 'contractEnd', futureIdentityFreezeMonth, futureRow.contractEnd);
+          setTenantIdentityOverride(state, sourceTenantId, 'phone', futureIdentityFreezeMonth, futureRow.phone);
+          setTenantIdentityOverride(state, sourceTenantId, 'civilId', futureIdentityFreezeMonth, futureRow.civilId);
+          setTenantIdentityOverride(state, sourceTenantId, 'nationality', futureIdentityFreezeMonth, futureRow.nationality);
+        }
+      }
+
       if (targetTenant.isVacant) {
         const previousOrderKey = tenant && typeof getTenantOrderKey === 'function'
           ? getTenantOrderKey(tenant)
@@ -96,6 +125,7 @@
         const nextFloor = String(floorSelect ? floorSelect.value : targetTenant.floor || '').trim();
 
       if (tenant) {
+        freezeFutureTenantIdentity(tenant);
         const previousUnit = String(tenant.unit || '').trim();
         const previousFloor = String(tenant.floor || '').trim();
 
@@ -114,6 +144,7 @@
           replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
         }
       } else if (vacantView && vacantView.sourceTenantId) {
+        freezeFutureTenantIdentity(vacantView);
         const sourceTenant = state.tenants.find((item) => item.id === vacantView.sourceTenantId) || null;
         const sourceProfile = sourceTenant && typeof getEffectiveTenantProfile === 'function'
           ? (getEffectiveTenantProfile(state, sourceTenant, selectedMonth) || sourceTenant)
@@ -211,6 +242,7 @@
       const nextPhone = normalizePhone(phoneInput ? phoneInput.value : (currentProfile.phone || ''));
       const nextCivilId = String(civilInput ? civilInput.value : (currentProfile.civilId || '')).trim();
       const nextNationality = String(nationalitySelect ? nationalitySelect.value : (currentProfile.nationality || 'Not set')).trim() || 'Not set';
+      freezeFutureTenantIdentity(tenant);
       const previousOrderKey = typeof getTenantOrderKey === 'function'
         ? getTenantOrderKey({
           building: tenant.building,
