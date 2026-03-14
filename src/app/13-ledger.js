@@ -82,6 +82,21 @@
     return null;
   }
 
+  function isProtectedBaselinePrepaidTenant(tenant, selectedMonth) {
+    const monthKey = String(selectedMonth || '').trim();
+    const buildingName = String(tenant && tenant.building || '').trim().toLowerCase();
+    const unit = String(tenant && tenant.unit || '').trim();
+    const name = String(tenant && tenant.name || '').trim();
+    const sourceTenantId = String(tenant && (tenant.sourceTenantId || tenant.id) || '').trim();
+    return monthKey === '2026-01'
+      && buildingName === 'fahaheel'
+      && (
+        unit === '\u0633\u0637\u062D'
+        || name === '\u0634\u0628\u0643\u0629'
+        || sourceTenantId === 'fahaheel-\u0633\u0637\u062D'
+      );
+  }
+
   function normalizeAmount(value) {
     const amount = Number(value || 0);
     return Math.abs(amount) < 0.0005 ? 0 : amount;

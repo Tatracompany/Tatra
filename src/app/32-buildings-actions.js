@@ -144,6 +144,9 @@
 
   function hasUndoablePaidActionForMonth(state, tenant, monthKey) {
     if (!tenant || tenant.isVacant) return false;
+    if (typeof isProtectedBaselinePrepaidTenant === 'function' && isProtectedBaselinePrepaidTenant(tenant, monthKey)) {
+      return false;
+    }
     if (tenant.rentDue <= 0 || tenant.previousDue > 0 || tenant.remainingCurrent > 0) return false;
     if (compareMonthKeys(monthKey, getCurrentMonthKey()) < 0) {
       const paidOverride = getPaidOverride(state, tenant.id, monthKey);
@@ -165,6 +168,10 @@
       return;
     }
     const tenant = getTenantView(state, tenantRecord, currentMonth);
+    if (tenant && typeof isProtectedBaselinePrepaidTenant === 'function' && isProtectedBaselinePrepaidTenant(tenant, currentMonth)) {
+      showFlashMessage('This January baseline row is covered by December prepaid and cannot be marked unpaid.');
+      return;
+    }
     if (!tenant || !hasUndoablePaidActionForMonth(state, tenant, currentMonth)) {
       alert('This month is not using a reversible mark-as-paid action.');
       return;
