@@ -183,15 +183,21 @@
     ensureCarriedMonthSnapshotsState(state);
     if (Array.isArray(state.carriedMonthSnapshots[normalizedToMonth]) && state.carriedMonthSnapshots[normalizedToMonth].length) {
       const existingRows = state.carriedMonthSnapshots[normalizedToMonth];
-      const isCurrentVersion = existingRows.every((row) => Number(row && row.carrySnapshotVersion || 0) >= carrySnapshotVersion);
       const hasStalePaidCarry = existingRows.some((row) => (
         row
         && !row.isVacant
         && (Number(row.paidCurrent || 0) > 0 || String(row.status || '').trim() === 'paid')
       ));
+      let upgradedRows = false;
+      existingRows.forEach((row) => {
+        if (!row) return;
+        if (Number(row.carrySnapshotVersion || 0) >= carrySnapshotVersion) return;
+        row.carrySnapshotVersion = carrySnapshotVersion;
+        upgradedRows = true;
+      });
       const seededExistingIdentityChanged = seedCarryForwardIdentityOverrides(state, existingRows, normalizedToMonth);
-      if (isCurrentVersion && !hasStalePaidCarry) {
-        return seededExistingIdentityChanged;
+      if (!hasStalePaidCarry) {
+        return upgradedRows || seededExistingIdentityChanged;
       }
     }
     if (typeof getAllVisibleUnitRows !== 'function') return false;
