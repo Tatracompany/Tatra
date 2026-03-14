@@ -529,6 +529,45 @@ function saveTenantMonthIdentityBulkToDatabase(payload) {
   return exportSnapshotToBrowserFile();
 }
 
+function resetMonthDataInDatabase(payload) {
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  if (!monthKey) {
+    throw new Error('monthKey is required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    database.exec('BEGIN');
+    database.prepare(`
+      DELETE FROM tenant_month_overrides
+      WHERE month_key = ?
+    `).run(monthKey);
+    database.prepare(`
+      DELETE FROM unit_row_order
+      WHERE month_key = ?
+    `).run(monthKey);
+    database.prepare(`
+      DELETE FROM payments
+      WHERE rent_month = ?
+    `).run(monthKey);
+    database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_month_reset_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+    database.exec('COMMIT');
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    database.close();
+  }
+  return exportSnapshotToBrowserFile();
+}
+
 function saveBuildingInlineEditToDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
@@ -1076,6 +1115,24 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = saveTenantMonthIdentityBulkToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/reset-month-data') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = resetMonthDataInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

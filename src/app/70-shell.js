@@ -34,6 +34,24 @@
     }
   }
 
+  async function runOneTimeMonthResetsBeforeLoad() {
+    const resetMonthKey = '2026-02';
+    const resetMarkerKey = 'tatra-db-reset-month-2026-02-v1';
+    if (typeof safeStorageGet !== 'function' || typeof safeStorageSet !== 'function') return;
+    if (String(safeStorageGet(resetMarkerKey) || '').trim() === 'done') return;
+    try {
+      if (typeof syncResetMonthDataToDb === 'function') {
+        await syncResetMonthDataToDb(resetMonthKey);
+      }
+    } catch (_error) {
+      return;
+    }
+    safeStorageSet(resetMarkerKey, 'done');
+    if (typeof refreshDbSnapshotFromServer === 'function') {
+      await refreshDbSnapshotFromServer();
+    }
+  }
+
   function bindBuildingCards(state) {
     document.querySelectorAll('[data-building-card]').forEach((card) => {
       card.addEventListener('click', () => {
@@ -408,6 +426,7 @@
       if (!requireAuthForPage()) return;
       if (!requireAdminForPage()) return;
       bindLogoutButton();
+      await runOneTimeMonthResetsBeforeLoad();
       if (typeof refreshDbSnapshotFromServer === 'function') {
         await refreshDbSnapshotFromServer();
       }

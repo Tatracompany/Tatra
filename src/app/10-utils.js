@@ -864,6 +864,14 @@
     });
   }
 
+  function syncResetMonthDataToDb(monthKey) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedMonthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/reset-month-data', {
+      monthKey: normalizedMonthKey
+    });
+  }
+
   function syncUnitIdentityToDb(payload) {
       const unitId = String(payload && payload.unitId || '').trim();
       const unit = String(payload && payload.unit || '').trim();
