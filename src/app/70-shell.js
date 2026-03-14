@@ -448,13 +448,9 @@
         if (savedView.area) window.__selectedAreaName = savedView.area;
         if (savedView.building) window.__selectedBuildingName = savedView.building;
         if (savedView.month) window.__selectedBuildingMonth = savedView.month;
-        if (savedView.monthMode) window.__selectedBuildingMonthMode = savedView.monthMode;
       }
       if (savedTenantView && savedTenantView.building) {
         window.__selectedTenantBuildingFilter = savedTenantView.building;
-      }
-      if (savedTenantView && savedTenantView.monthMode) {
-        window.__selectedTenantMonthMode = savedTenantView.monthMode;
       }
       if (queryMonth) window.__selectedBuildingMonth = queryMonth;
       const initialBuilding = queryBuilding || window.__selectedBuildingName || getDefaultBuildingName(state);
