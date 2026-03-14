@@ -112,10 +112,41 @@ function readJsonBody(request) {
   });
 }
 
+function readRawBody(request) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    request.on('data', (chunk) => chunks.push(chunk));
+    request.on('end', () => resolve(Buffer.concat(chunks)));
+    request.on('error', reject);
+  });
+}
+
 function exportSnapshotToBrowserFile() {
   const snapshot = readDatabaseSnapshot(databasePath);
   fs.writeFileSync(browserSnapshotPath, buildBrowserSnapshotScript(snapshot), 'utf8');
   return snapshot;
+}
+
+function restoreDatabaseFromUpload(databaseBuffer) {
+  if (!Buffer.isBuffer(databaseBuffer) || !databaseBuffer.length) {
+    throw new Error('Uploaded database content is empty.');
+  }
+
+  const tempRestorePath = `${databasePath}.restore-${Date.now()}.tmp`;
+  fs.writeFileSync(tempRestorePath, databaseBuffer);
+
+  try {
+    prepareDatabase(tempRestorePath, schemaPath);
+    const restoredDatabase = openDatabase(tempRestorePath);
+    restoredDatabase.close();
+    fs.copyFileSync(tempRestorePath, databasePath);
+  } finally {
+    if (fs.existsSync(tempRestorePath)) {
+      fs.unlinkSync(tempRestorePath);
+    }
+  }
+
+  return exportSnapshotToBrowserFile();
 }
 
 function syncStateExtrasToDatabase(payload) {
@@ -821,6 +852,30 @@ async function handleApiRequest(request, response, requestUrl) {
       return true;
     }
     sendFile(response, databasePath, `tatra-online-${new Date().toISOString().slice(0, 10)}.sqlite`);
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/backup-restore') {
+    if (!isAuthorizedBackupRequest(request)) {
+      sendJson(response, 403, {
+        ok: false,
+        error: 'Backup token is missing or invalid.'
+      });
+      return true;
+    }
+    try {
+      const body = await readRawBody(request);
+      const snapshot = restoreDatabaseFromUpload(body);
+      sendJson(response, 200, {
+        ok: true,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
     return true;
   }
 

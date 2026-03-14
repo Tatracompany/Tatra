@@ -34,3 +34,8 @@ Online DB backup to this computer:
 2. On this computer, set a matching user environment variable named `TATRA_BACKUP_TOKEN`.
 3. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-online-db.ps1`.
 4. Backups are saved to `C:\Users\Y PC\Desktop\online-db-backup-tatra`.
+
+Online DB restore from this computer:
+1. Choose a backup file from `C:\Users\Y PC\Desktop\online-db-backup-tatra`.
+2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restore-online-db.ps1 -BackupFile "FULL_PATH_TO_SQLITE_FILE"`.
+3. The online SQLite database will be replaced by that backup.
