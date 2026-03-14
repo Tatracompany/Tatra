@@ -159,7 +159,7 @@
     const selectedBuilding = ((document.getElementById('tenantBuildingFilter') || {}).value || 'all');
     if (column.key === 'drag') {
       if (selectedBuilding === 'all' || isLockedBaseline) return '<td class="center">-</td>';
-      return `<td class="center"><span class="drag-handle" draggable="true" data-tenant-row-drag-handle="${escapeHtml(getTenantRowOrderKey(tenant))}" title="Drag to reorder">≡</span></td>`;
+      return `<td class="center"><span class="drag-handle" draggable="true" data-tenant-row-drag-handle="${escapeHtml(getTenantRowOrderKey(tenant))}" title="Drag to reorder">&#8801;</span></td>`;
     }
     if (column.key === 'building') {
       const unitIdNote = tenant.unitId
