@@ -11,7 +11,10 @@
   }
 
   function getPaymentsForTenant(state, tenantId) {
-    return state.payments.filter((payment) => payment.tenantId === tenantId);
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    return (state.payments || []).filter((payment) => (
+      candidateTenantIds.has(String(payment && payment.tenantId || '').trim())
+    ));
   }
 
   function getPaidForMonth(state, tenantId, monthKey) {
