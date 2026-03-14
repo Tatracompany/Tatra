@@ -570,10 +570,10 @@
       const normalizedInsuranceChanged = normalizeTenantInsuranceState(parsed);
       const clearedFreeTextNotesChanged = clearFreeTextTenantNotes(parsed);
       const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
-      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v6']
+      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v7']
         ? resetCarriedMonthState(parsed, '2026-02')
         : false;
-      parsed.appliedFixes['reset-february-carry-v6'] = true;
+      parsed.appliedFixes['reset-february-carry-v7'] = true;
       if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;
@@ -708,7 +708,12 @@
     if (clearWholeMonthNestedBucket(state.oldTenantDuePaidNotes, normalizedMonth)) changed = true;
     if (clearWholeMonthNestedBucket(state.tenantOrderOverrides, normalizedMonth)) changed = true;
     const paymentsBefore = Array.isArray(state.payments) ? state.payments.length : 0;
-    state.payments = (state.payments || []).filter((payment) => String(payment && payment.rentMonth || '').trim() !== normalizedMonth);
+    state.payments = (state.payments || []).filter((payment) => {
+      const rentMonth = String(payment && payment.rentMonth || '').trim();
+      const method = String(payment && payment.method || '').trim();
+      if (rentMonth !== normalizedMonth) return true;
+      return method === 'Advance';
+    });
     if (state.payments.length !== paymentsBefore) changed = true;
     return changed;
   }
