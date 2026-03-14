@@ -497,7 +497,7 @@
       && matchesProtectedRow;
   }
 
-  function getBuildingCurrentMonthFooterAmount(tenant, selectedMonth) {
+  function getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth) {
     if (shouldExcludeTenantFromCurrentMonthFooter(tenant, selectedMonth)) return 0;
     return Number(tenant && tenant.paidCurrent || 0);
   }
@@ -506,7 +506,7 @@
     const actualRentTotal = tenants.reduce((sum, tenant) => sum + getBuildingActualAmount(tenant), 0);
     const discountTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.discount || 0), 0);
     const vacantTotal = tenants.reduce((sum, tenant) => sum + getBuildingVacantAmount(tenant), 0);
-    const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthFooterAmount(tenant, selectedMonth), 0);
+    const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant && tenant.paidCurrent || 0), 0);
     const previousPaidTotal = tenants.reduce((sum, tenant) => sum + Number(getTenantDuePaidAmount(state, tenant.id, selectedMonth) || 0), 0);
     const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
     const prepaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidNext || 0), 0);
@@ -514,7 +514,11 @@
     const insurancePreviousTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insurancePreviousAmount || 0), 0);
     const insuranceCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insuranceCurrentAmount || 0), 0);
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
-    const totalCurrentMonth = previousPaidTotal + paidCurrentTotal + prepaidTotal + insuranceCurrentTotal + oldTenantDuePaidTotal;
+    const totalCurrentMonth = previousPaidTotal
+      + tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth), 0)
+      + prepaidTotal
+      + insuranceCurrentTotal
+      + oldTenantDuePaidTotal;
     const previousMonth = addMonths(selectedMonth, -1);
     const previousMonthPrepaidTotal = tenants.reduce((sum, tenant) => {
       const tenantRecord = state.tenants.find((item) => item.id === tenant.id) || null;
