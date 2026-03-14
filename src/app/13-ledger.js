@@ -163,21 +163,6 @@
       if (linkedId) candidateIds.add(linkedId);
       if (sourceId) candidateIds.add(sourceId);
     });
-    const tenantRecord = matchedRecords[0] || null;
-    if (!tenantRecord) return candidateIds;
-    const buildingName = String(tenantRecord.building || '').trim();
-    const unit = String(tenantRecord.unit || '').trim();
-    const floor = normalizeFloorLabel(tenantRecord.floor);
-    (state.tenants || []).forEach((item) => {
-      if (!item) return;
-      if (String(item.building || '').trim() !== buildingName) return;
-      if (String(item.unit || '').trim() !== unit) return;
-      if (normalizeFloorLabel(item.floor) !== floor) return;
-      const linkedId = String(item.id || '').trim();
-      const sourceId = String(item.sourceTenantId || '').trim();
-      if (linkedId) candidateIds.add(linkedId);
-      if (sourceId) candidateIds.add(sourceId);
-    });
     return candidateIds;
   }
 
