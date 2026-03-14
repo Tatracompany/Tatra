@@ -1066,40 +1066,20 @@
 
   function getAllVisibleUnitRows(state, monthKey) {
     const selectedMonth = monthKey || getCurrentMonthKey();
-    const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
-      ? getCarriedMonthSnapshotRows(state, selectedMonth)
-      : null;
-    if (carriedRows && carriedRows.length) {
-      return carriedRows.map((row) => materializeCarriedMonthRow(state, row, selectedMonth));
-    }
-    return (state.buildings || []).flatMap((buildingMeta) => (
-      getBuildingUnitRows(state, buildingMeta.name, selectedMonth)
-    ));
+    const activeRows = (state.tenants || [])
+      .map((tenant) => getTenantView(state, tenant, selectedMonth))
+      .filter(Boolean);
+    const archivedRows = (state.tenants || [])
+      .filter((tenant) => tenant && tenant.isArchived)
+      .map((tenant) => getArchivedTenantDisplayView(state, tenant, selectedMonth))
+      .filter(Boolean);
+    return dedupeBuildingDisplayTenants(activeRows.concat(archivedRows));
   }
 
   function getTenantView(state, tenant, monthKey) {
     if (!tenant) return null;
     if (tenant.isArchived) return null;
     const selectedMonth = monthKey || getCurrentMonthKey();
-    const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
-      ? getCarriedMonthSnapshotRows(state, selectedMonth)
-      : null;
-    if (carriedRows && carriedRows.length) {
-      const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
-      const unitId = String(tenant.unitId || '').trim();
-      const matchedCarriedRow = carriedRows.find((row) => {
-        if (!row) return false;
-        if (sourceTenantId && String(row.sourceTenantId || row.id || '').trim() === sourceTenantId) return true;
-        if (unitId && String(row.unitId || '').trim() === unitId && !!row.isVacant === !!tenant.isVacant) return true;
-        return (
-          String(row.building || '').trim() === String(tenant.building || '').trim()
-          && String(row.unit || '').trim() === String(tenant.unit || '').trim()
-          && normalizeFloorLabel(row.floor) === normalizeFloorLabel(tenant.floor)
-          && !!row.isVacant === !!tenant.isVacant
-        );
-      });
-      if (matchedCarriedRow) return materializeCarriedMonthRow(state, matchedCarriedRow, selectedMonth);
-    }
     const profile = getEffectiveTenantProfile(state, tenant, selectedMonth);
     const effectiveUnit = profile ? profile.unit : tenant.unit;
     const effectiveFloor = profile ? profile.floor : tenant.floor;
@@ -1177,14 +1157,6 @@
     const selectedMonth = monthKey || getCurrentMonthKey();
     if (renderCache.tenantViews.has(selectedMonth)) {
       return renderCache.tenantViews.get(selectedMonth);
-    }
-    const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
-      ? getCarriedMonthSnapshotRows(state, selectedMonth)
-      : null;
-    if (carriedRows && carriedRows.length) {
-      const views = carriedRows.map((row) => materializeCarriedMonthRow(state, row, selectedMonth));
-      renderCache.tenantViews.set(selectedMonth, views);
-      return views;
     }
     const views = state.tenants.map((tenant) => getTenantView(state, tenant, selectedMonth)).filter(Boolean);
     renderCache.tenantViews.set(selectedMonth, views);
