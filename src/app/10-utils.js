@@ -142,8 +142,39 @@
     return rows.filter((row) => String(row && row.building || '').trim() === normalizedBuilding);
   }
 
+  function seedCarryForwardIdentityOverrides(state, rows, monthKey) {
+    if (!state || !Array.isArray(rows) || typeof setTenantIdentityOverride !== 'function') return false;
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    let changed = false;
+    rows.forEach((row) => {
+      if (!row || row.isVacant) return;
+      const tenantId = String(row.sourceTenantId || row.id || '').trim();
+      if (!tenantId) return;
+      [
+        ['name', row.name],
+        ['unit', row.unit],
+        ['floor', row.floor],
+        ['moveInDate', row.moveInDate],
+        ['contractStart', row.contractStart],
+        ['contractEnd', row.contractEnd],
+        ['phone', row.phone],
+        ['civilId', row.civilId],
+        ['nationality', row.nationality]
+      ].forEach(([field, value]) => {
+        const existingValue = typeof getTenantIdentityOverride === 'function'
+          ? getTenantIdentityOverride(state, tenantId, field, normalizedMonth)
+          : null;
+        if (existingValue != null) return;
+        setTenantIdentityOverride(state, tenantId, field, normalizedMonth, value);
+        changed = true;
+      });
+    });
+    return changed;
+  }
+
   function ensureCarryForwardMonth(state, fromMonth, toMonth) {
-    const carrySnapshotVersion = 4;
+    const carrySnapshotVersion = 5;
     if (!state) return false;
     const normalizedFromMonth = String(fromMonth || '').trim();
     const normalizedToMonth = String(toMonth || '').trim();
@@ -158,8 +189,9 @@
         && !row.isVacant
         && (Number(row.paidCurrent || 0) > 0 || String(row.status || '').trim() === 'paid')
       ));
+      const seededExistingIdentityChanged = seedCarryForwardIdentityOverrides(state, existingRows, normalizedToMonth);
       if (isCurrentVersion && !hasStalePaidCarry) {
-        return false;
+        return seededExistingIdentityChanged;
       }
     }
     if (typeof getAllVisibleUnitRows !== 'function') return false;
@@ -218,6 +250,7 @@
         return carriedRow;
       });
     state.carriedMonthSnapshots[normalizedToMonth] = sourceRows;
+    seedCarryForwardIdentityOverrides(state, sourceRows, normalizedToMonth);
     return true;
   }
 
