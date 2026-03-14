@@ -391,7 +391,23 @@
           ? getBuildingUnitRows(state, buildingMeta.name, selectedMonth)
           : getTenantViews(state, selectedMonth).filter((tenant) => tenant.building === buildingMeta.name)
       ));
-    const tenants = dedupeTenantDisplayRows(sourceTenants).filter((tenant) => {
+    const monthAwareTenants = sourceTenants.map((tenant) => {
+      if (!tenant || tenant.isVacant || typeof getEffectiveTenantProfile !== 'function') return tenant;
+      const profile = getEffectiveTenantProfile(state, tenant, selectedMonth) || null;
+      if (!profile) return tenant;
+      return Object.assign({}, tenant, {
+        name: profile.name,
+        unit: profile.unit,
+        floor: profile.floor,
+        moveInDate: profile.moveInDate,
+        contractStart: profile.contractStart,
+        contractEnd: profile.contractEnd,
+        phone: profile.phone,
+        civilId: profile.civilId,
+        nationality: profile.nationality
+      });
+    });
+    const tenants = dedupeTenantDisplayRows(monthAwareTenants).filter((tenant) => {
       const text = `${tenant.name} ${tenant.unit} ${tenant.phone || ''} ${tenant.civilId || ''}`.toLowerCase();
       const matchesSearch = !search || text.includes(search);
       const matchesStatus = status === 'all' || tenant.status === status;
