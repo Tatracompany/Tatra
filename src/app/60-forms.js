@@ -65,6 +65,7 @@
   async function saveTenantProfile(state, tenantId) {
     try {
       const selectedMonth = getSelectedTenantMonth();
+      const shouldSyncSharedUnitIdentity = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
       const tenant = state.tenants.find((item) => item.id === tenantId);
       const profileRow = typeof findTenantProfileRow === 'function' ? findTenantProfileRow(tenantId) : null;
       const rowUnitId = String(profileRow && profileRow.getAttribute('data-tenant-profile-unit-id') || '').trim();
@@ -143,7 +144,7 @@
           : '';
         setTenantIdentityOverride(state, vacantView.sourceTenantId, 'unit', selectedMonth, nextUnit);
         setTenantIdentityOverride(state, vacantView.sourceTenantId, 'floor', selectedMonth, nextFloor);
-        if (linkedVacantRecord) {
+        if (linkedVacantRecord && shouldSyncSharedUnitIdentity) {
           linkedVacantRecord.unit = nextUnit;
           linkedVacantRecord.floor = nextFloor;
         }
@@ -160,7 +161,7 @@
         if (previousVacantOrderKey && nextOrderKey && previousVacantOrderKey !== nextOrderKey) {
           replaceBuildingTenantOrderOverrideKey(state, vacantView.building, previousVacantOrderKey, nextOrderKey);
         }
-      } else if (rowUnitId) {
+      } else if (rowUnitId && shouldSyncSharedUnitIdentity) {
         await syncUnitIdentityToDb({
           unitId: rowUnitId,
           unit: nextUnit,
@@ -175,11 +176,17 @@
         showFlashMessage(`Saved ${targetTenant.building} ${nextUnit}. Refreshing...`);
         setTimeout(() => window.location.reload(), 200);
         return;
+      } else if (rowUnitId) {
+        saveState(state);
+        logActivity(state, 'Vacant unit updated', `${targetTenant.building} ${nextUnit} vacant row updated for ${formatMonth(selectedMonth)}.`);
+        renderAll(state, targetTenant.building);
+        showFlashMessage(`Saved ${targetTenant.building} ${nextUnit} for ${formatMonth(selectedMonth)}.`);
+        return;
       } else {
         return;
       }
 
-        if (rowUnitId && typeof syncUnitIdentityToDb === 'function') {
+        if (shouldSyncSharedUnitIdentity && rowUnitId && typeof syncUnitIdentityToDb === 'function') {
           await syncUnitIdentityToDb({
             unitId: rowUnitId,
             unit: nextUnit,
@@ -231,7 +238,7 @@
         replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
       }
       saveState(state);
-      if (rowUnitId && typeof syncUnitIdentityToDb === 'function') {
+      if (shouldSyncSharedUnitIdentity && rowUnitId && typeof syncUnitIdentityToDb === 'function') {
         await syncUnitIdentityToDb({
           unitId: rowUnitId,
           unit: nextUnit,
