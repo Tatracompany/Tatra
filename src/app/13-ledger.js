@@ -166,9 +166,18 @@
     if (!tenant) return '';
     if (tenant.isVacant) return String(tenant[field] || '').trim();
     const selectedMonth = monthKey || getCurrentMonthKey();
+    const exactOverride = getTenantIdentityOverride(state, tenant.id, field, selectedMonth);
+    if (exactOverride != null) return exactOverride;
+    if (compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0) {
+      // Future months behave like separate Excel tabs: once the month exists,
+      // it should use its own saved values and stop inheriting January edits.
+      return String(tenant[field] || '').trim();
+    }
     let pointerMonth = selectedMonth;
     while (true) {
-      const override = getTenantIdentityOverride(state, tenant.id, field, pointerMonth);
+      const override = pointerMonth === selectedMonth
+        ? exactOverride
+        : getTenantIdentityOverride(state, tenant.id, field, pointerMonth);
       if (override != null) return override;
       if (compareMonthKeys(pointerMonth, getDefaultActiveMonthKey()) <= 0) break;
       const previousMonth = addMonths(pointerMonth, -1);
