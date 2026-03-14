@@ -6,6 +6,7 @@ import { ensureDatabaseFileExists, findMatchingTenantProfile, getDefaultDatabase
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
+const host = String(process.env.HOST || '0.0.0.0').trim() || '0.0.0.0';
 const databasePath = getDefaultDatabasePath(root);
 const browserSnapshotPath = path.join(root, 'src', 'data', 'db-state.generated.js');
 const schemaPath = path.join(root, 'db', 'schema.sql');
@@ -1001,6 +1002,6 @@ const server = http.createServer(async (request, response) => {
   });
 });
 
-server.listen(port, () => {
-  console.log(`Tatra dashboard available at http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`Tatra dashboard available at http://${host}:${port}`);
 });
