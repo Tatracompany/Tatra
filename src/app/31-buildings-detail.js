@@ -429,15 +429,34 @@
   }
 
   async function saveTenantInlineEdit(state, tenantId) {
-    const tenant = state.tenants.find((item) => item.id === tenantId);
-    if (!tenant) return;
     const rowUiState = captureBuildingRowUiState(tenantId);
+    const row = findTenantRow(tenantId);
     const selectedMonth = getSelectedBuildingMonth();
-    if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
+    let tenant = state.tenants.find((item) => item.id === tenantId) || null;
+    let visibleTenant = tenant ? getTenantView(state, tenant, selectedMonth) : null;
+    if (!visibleTenant) {
+      visibleTenant = findVisibleTenantByRowContext(state, row, selectedMonth);
+    }
+    const canonicalSourceTenantId = String(
+      visibleTenant && (visibleTenant.sourceTenantId || visibleTenant.id)
+      || tenant && tenant.id
+      || tenantId
+      || ''
+    ).trim();
+    if (!tenant && canonicalSourceTenantId) {
+      tenant = state.tenants.find((item) => String(item && item.id || '').trim() === canonicalSourceTenantId) || null;
+    }
+    if (!tenant && !visibleTenant) return;
+    if (!visibleTenant) {
+      visibleTenant = getTenantView(state, tenant, selectedMonth);
+    }
+    const tenantForDisplay = visibleTenant || tenant;
+    if (!tenantForDisplay) return;
+    if (!canEditBuildingMonth(tenantForDisplay.building, selectedMonth)) {
       return;
     }
     if (typeof preserveVisibleBuildingOrderForBuilding === 'function') {
-      preserveVisibleBuildingOrderForBuilding(state, tenant.building, selectedMonth);
+      preserveVisibleBuildingOrderForBuilding(state, tenantForDisplay.building, selectedMonth);
     }
     const previousDueInput = findDetailInput('data-edit-previous-due', tenantId);
     const paidPreviousInput = findDetailInput('data-edit-paid-previous', tenantId);
@@ -452,75 +471,80 @@
     const prepaidInput = findDetailInput('data-edit-prepaid', tenantId);
     const notesInput = findDetailInput('data-edit-notes', tenantId);
     const vacateInput = findDetailInput('data-vacate-date', tenantId);
-    const allowDecimalAmounts = usesDecimalAmountInputs(tenant);
+    const allowDecimalAmounts = usesDecimalAmountInputs(tenantForDisplay);
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
-      && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
-    const requestedUnpaidTotalAmount = normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenant.totalDue || tenant.previousDue || 0), allowDecimalAmounts);
+      && isProtectedBaselinePrepaidTenant(tenantForDisplay, selectedMonth);
+    const requestedUnpaidTotalAmount = normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenantForDisplay.totalDue || tenantForDisplay.previousDue || 0), allowDecimalAmounts);
     const paidPreviousAmount = normalizeAmountInputValue(getDetailNumericInputValue(paidPreviousInput, 0), allowDecimalAmounts);
-    const requestedCurrentMonthAmount = normalizeAmountInputValue(getDetailNumericInputValue(currentMonthInput, tenant.paidCurrent || 0), allowDecimalAmounts);
-    const contractRent = normalizeAmountInputValue(getDetailNumericInputValue(contractInput, tenant.contractRent || 0), allowDecimalAmounts);
-    const discount = normalizeAmountInputValue(getDetailNumericInputValue(discountInput, tenant.discount || 0), allowDecimalAmounts);
-    const actualRentAmount = normalizeAmountInputValue(getDetailNumericInputValue(actualRentInput, tenant.displayActualRent || tenant.baseActualRent || tenant.actualRent || 0), allowDecimalAmounts);
-    const vacantAmount = normalizeAmountInputValue(getDetailNumericInputValue(vacantAmountInput, tenant.displayVacantAmount || 0), allowDecimalAmounts);
-    const insuranceAmount = Math.max(0, getDetailNumericInputValue(insuranceCurrentInput, tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0));
-    const insurancePaidMonth = getDetailTextInputValue(insurancePaidMonthInput, tenant.insurancePaidMonth || '');
+    const requestedCurrentMonthAmount = normalizeAmountInputValue(getDetailNumericInputValue(currentMonthInput, tenantForDisplay.paidCurrent || 0), allowDecimalAmounts);
+    const contractRent = normalizeAmountInputValue(getDetailNumericInputValue(contractInput, tenantForDisplay.contractRent || 0), allowDecimalAmounts);
+    const discount = normalizeAmountInputValue(getDetailNumericInputValue(discountInput, tenantForDisplay.discount || 0), allowDecimalAmounts);
+    const actualRentAmount = normalizeAmountInputValue(getDetailNumericInputValue(actualRentInput, tenantForDisplay.displayActualRent || tenantForDisplay.baseActualRent || tenantForDisplay.actualRent || 0), allowDecimalAmounts);
+    const vacantAmount = normalizeAmountInputValue(getDetailNumericInputValue(vacantAmountInput, tenantForDisplay.displayVacantAmount || 0), allowDecimalAmounts);
+    const insuranceAmount = Math.max(0, getDetailNumericInputValue(insuranceCurrentInput, tenantForDisplay.insuranceAmount || tenantForDisplay.insuranceCurrentAmount || tenantForDisplay.insurancePreviousAmount || 0));
+    const insurancePaidMonth = getDetailTextInputValue(insurancePaidMonthInput, tenantForDisplay.insurancePaidMonth || '');
     if (insurancePaidMonth && compareMonthKeys(insurancePaidMonth, selectedMonth) > 0) {
       showFlashMessage('Insurance paid month cannot be after the selected month.');
       return;
     }
     const oldTenantDuePaidNote = normalizeAmountInputValue(getDetailNumericInputValue(oldTenantDuePaidNoteInput, 0), allowDecimalAmounts);
     const prepaidAmount = normalizeAmountInputValue(getDetailNumericInputValue(prepaidInput, 0), allowDecimalAmounts);
-    tenant.contractRent = contractRent;
-    tenant.discount = discount;
-    tenant.actualRent = Math.max(contractRent - discount, 0);
-    if (actualRentAmount !== tenant.actualRent) {
-      setActualRentOverride(state, tenantId, selectedMonth, actualRentAmount);
+    if (tenant) {
+      tenant.contractRent = contractRent;
+      tenant.discount = discount;
+      tenant.actualRent = Math.max(contractRent - discount, 0);
+    }
+    const baseActualRent = tenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
+    if (actualRentAmount !== baseActualRent) {
+      setActualRentOverride(state, canonicalSourceTenantId, selectedMonth, actualRentAmount);
     } else {
-      setActualRentOverride(state, tenantId, selectedMonth, null);
+      setActualRentOverride(state, canonicalSourceTenantId, selectedMonth, null);
     }
     if (vacantAmount > 0) {
-      setVacantAmountOverride(state, tenantId, selectedMonth, vacantAmount);
+      setVacantAmountOverride(state, canonicalSourceTenantId, selectedMonth, vacantAmount);
     } else {
-      setVacantAmountOverride(state, tenantId, selectedMonth, null);
+      setVacantAmountOverride(state, canonicalSourceTenantId, selectedMonth, null);
     }
     const effectiveRentDue = Math.max(actualRentAmount, 0);
-    const prepaidFromBeforeAmount = normalizeAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts);
+    const prepaidFromBeforeAmount = normalizeAmountInputValue(tenantForDisplay.prepaidFromBefore || 0, allowDecimalAmounts);
     const currentMonthAmount = requestedCurrentMonthAmount;
     const remainingCurrentAmount = Math.max(effectiveRentDue - prepaidFromBeforeAmount - currentMonthAmount, 0);
     const unpaidTotalAmount = isProtectedBaselinePrepaid
       ? remainingCurrentAmount
       : requestedUnpaidTotalAmount;
     const previousDueAmount = Math.max(unpaidTotalAmount - remainingCurrentAmount, 0);
-    setCarryOverride(state, tenantId, selectedMonth, previousDueAmount + paidPreviousAmount);
-    if (insuranceAmount > 0 && insurancePaidMonth) {
+    setCarryOverride(state, canonicalSourceTenantId, selectedMonth, previousDueAmount + paidPreviousAmount);
+    if (tenant && insuranceAmount > 0 && insurancePaidMonth) {
       tenant.insuranceAmount = insuranceAmount;
       tenant.insurancePaidMonth = insurancePaidMonth;
       tenant.insurancePreviousAmount = insurancePaidMonth < selectedMonth ? insuranceAmount : 0;
       tenant.insuranceCurrentAmount = insurancePaidMonth === selectedMonth ? insuranceAmount : 0;
-    } else {
+    } else if (tenant) {
       tenant.insuranceAmount = 0;
       tenant.insurancePaidMonth = '';
       tenant.insurancePreviousAmount = 0;
       tenant.insuranceCurrentAmount = 0;
     }
-    tenant.plannedVacateDate = getDetailTextInputValue(vacateInput, '');
-    setOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth, oldTenantDuePaidNote);
-    setNotesOverride(state, tenantId, selectedMonth, getDetailTextInputValue(notesInput, tenant.notes || ''));
-    setPaidOverride(state, tenantId, selectedMonth, currentMonthAmount);
-    setTenantDuePaidAmount(state, tenantId, selectedMonth, paidPreviousAmount);
-    const prepaidSaveResult = setTenantPrepaidAmount(state, tenantId, prepaidAmount);
+    const plannedVacateDate = getDetailTextInputValue(vacateInput, '');
+    if (tenant) {
+      tenant.plannedVacateDate = plannedVacateDate;
+    }
+    setOldTenantDuePaidNote(state, tenantForDisplay.building, tenantForDisplay.unit, selectedMonth, oldTenantDuePaidNote);
+    setNotesOverride(state, canonicalSourceTenantId, selectedMonth, getDetailTextInputValue(notesInput, tenantForDisplay.notes || ''));
+    setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
+    setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
+    const prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount);
     if (prepaidSaveResult === undefined && prepaidAmount > 0) {
       return;
     }
     saveState(state);
-    const canonicalSourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
         sourceTenantId: canonicalSourceTenantId,
         monthKey: selectedMonth,
         contractRent,
         discount,
-        baseActualRent: tenant.actualRent,
+        baseActualRent,
         actualRentOverride: actualRentAmount,
         vacantAmount,
         carryOverride: previousDueAmount + paidPreviousAmount,
@@ -529,14 +553,14 @@
         insurancePaidMonth,
         oldTenantDuePaid: oldTenantDuePaidNote,
         prepaidAmount,
-        plannedVacateDate: tenant.plannedVacateDate,
-        notes: getDetailTextInputValue(notesInput, tenant.notes || '')
+        plannedVacateDate,
+        notes: getDetailTextInputValue(notesInput, tenantForDisplay.notes || '')
       });
     }
-    logActivity(state, 'Tenant updated', `${tenant.building} ${tenant.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${tenant.insurancePaidMonth || 'not set'} / planned vacate ${tenant.plannedVacateDate || 'not set'} / notes updated`);
-    renderAll(state, tenant.building);
+    logActivity(state, 'Tenant updated', `${tenantForDisplay.building} ${tenantForDisplay.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${insurancePaidMonth || 'not set'} / planned vacate ${plannedVacateDate || 'not set'} / notes updated`);
+    renderAll(state, tenantForDisplay.building);
     restoreBuildingRowUiState(state, rowUiState);
-    showFlashMessage(`Saved ${tenant.building} ${tenant.unit}.`);
+    showFlashMessage(`Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`);
   }
 
   function savePlannedVacateDate(state, tenantId) {
