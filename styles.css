@@ -840,6 +840,18 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
   opacity: 1;
   transform: translateY(0);
 }
+@media (max-width: 720px) {
+  .flash-message {
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    width: auto;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    padding: 10px 12px;
+  }
+}
 .frozen-table-header-host {
   position: fixed;
   top: 0;
