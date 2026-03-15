@@ -196,6 +196,15 @@
     )) || null;
   }
 
+  function getDbSnapshotVacancyStateForUnit(unitId) {
+    const snapshot = getDbSnapshot();
+    const normalizedUnitId = String(unitId || '').trim();
+    if (!snapshot || !normalizedUnitId || !Array.isArray(snapshot.vacancyStates)) return null;
+    return snapshot.vacancyStates.find((vacancy) => (
+      String(vacancy && vacancy.unitId || '').trim() === normalizedUnitId
+    )) || null;
+  }
+
   function getDbSnapshotRowOrderEntries(buildingName, monthKey) {
     const snapshot = getDbSnapshot();
     const buildingRecord = getDbSnapshotBuildingByName(buildingName);

@@ -978,12 +978,16 @@
   function buildSnapshotVacantRow(state, buildingName, snapshotUnit, selectedMonth) {
     const unitLabel = String(snapshotUnit && snapshotUnit.unit || '').trim();
     const floorLabel = String(snapshotUnit && snapshotUnit.floor || '').trim();
+    const unitId = String(snapshotUnit && snapshotUnit.id || '').trim();
+    const snapshotVacancy = typeof getDbSnapshotVacancyStateForUnit === 'function'
+      ? getDbSnapshotVacancyStateForUnit(unitId)
+      : null;
     const archivedTenant = typeof getLatestArchivedTenantForUnitUpToMonth === 'function'
       ? getLatestArchivedTenantForUnitUpToMonth(state, buildingName, unitLabel, selectedMonth, floorLabel)
       : null;
     return {
-      id: `snapshot-vacant-${String(snapshotUnit && snapshotUnit.id || '').trim() || `${buildingName}-${unitLabel}-${selectedMonth}`}`,
-      unitId: String(snapshotUnit && snapshotUnit.id || '').trim(),
+      id: `snapshot-vacant-${unitId || `${buildingName}-${unitLabel}-${selectedMonth}`}`,
+      unitId,
       sourceTenantId: String(snapshotUnit && snapshotUnit.sourceTenantId || '').trim(),
       building: buildingName,
       unit: unitLabel,
@@ -1002,10 +1006,22 @@
       contractStart: '',
       contractEnd: '',
       contractRent: 0,
-      discount: Number(archivedTenant && archivedTenant.discount || 0),
+      discount: Number(
+        snapshotVacancy && snapshotVacancy.lastDiscount
+        || archivedTenant && archivedTenant.discount
+        || 0
+      ),
       actualRent: 0,
-      lastActualRent: Number(archivedTenant && archivedTenant.actualRent || 0),
-      lastContractRent: Number(archivedTenant && archivedTenant.contractRent || 0),
+      lastActualRent: Number(
+        snapshotVacancy && snapshotVacancy.lastActualRent
+        || archivedTenant && archivedTenant.actualRent
+        || 0
+      ),
+      lastContractRent: Number(
+        snapshotVacancy && snapshotVacancy.lastContractRent
+        || archivedTenant && archivedTenant.contractRent
+        || 0
+      ),
       previousDue: 0,
       paidCurrent: 0,
       prepaidNext: 0,
@@ -1021,10 +1037,17 @@
       contractAlert: false,
       contractExpired: false,
       daysToEnd: null,
-      notes: 'Vacant unit',
-      vacatedOn: typeof getLatestKnownVacateDate === 'function'
-        ? getLatestKnownVacateDate(state, buildingName, unitLabel, floorLabel)
-        : '',
+      notes: String(
+        snapshotVacancy && snapshotVacancy.notes
+        || 'Vacant unit'
+      ).trim() || 'Vacant unit',
+      vacatedOn: String(
+        snapshotVacancy && snapshotVacancy.vacantSince
+        || (typeof getLatestKnownVacateDate === 'function'
+          ? getLatestKnownVacateDate(state, buildingName, unitLabel, floorLabel)
+          : '')
+      ).trim(),
+      oldTenantDuePaid: Number(snapshotVacancy && snapshotVacancy.oldTenantDuePaid || 0),
       seedOrder: Number(snapshotUnit && (snapshotUnit.activeRowPosition ?? snapshotUnit.templatePosition) || 0)
     };
   }

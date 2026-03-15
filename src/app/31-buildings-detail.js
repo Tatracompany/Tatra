@@ -189,7 +189,24 @@
     if (tenant.isVacant) {
       const archivedTenant = getLatestArchivedTenantForUnit(state, tenant.building, tenant.unit, selectedMonth);
       const canUndoVacate = !!archivedTenant;
-      const storedVacantTenant = state.tenants.find((item) => item.id === tenant.id && item.isVacant && !item.isArchived);
+      const tenantUnitId = String(tenant.unitId || '').trim();
+      const storedVacantTenant = state.tenants.find((item) => (
+        item
+        && item.isVacant
+        && !item.isArchived
+        && (
+          item.id === tenant.id
+          || (
+            tenantUnitId
+            && String(item.unitId || '').trim() === tenantUnitId
+          )
+          || (
+            String(item.building || '').trim() === String(tenant.building || '').trim()
+            && String(item.unit || '').trim() === String(tenant.unit || '').trim()
+            && normalizeFloorLabel(item.floor) === normalizeFloorLabel(tenant.floor)
+          )
+        )
+      ));
       const vacantDiscount = normalizeAmount(Math.max(0, Number(tenant.discount || 0)));
       const vacantLastContractRent = normalizeAmount(Math.max(0, Number(tenant.lastContractRent || 0)));
       const vacantLastActualRent = normalizeAmount(Math.max(
