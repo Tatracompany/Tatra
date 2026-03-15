@@ -499,6 +499,20 @@ async function freezeMonthBaselineForAllTenants(database, monthKey) {
   }
 }
 
+async function hasFrozenMonthSnapshot(database, sourceTenantId, monthKey) {
+  const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+  const normalizedMonthKey = String(monthKey || '').trim();
+  if (!normalizedSourceTenantId || !normalizedMonthKey || normalizedMonthKey <= BASELINE_MONTH_KEY) return false;
+  const existing = await database.prepare(`
+    SELECT 1 AS found
+    FROM tenant_month_overrides
+    WHERE source_tenant_id = ?
+      AND month_key = ?
+    LIMIT 1
+  `).get(normalizedSourceTenantId, normalizedMonthKey);
+  return !!existing;
+}
+
 async function saveTenantMonthIdentityToDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
@@ -726,7 +740,11 @@ async function saveBuildingInlineEditToDatabase(payload) {
     }
     if (hasPayloadField('prepaidAmount')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
-      await upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
+      const nextMonthKey = addMonths(monthKey, 1);
+      const nextMonthFrozen = await hasFrozenMonthSnapshot(database, sourceTenantId, nextMonthKey);
+      if (!nextMonthFrozen) {
+        await upsertTenantMonthOverride(database, sourceTenantId, nextMonthKey, 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
+      }
     }
     if (hasPayloadField('oldTenantDuePaid')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
