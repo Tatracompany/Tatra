@@ -200,18 +200,21 @@
     renderAll(state, tenantRecord.building);
   }
 
-  function setTenantPrepaidAmount(state, tenantId, desiredAmount) {
+  function setTenantPrepaidAmount(state, tenantId, desiredAmount, tenantViewOverride) {
     const normalizedTenantId = String(tenantId || '').trim();
-    const tenantRecord = state.tenants.find((item) => (
+    const matchedRecords = state.tenants.filter((item) => (
       String(item && item.id || '').trim() === normalizedTenantId
       || String(item && item.sourceTenantId || '').trim() === normalizedTenantId
     ));
+    const tenantRecord = matchedRecords.find((item) => item && !item.isArchived && !item.isVacant)
+      || matchedRecords.find((item) => item && !item.isArchived)
+      || matchedRecords[0];
     if (!tenantRecord) return;
     const selectedMonth = getSelectedBuildingMonth();
     if (!canEditBuildingMonth(tenantRecord.building, selectedMonth)) {
       return null;
     }
-    const tenant = getTenantView(state, tenantRecord, selectedMonth);
+    const tenant = tenantViewOverride || getTenantView(state, tenantRecord, selectedMonth);
     if (!tenant) return;
     const canonicalSourceTenantId = String(
       tenantRecord.sourceTenantId
@@ -257,14 +260,14 @@
     return { tenantRecord, nextMonth, existingAmount, sourceTenantId: canonicalSourceTenantId };
   }
 
-  function saveTenantPrepaidAmount(state, tenantId) {
+  function saveTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
     const prepaidInput = findDetailInput('data-edit-prepaid', tenantId);
     const prepaidAmount = Number(prepaidInput && prepaidInput.value || 0);
     if (!(prepaidAmount >= 0)) {
       alert('Enter a valid prepaid amount.');
       return;
     }
-    const result = setTenantPrepaidAmount(state, tenantId, prepaidAmount);
+    const result = setTenantPrepaidAmount(state, tenantId, prepaidAmount, tenantViewOverride);
     if (!result) return;
     if (typeof syncBuildingInlineEditToDb === 'function') {
       syncBuildingInlineEditToDb({
@@ -277,8 +280,8 @@
     renderAll(state, result.tenantRecord.building);
   }
 
-  function deleteTenantPrepaidAmount(state, tenantId) {
-    const result = setTenantPrepaidAmount(state, tenantId, 0);
+  function deleteTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
+    const result = setTenantPrepaidAmount(state, tenantId, 0, tenantViewOverride);
     if (!result) return;
     if (typeof syncBuildingInlineEditToDb === 'function') {
       syncBuildingInlineEditToDb({

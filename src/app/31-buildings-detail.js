@@ -330,9 +330,9 @@
         const prepaidInput = findDetailInputByFieldId('data-edit-prepaid', fieldTenantId, selectedMonth, 'prepaid_amount');
         const prepaidAmount = Number(prepaidInput && prepaidInput.value || 0);
         if (prepaidAmount > 0) {
-          saveTenantPrepaidAmount(state, tenantId);
+          saveTenantPrepaidAmount(state, tenantId, tenant);
         } else {
-          deleteTenantPrepaidAmount(state, tenantId);
+          deleteTenantPrepaidAmount(state, tenantId, tenant);
         }
       });
     }
@@ -557,7 +557,7 @@
     setNotesOverride(state, canonicalSourceTenantId, selectedMonth, getDetailTextInputValue(notesInput, tenantForDisplay.notes || ''));
     setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
     setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
-    const prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount);
+    const prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount, tenantForDisplay);
     const prepaidAccepted = prepaidSaveResult !== undefined && prepaidSaveResult !== null;
     saveState(state);
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
