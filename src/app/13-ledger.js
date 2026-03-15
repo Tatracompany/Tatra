@@ -1559,22 +1559,40 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       button.addEventListener('click', async () => {
         const nextMonth = button.getAttribute('data-create-tenant-month') || '';
         if (!nextMonth || typeof createMonthTab !== 'function') return;
-        await createMonthTab(nextMonth);
-        window.__selectedTenantMonth = nextMonth;
-        renderTenantMonthTabs();
-        populateTenantSelectors(window.__appState);
-        renderTenants(window.__appState);
+        try {
+          await createMonthTab(nextMonth);
+          window.__selectedTenantMonth = nextMonth;
+          renderTenantMonthTabs();
+          populateTenantSelectors(window.__appState);
+          renderTenants(window.__appState);
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage(`${formatMonth(nextMonth)} created.`);
+          }
+        } catch (error) {
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage(String(error && error.message || error || 'Failed to create month.'));
+          }
+        }
       });
     });
     container.querySelectorAll('[data-delete-tenant-month]').forEach((button) => {
       button.addEventListener('click', async () => {
         const monthToDelete = button.getAttribute('data-delete-tenant-month') || '';
         if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
-        await deleteMonthTab(monthToDelete);
-        window.__selectedTenantMonth = getLatestCreatedMonthKey();
-        renderTenantMonthTabs();
-        populateTenantSelectors(window.__appState);
-        renderTenants(window.__appState);
+        try {
+          await deleteMonthTab(monthToDelete);
+          window.__selectedTenantMonth = getLatestCreatedMonthKey();
+          renderTenantMonthTabs();
+          populateTenantSelectors(window.__appState);
+          renderTenants(window.__appState);
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage(`${formatMonth(monthToDelete)} deleted.`);
+          }
+        } catch (error) {
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage(String(error && error.message || error || 'Failed to delete month.'));
+          }
+        }
       });
     });
   }
