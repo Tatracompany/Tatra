@@ -1544,8 +1544,9 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-tenant-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
+    const latestCreatedMonth = getLatestCreatedMonthKey();
     const nextCreatableMonth = getNextCreatableMonthKey();
-    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-tenant-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}`;
+    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-tenant-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}${latestCreatedMonth !== getDefaultActiveMonthKey() ? `<button type="button" class="month-tab month-tab-delete" data-delete-tenant-month="${escapeHtml(latestCreatedMonth)}">-</button>` : ''}`;
     container.querySelectorAll('[data-tenant-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedTenantMonth = button.getAttribute('data-tenant-month') || getActiveMonthKey();
@@ -1560,6 +1561,17 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         if (!nextMonth || typeof createMonthTab !== 'function') return;
         await createMonthTab(nextMonth);
         window.__selectedTenantMonth = nextMonth;
+        renderTenantMonthTabs();
+        populateTenantSelectors(window.__appState);
+        renderTenants(window.__appState);
+      });
+    });
+    container.querySelectorAll('[data-delete-tenant-month]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const monthToDelete = button.getAttribute('data-delete-tenant-month') || '';
+        if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
+        await deleteMonthTab(monthToDelete);
+        window.__selectedTenantMonth = getLatestCreatedMonthKey();
         renderTenantMonthTabs();
         populateTenantSelectors(window.__appState);
         renderTenants(window.__appState);

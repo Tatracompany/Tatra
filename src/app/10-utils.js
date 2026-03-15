@@ -11,7 +11,7 @@
   }
 
   function getCreatedMonthsStorageKey() {
-    return 'tatra-created-months';
+    return 'tatra-created-months-v2';
   }
 
   function getCreatedMonthKeys() {
@@ -47,6 +47,13 @@
     const createdMonths = getCreatedMonthKeys();
     if (createdMonths.includes(normalizedMonth)) return;
     createdMonths.push(normalizedMonth);
+    saveCreatedMonthKeys(createdMonths);
+  }
+
+  function unmarkMonthAsCreated(monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth || normalizedMonth === getDefaultActiveMonthKey()) return;
+    const createdMonths = getCreatedMonthKeys().filter((entry) => entry !== normalizedMonth);
     saveCreatedMonthKeys(createdMonths);
   }
 
@@ -826,6 +833,22 @@
     if (!normalizedMonthKey) return null;
     await syncResetMonthDataToDb(normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
+    return normalizedMonthKey;
+  }
+
+  function syncDeleteMonthDataToDb(monthKey) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedMonthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/delete-month-data', {
+      monthKey: normalizedMonthKey
+    });
+  }
+
+  async function deleteMonthTab(monthKey) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedMonthKey || normalizedMonthKey === getDefaultActiveMonthKey()) return null;
+    await syncDeleteMonthDataToDb(normalizedMonthKey);
+    unmarkMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
   }
 

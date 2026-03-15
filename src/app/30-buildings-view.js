@@ -166,8 +166,9 @@
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-building-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
+    const latestCreatedMonth = getLatestCreatedMonthKey();
     const nextCreatableMonth = getNextCreatableMonthKey();
-    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-building-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}`;
+    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-building-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}${latestCreatedMonth !== getDefaultActiveMonthKey() ? `<button type="button" class="month-tab month-tab-delete" data-delete-building-month="${escapeHtml(latestCreatedMonth)}">-</button>` : ''}`;
     container.querySelectorAll('[data-building-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedBuildingMonth = button.getAttribute('data-building-month') || getActiveMonthKey();
@@ -181,6 +182,16 @@
         if (!nextMonth || typeof createMonthTab !== 'function') return;
         await createMonthTab(nextMonth);
         window.__selectedBuildingMonth = nextMonth;
+        saveBuildingViewPreference();
+        renderAll(window.__appState, window.__selectedBuildingName || '');
+      });
+    });
+    container.querySelectorAll('[data-delete-building-month]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const monthToDelete = button.getAttribute('data-delete-building-month') || '';
+        if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
+        await deleteMonthTab(monthToDelete);
+        window.__selectedBuildingMonth = getLatestCreatedMonthKey();
         saveBuildingViewPreference();
         renderAll(window.__appState, window.__selectedBuildingName || '');
       });

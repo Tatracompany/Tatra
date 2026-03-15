@@ -489,6 +489,28 @@ async function freezeMonthBaselineForAllTenants(database, monthKey) {
   }
 }
 
+async function cloneMonthForwardForAllTenants(database, fromMonthKey, toMonthKey) {
+  const normalizedFromMonthKey = String(fromMonthKey || '').trim();
+  const normalizedToMonthKey = String(toMonthKey || '').trim();
+  if (!normalizedFromMonthKey || !normalizedToMonthKey || normalizedToMonthKey <= BASELINE_MONTH_KEY) return;
+  await freezeMonthBaselineForAllTenants(database, normalizedToMonthKey);
+  const rows = await database.prepare(`
+    SELECT source_tenant_id AS sourceTenantId, override_kind AS overrideKind, value_text AS valueText
+    FROM tenant_month_overrides
+    WHERE month_key = ?
+    ORDER BY source_tenant_id, override_kind
+  `).all(normalizedFromMonthKey);
+  for (const row of rows) {
+    const sourceTenantId = String(row && row.sourceTenantId || '').trim();
+    const overrideKind = String(row && row.overrideKind || '').trim();
+    if (!sourceTenantId || !overrideKind) continue;
+    const valueText = overrideKind === 'paid'
+      ? '0'
+      : String(row && row.valueText || '').trim();
+    await upsertTenantMonthOverride(database, sourceTenantId, normalizedToMonthKey, overrideKind, valueText);
+  }
+}
+
 async function hasFrozenMonthSnapshot(database, sourceTenantId, monthKey) {
   const normalizedSourceTenantId = String(sourceTenantId || '').trim();
   const normalizedMonthKey = String(monthKey || '').trim();
@@ -623,7 +645,51 @@ async function resetMonthDataInDatabase(payload) {
       VALUES ('last_month_reset_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    await freezeMonthBaselineForAllTenants(database, monthKey);
+    const previousMonthKey = addMonths(monthKey, -1);
+    if (previousMonthKey && compareMonthKeys(previousMonthKey, BASELINE_MONTH_KEY) >= 0) {
+      await cloneMonthForwardForAllTenants(database, previousMonthKey, monthKey);
+    } else {
+      await freezeMonthBaselineForAllTenants(database, monthKey);
+    }
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
+async function deleteMonthDataInDatabase(payload) {
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  if (!monthKey || monthKey <= BASELINE_MONTH_KEY) {
+    throw new Error('A future monthKey is required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    await database.exec('BEGIN');
+    await database.prepare(`
+      DELETE FROM tenant_month_overrides
+      WHERE month_key = ?
+    `).run(monthKey);
+    await database.prepare(`
+      DELETE FROM unit_row_order
+      WHERE month_key = ?
+    `).run(monthKey);
+    await database.prepare(`
+      DELETE FROM payments
+      WHERE rent_month = ?
+    `).run(monthKey);
+    await database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_month_delete_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
     await database.exec('COMMIT');
   } catch (error) {
     try {
@@ -1560,6 +1626,24 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = await vacateTenantInDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/delete-month-data') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await deleteMonthDataInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
