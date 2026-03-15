@@ -156,6 +156,15 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
   function getRowCreditCarryIntoMonth(state, tenantId, monthKey) {
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedMonth) return 0;
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    if (compareMonthKeys(normalizedMonth, getDefaultActiveMonthKey()) > 0 && typeof getDbSnapshotTenantMonthState === 'function') {
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, normalizedMonth);
+        if (snapshotState) {
+          return normalizeAmount(snapshotState.openingCredit || 0);
+        }
+      }
+    }
     const openingCredit = normalizeAmount(getOpeningCreditOverride(state, tenantId, normalizedMonth));
     if (openingCredit > 0) return openingCredit;
     const previousMonth = addMonths(normalizedMonth, -1);
