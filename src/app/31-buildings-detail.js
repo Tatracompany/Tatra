@@ -212,13 +212,13 @@
         </div>
       </td>`;
       row.insertAdjacentElement('afterend', detailRow);
-      const saveVacantButton = detailRow.querySelector('[data-save-vacant-meta]');
-      if (saveVacantButton) {
-        saveVacantButton.addEventListener('click', (event) => {
-          event.stopPropagation();
-          saveVacantUnitMeta(state, tenant.id, selectedMonth, tenant);
-        });
-      }
+        const saveVacantButton = detailRow.querySelector('[data-save-vacant-meta]');
+        if (saveVacantButton) {
+          saveVacantButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            void saveVacantUnitMeta(state, tenant.id, selectedMonth, tenant);
+          });
+        }
       const contractInput = findDetailInput('data-vacant-last-contract', tenant.id);
       const discountInput = findDetailInput('data-vacant-discount', tenant.id);
       const actualInput = findDetailInput('data-vacant-last-actual', tenant.id);

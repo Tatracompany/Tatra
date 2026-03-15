@@ -214,7 +214,7 @@
     }
   }
 
-  function saveVacantUnitMeta(state, tenantId, selectedMonth, fallbackTenant) {
+  async function saveVacantUnitMeta(state, tenantId, selectedMonth, fallbackTenant) {
     const targetVacantTenant = state.tenants.find((tenant) => tenant.id === tenantId && tenant.isVacant && !tenant.isArchived) || fallbackTenant;
     if (targetVacantTenant && !canEditBuildingMonth(targetVacantTenant.building, selectedMonth)) {
       return;
@@ -263,10 +263,29 @@
     }
 
     saveState(state);
-    resetRenderCache();
-    logActivity(state, 'Vacant unit updated', `${vacantTenant.building} ${vacantTenant.unit} vacant info updated.`);
-    renderAll(state, vacantTenant.building);
-    showFlashMessage(`Saved ${vacantTenant.building} ${vacantTenant.unit}.`);
+    try {
+      if (typeof syncVacantUnitMetaToDb === 'function') {
+        await syncVacantUnitMetaToDb({
+          unitId: String(vacantTenant.unitId || '').trim(),
+          buildingName: vacantTenant.building,
+          unit: vacantTenant.unit,
+          floor: vacantTenant.floor,
+          monthKey: selectedMonth,
+          vacantSince: nextVacantSince,
+          lastContractRent: nextContractRent,
+          lastActualRent: nextActualRent,
+          discount: nextDiscount,
+          oldTenantDuePaid: oldTenantDuePaidNote,
+          notes: String(vacantTenant.notes || '').trim()
+        });
+      }
+      resetRenderCache();
+      logActivity(state, 'Vacant unit updated', `${vacantTenant.building} ${vacantTenant.unit} vacant info updated.`);
+      renderAll(state, vacantTenant.building);
+      showFlashMessage(`Saved ${vacantTenant.building} ${vacantTenant.unit}.`);
+    } catch (error) {
+      showFlashMessage(String(error && error.message || 'Vacant save failed.'));
+    }
   }
 
   function applyDuePayment(state, tenantId) {

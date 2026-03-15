@@ -655,6 +655,82 @@ function saveBuildingInlineEditToDatabase(payload) {
   return exportSnapshotToBrowserFile();
 }
 
+function saveVacantUnitMetaToDatabase(payload) {
+  const unitId = String(payload && payload.unitId || '').trim();
+  const buildingName = String(payload && payload.buildingName || '').trim();
+  const unitLabel = String(payload && payload.unit || '').trim();
+  const floorLabel = String(payload && payload.floor || '').trim();
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  if ((!unitId && (!buildingName || !unitLabel)) || !monthKey) {
+    throw new Error('unitId or building/unit, and monthKey are required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    const resolvedUnit = unitId
+      ? database.prepare(`
+          SELECT id
+          FROM units
+          WHERE id = ?
+          LIMIT 1
+        `).get(unitId)
+      : database.prepare(`
+          SELECT units.id AS id
+          FROM units
+          INNER JOIN buildings ON buildings.id = units.building_id
+          WHERE LOWER(buildings.name) = LOWER(?)
+            AND units.unit_label = ?
+            AND COALESCE(units.floor_label, '') = ?
+          LIMIT 1
+        `).get(buildingName, unitLabel, floorLabel);
+    const resolvedUnitId = String(resolvedUnit && resolvedUnit.id || '').trim();
+    if (!resolvedUnitId) {
+      throw new Error('No unit found for vacant row.');
+    }
+    database.exec('BEGIN');
+    database.prepare(`
+      INSERT INTO unit_vacancy_state (
+        unit_id, is_vacant, vacant_since, last_tenant_name, last_contract_rent,
+        last_actual_rent, last_discount, old_tenant_due_paid, notes, raw_json, updated_at
+      ) VALUES (?, 1, ?, '', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(unit_id) DO UPDATE SET
+        is_vacant = 1,
+        vacant_since = excluded.vacant_since,
+        last_contract_rent = excluded.last_contract_rent,
+        last_actual_rent = excluded.last_actual_rent,
+        last_discount = excluded.last_discount,
+        old_tenant_due_paid = excluded.old_tenant_due_paid,
+        notes = excluded.notes,
+        raw_json = excluded.raw_json,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(
+      resolvedUnitId,
+      String(payload && payload.vacantSince || '').trim(),
+      Number(payload && payload.lastContractRent || 0),
+      Number(payload && payload.lastActualRent || 0),
+      Number(payload && payload.discount || 0),
+      Number(payload && payload.oldTenantDuePaid || 0),
+      String(payload && payload.notes || '').trim(),
+      JSON.stringify(payload || {})
+    );
+    database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_vacant_meta_sync_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+    database.exec('COMMIT');
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    database.close();
+  }
+  return exportSnapshotToBrowserFile();
+}
+
 function vacateTenantInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const vacateDate = String(payload && payload.vacateDate || '').trim();
@@ -1215,6 +1291,24 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = saveBuildingInlineEditToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/vacant-unit-meta') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = saveVacantUnitMetaToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

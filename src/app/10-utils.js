@@ -1021,6 +1021,27 @@
     });
   }
 
+  function syncVacantUnitMetaToDb(payload) {
+    const unitId = String(payload && payload.unitId || '').trim();
+    const buildingName = String(payload && payload.buildingName || '').trim();
+    const unit = String(payload && payload.unit || '').trim();
+    const monthKey = String(payload && payload.monthKey || '').trim();
+    if ((!unitId && (!buildingName || !unit)) || !monthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/vacant-unit-meta', {
+      unitId,
+      buildingName,
+      unit,
+      floor: String(payload && payload.floor || '').trim(),
+      monthKey,
+      vacantSince: String(payload && payload.vacantSince || '').trim(),
+      lastContractRent: Number(payload && payload.lastContractRent || 0),
+      lastActualRent: Number(payload && payload.lastActualRent || 0),
+      discount: Number(payload && payload.discount || 0),
+      oldTenantDuePaid: Number(payload && payload.oldTenantDuePaid || 0),
+      notes: String(payload && payload.notes || '').trim()
+    });
+  }
+
   function syncCreateTenantToDb(payload) {
     const buildingName = String(payload && payload.buildingName || '').trim();
     const unit = String(payload && payload.unit || '').trim();
