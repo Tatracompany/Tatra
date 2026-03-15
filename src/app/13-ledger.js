@@ -796,12 +796,17 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       ))
       : null;
     const handoverArchivedView = handoverArchivedTenant ? getArchivedTenantDisplayView(state, handoverArchivedTenant, selectedMonth) : null;
+    const manualPrepaidAppliedCurrent = normalizeAmount(
+      manualPrepaidFromBefore != null
+        ? Math.min(rentDue, Number(currentLedger.prepaidFromBefore || 0))
+        : 0
+    );
     const displayPaidCurrent = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + manualPrepaidAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const displayPaidCurrentRaw = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
+      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + manualPrepaidAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
