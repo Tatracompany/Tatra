@@ -162,17 +162,7 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
     if (!previousMonth || previousMonth === normalizedMonth) return 0;
     const overrideOrAdvanceAmount = normalizeAmount(getPrepaidNext(state, tenantId, previousMonth));
     if (overrideOrAdvanceAmount > 0) return overrideOrAdvanceAmount;
-    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
-    let basePrepaidNextAmount = 0;
-    (state.tenants || []).forEach((tenant) => {
-      if (!tenant) return;
-      const tenantIdValue = String(tenant.id || '').trim();
-      const sourceTenantIdValue = String(tenant.sourceTenantId || '').trim();
-      if (!candidateTenantIds.has(tenantIdValue) && !candidateTenantIds.has(sourceTenantIdValue)) return;
-      basePrepaidNextAmount = Math.max(basePrepaidNextAmount, Number(tenant.prepaidNextMonth || 0));
-    });
-    if (basePrepaidNextAmount > 0) return normalizeAmount(basePrepaidNextAmount);
-    return normalizeAmount(basePrepaidNextAmount);
+    return 0;
   }
 
   function monthsLate(previousDue, actualRent) {
