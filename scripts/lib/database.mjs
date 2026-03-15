@@ -240,10 +240,29 @@ export async function findMatchingTenantProfile(database, tenant) {
 }
 
 async function ensureTenancyProfileColumn(database) {
-  await database.exec(`
-    ALTER TABLE tenancies
-    ADD COLUMN IF NOT EXISTS profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL;
-  `);
+  if (database.kind === 'postgres') {
+    const column = await database.prepare(`
+      SELECT column_name AS name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'tenancies'
+        AND column_name = 'profile_id'
+      LIMIT 1
+    `).get();
+    if (!column) {
+      await database.exec(`
+        ALTER TABLE tenancies
+        ADD COLUMN profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL;
+      `);
+    }
+    return;
+  }
+
+  const columns = await database.prepare(`PRAGMA table_info(tenancies)`).all();
+  const hasProfileId = columns.some((column) => String(column && column.name || '').trim() === 'profile_id');
+  if (!hasProfileId) {
+    await database.exec(`ALTER TABLE tenancies ADD COLUMN profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL;`);
+  }
 }
 
 export async function upsertTenantProfile(database, tenant) {
