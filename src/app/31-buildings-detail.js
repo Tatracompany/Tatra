@@ -523,6 +523,7 @@
     const notesInput = findDetailInputByFieldId('data-edit-notes', fieldTenantId, selectedMonth, 'notes');
     const vacateInput = findDetailInputByFieldId('data-vacate-date', fieldTenantId, selectedMonth, 'planned_vacate_date');
     const allowDecimalAmounts = usesDecimalAmountInputs(tenantForDisplay);
+    const shouldUpdateBaseTenant = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenantForDisplay, selectedMonth);
     const requestedUnpaidTotalAmount = normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenantForDisplay.totalDue || tenantForDisplay.previousDue || 0), allowDecimalAmounts);
@@ -540,12 +541,12 @@
     }
     const oldTenantDuePaidNote = normalizeAmountInputValue(getDetailNumericInputValue(oldTenantDuePaidNoteInput, 0), allowDecimalAmounts);
     const prepaidAmount = normalizeAmountInputValue(getDetailNumericInputValue(prepaidInput, 0), allowDecimalAmounts);
-    if (tenant) {
+    if (tenant && shouldUpdateBaseTenant) {
       tenant.contractRent = contractRent;
       tenant.discount = discount;
       tenant.actualRent = Math.max(contractRent - discount, 0);
     }
-    const baseActualRent = tenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
+    const baseActualRent = tenant && shouldUpdateBaseTenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
     const effectiveRentDue = Math.max(actualRentAmount, 0);
     const prepaidFromBeforeAmount = normalizeAmountInputValue(tenantForDisplay.prepaidFromBefore || 0, allowDecimalAmounts);
     const currentMonthAmount = requestedCurrentMonthAmount;
@@ -554,19 +555,19 @@
       ? remainingCurrentAmount
       : requestedUnpaidTotalAmount;
     const previousDueAmount = Math.max(unpaidTotalAmount - remainingCurrentAmount, 0);
-    if (tenant && insuranceAmount > 0 && insurancePaidMonth) {
+    if (tenant && shouldUpdateBaseTenant && insuranceAmount > 0 && insurancePaidMonth) {
       tenant.insuranceAmount = insuranceAmount;
       tenant.insurancePaidMonth = insurancePaidMonth;
       tenant.insurancePreviousAmount = insurancePaidMonth < selectedMonth ? insuranceAmount : 0;
       tenant.insuranceCurrentAmount = insurancePaidMonth === selectedMonth ? insuranceAmount : 0;
-    } else if (tenant) {
+    } else if (tenant && shouldUpdateBaseTenant) {
       tenant.insuranceAmount = 0;
       tenant.insurancePaidMonth = '';
       tenant.insurancePreviousAmount = 0;
       tenant.insuranceCurrentAmount = 0;
     }
     const plannedVacateDate = getDetailTextInputValue(vacateInput, '');
-    if (tenant) {
+    if (tenant && shouldUpdateBaseTenant) {
       tenant.plannedVacateDate = plannedVacateDate;
     }
     const prepaidTargetTenantId = String(

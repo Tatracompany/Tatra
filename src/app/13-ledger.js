@@ -282,6 +282,20 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
     return null;
   }
 
+  function getTenantMonthNumericOverride(state, tenantId, monthKey, overrideKind) {
+    if (typeof getDbSnapshotTenantMonthOverride !== 'function') return null;
+    const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, overrideKind);
+    if (!snapshotOverride) return null;
+    return normalizeAmount(snapshotOverride.valueText);
+  }
+
+  function getTenantMonthTextOverride(state, tenantId, monthKey, overrideKind) {
+    if (typeof getDbSnapshotTenantMonthOverride !== 'function') return null;
+    const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, overrideKind);
+    if (!snapshotOverride) return null;
+    return String(snapshotOverride.valueText || '').trim();
+  }
+
 function setTenantIdentityOverride(state, tenantId, field, monthKey, value) {
   return false;
 }
@@ -400,6 +414,26 @@ function setCarryOverride(state, tenantId, monthKey, amountOrNull) {
 function setActualRentOverride(state, tenantId, monthKey, amountOrNull) {
   return false;
 }
+
+  function getContractRentOverride(state, tenantId, monthKey) {
+    return getTenantMonthNumericOverride(state, tenantId, monthKey, 'contract_rent');
+  }
+
+  function getDiscountOverride(state, tenantId, monthKey) {
+    return getTenantMonthNumericOverride(state, tenantId, monthKey, 'discount');
+  }
+
+  function getInsuranceAmountOverride(state, tenantId, monthKey) {
+    return getTenantMonthNumericOverride(state, tenantId, monthKey, 'insurance_amount');
+  }
+
+  function getInsurancePaidMonthOverride(state, tenantId, monthKey) {
+    return getTenantMonthTextOverride(state, tenantId, monthKey, 'insurance_paid_month');
+  }
+
+  function getPlannedVacateDateOverride(state, tenantId, monthKey) {
+    return getTenantMonthTextOverride(state, tenantId, monthKey, 'planned_vacate_date');
+  }
 
   function getVacantAmountOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
@@ -670,10 +704,30 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const effectiveCivilId = profile ? profile.civilId : String(tenant.civilId || '');
     const effectiveNationality = profile ? profile.nationality : (tenant.nationality || 'Not set');
     const moveInMonth = getMonthKeyFromDate(effectiveMoveInDate);
-    const defaultActualRent = normalizeAmount(Number(tenant.actualRent || (tenant.contractRent - tenant.discount) || 0));
+    const contractRentOverride = getContractRentOverride(state, tenant.id, selectedMonth);
+    const discountOverride = getDiscountOverride(state, tenant.id, selectedMonth);
+    const effectiveContractRent = contractRentOverride != null
+      ? normalizeAmount(contractRentOverride)
+      : normalizeAmount(Number(tenant.contractRent || 0));
+    const effectiveDiscount = discountOverride != null
+      ? normalizeAmount(discountOverride)
+      : normalizeAmount(Number(tenant.discount || 0));
+    const defaultActualRent = normalizeAmount(Number(tenant.actualRent || Math.max(effectiveContractRent - effectiveDiscount, 0) || 0));
     const actualRentOverride = getActualRentOverride(state, tenant.id, selectedMonth);
     const hasActualRentOverride = actualRentOverride != null;
     const baseActualRent = hasActualRentOverride ? normalizeAmount(actualRentOverride) : defaultActualRent;
+    const insuranceAmountOverride = getInsuranceAmountOverride(state, tenant.id, selectedMonth);
+    const insurancePaidMonthOverride = getInsurancePaidMonthOverride(state, tenant.id, selectedMonth);
+    const plannedVacateDateOverride = getPlannedVacateDateOverride(state, tenant.id, selectedMonth);
+    const effectiveInsuranceAmount = insuranceAmountOverride != null
+      ? normalizeAmount(insuranceAmountOverride)
+      : normalizeAmount(Number(tenant.insuranceAmount || 0));
+    const effectiveInsurancePaidMonth = insurancePaidMonthOverride != null
+      ? insurancePaidMonthOverride
+      : String(tenant.insurancePaidMonth || '').trim();
+    const effectivePlannedVacateDate = plannedVacateDateOverride != null
+      ? plannedVacateDateOverride
+      : String(tenant.plannedVacateDate || '').trim();
     const vacantAmountOverride = getVacantAmountOverride(state, tenant.id, selectedMonth);
     const ledgerTenant = Object.assign({}, tenant, {
       moveInDate: effectiveMoveInDate,
@@ -704,7 +758,10 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     );
     const prepaidCredit = normalizeAmount(Number(currentLedger.closingCredit || 0));
     const prepaidNext = normalizeAmount(getPrepaidNext(state, tenant.id, selectedMonth));
-    const insuranceDisplay = getInsuranceDisplayAmounts(tenant, selectedMonth);
+    const insuranceDisplay = getInsuranceDisplayAmounts({
+      insuranceAmount: effectiveInsuranceAmount,
+      insurancePaidMonth: effectiveInsurancePaidMonth
+    }, selectedMonth);
     const dueDate = new Date(`${selectedMonth}-${pad(tenant.dueDay || 20)}T00:00:00`);
     const visibleFromMonth = getEffectiveTenantVisibleFromMonth(state, tenant, selectedMonth);
     const contractStartMonth = getMonthKeyFromDate(effectiveContractStart);
@@ -798,6 +855,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       phone: effectivePhone,
       civilId: effectiveCivilId,
       nationality: effectiveNationality,
+      contractRent: effectiveContractRent,
+      discount: effectiveDiscount,
       paidCurrent: displayPaidCurrent,
       paidCurrentRaw: displayPaidCurrentRaw,
       prepaidFromBefore,
@@ -821,9 +880,12 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       paidThroughMonth: prepaidMonths > 0 ? addMonths(selectedMonth, prepaidMonths) : selectedMonth,
       lastPaidMonth,
       lastPaidMonthLabel: lastPaidMonth ? formatMonth(lastPaidMonth) : '-',
+      insuranceAmount: effectiveInsuranceAmount,
+      insurancePaidMonth: effectiveInsurancePaidMonth,
       contractAlert: daysToEnd != null && daysToEnd <= CONTRACT_WARNING_DAYS,
       contractExpired: daysToEnd != null && daysToEnd < 0,
       daysToEnd,
+      plannedVacateDate: effectivePlannedVacateDate,
       notes: getEffectiveTenantNote(state, tenant, selectedMonth)
     });
   }

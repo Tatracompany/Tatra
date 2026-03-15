@@ -131,6 +131,8 @@ function addMonths(monthKey, delta) {
   return `${nextYear}-${nextMonth}`;
 }
 
+const BASELINE_MONTH_KEY = '2026-01';
+
 async function exportSnapshotToBrowserFile() {
   const snapshot = await readDatabaseSnapshot(databasePath);
   fs.writeFileSync(browserSnapshotPath, buildBrowserSnapshotScript(snapshot), 'utf8');
@@ -517,6 +519,7 @@ async function saveBuildingInlineEditToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
   const hasPayloadField = (fieldName) => Object.prototype.hasOwnProperty.call(payload || {}, fieldName);
+  const shouldUpdateBaseTenancy = monthKey && monthKey <= BASELINE_MONTH_KEY;
   if ((!sourceTenantId && !unitId) || !monthKey) {
     throw new Error('sourceTenantId or unitId, and monthKey are required.');
   }
@@ -549,33 +552,41 @@ async function saveBuildingInlineEditToDatabase(payload) {
       WHERE source_tenant_id = ?
       LIMIT 1
     `).get(sourceTenantId);
-    const result = await database.prepare(`
-      UPDATE tenancies
-      SET
-        contract_rent = ?,
-        discount = ?,
-        actual_rent = ?,
-        prepaid_next_month = ?,
-        insurance_amount = ?,
-        insurance_paid_month = ?,
-        planned_vacate_date = ?,
-        notes = ?
-      WHERE source_tenant_id = ?
-    `).run(
-      hasPayloadField('contractRent') ? Number(payload && payload.contractRent || 0) : Number(existingTenancy && existingTenancy.contractRent || 0),
-      hasPayloadField('discount') ? Number(payload && payload.discount || 0) : Number(existingTenancy && existingTenancy.discount || 0),
-      hasPayloadField('baseActualRent') ? Number(payload && payload.baseActualRent || 0) : Number(existingTenancy && existingTenancy.actualRent || 0),
-      hasPayloadField('prepaidAmount') ? Number(payload && payload.prepaidAmount || 0) : Number(existingTenancy && existingTenancy.prepaidNextMonth || 0),
-      hasPayloadField('insuranceAmount') ? Number(payload && payload.insuranceAmount || 0) : Number(existingTenancy && existingTenancy.insuranceAmount || 0),
-      hasPayloadField('insurancePaidMonth') ? String(payload && payload.insurancePaidMonth || '').trim() : String(existingTenancy && existingTenancy.insurancePaidMonth || '').trim(),
-      hasPayloadField('plannedVacateDate') ? String(payload && payload.plannedVacateDate || '').trim() : String(existingTenancy && existingTenancy.plannedVacateDate || '').trim(),
-      hasPayloadField('notes') ? String(payload && payload.notes || '').trim() : String(existingTenancy && existingTenancy.notes || '').trim(),
-      sourceTenantId
-    );
-    if (!result || Number(result.changes || 0) < 1) {
-      throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
+    if (shouldUpdateBaseTenancy) {
+      const result = await database.prepare(`
+        UPDATE tenancies
+        SET
+          contract_rent = ?,
+          discount = ?,
+          actual_rent = ?,
+          prepaid_next_month = ?,
+          insurance_amount = ?,
+          insurance_paid_month = ?,
+          planned_vacate_date = ?,
+          notes = ?
+        WHERE source_tenant_id = ?
+      `).run(
+        hasPayloadField('contractRent') ? Number(payload && payload.contractRent || 0) : Number(existingTenancy && existingTenancy.contractRent || 0),
+        hasPayloadField('discount') ? Number(payload && payload.discount || 0) : Number(existingTenancy && existingTenancy.discount || 0),
+        hasPayloadField('baseActualRent') ? Number(payload && payload.baseActualRent || 0) : Number(existingTenancy && existingTenancy.actualRent || 0),
+        hasPayloadField('prepaidAmount') ? Number(payload && payload.prepaidAmount || 0) : Number(existingTenancy && existingTenancy.prepaidNextMonth || 0),
+        hasPayloadField('insuranceAmount') ? Number(payload && payload.insuranceAmount || 0) : Number(existingTenancy && existingTenancy.insuranceAmount || 0),
+        hasPayloadField('insurancePaidMonth') ? String(payload && payload.insurancePaidMonth || '').trim() : String(existingTenancy && existingTenancy.insurancePaidMonth || '').trim(),
+        hasPayloadField('plannedVacateDate') ? String(payload && payload.plannedVacateDate || '').trim() : String(existingTenancy && existingTenancy.plannedVacateDate || '').trim(),
+        hasPayloadField('notes') ? String(payload && payload.notes || '').trim() : String(existingTenancy && existingTenancy.notes || '').trim(),
+        sourceTenantId
+      );
+      if (!result || Number(result.changes || 0) < 1) {
+        throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
+      }
     }
     await database.exec('BEGIN');
+    if (!shouldUpdateBaseTenancy && hasPayloadField('contractRent')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'contract_rent', String(Number(payload && payload.contractRent || 0)));
+    }
+    if (!shouldUpdateBaseTenancy && hasPayloadField('discount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'discount', String(Number(payload && payload.discount || 0)));
+    }
     if (hasPayloadField('carryOverride')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
     }
@@ -584,6 +595,15 @@ async function saveBuildingInlineEditToDatabase(payload) {
     }
     if (hasPayloadField('actualRentOverride')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'actual_rent', String(Number(payload && payload.actualRentOverride || 0)));
+    }
+    if (!shouldUpdateBaseTenancy && hasPayloadField('insuranceAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'insurance_amount', String(Number(payload && payload.insuranceAmount || 0)));
+    }
+    if (!shouldUpdateBaseTenancy && hasPayloadField('insurancePaidMonth')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'insurance_paid_month', String(payload && payload.insurancePaidMonth || '').trim());
+    }
+    if (!shouldUpdateBaseTenancy && hasPayloadField('plannedVacateDate')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'planned_vacate_date', String(payload && payload.plannedVacateDate || '').trim());
     }
     if (hasPayloadField('vacantAmount')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
