@@ -849,6 +849,13 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     // prepaid column only. It should not change same-month "paid through" or
     // "advance covers" display.
     const prepaidMonths = advanceMonthsCovered(prepaidCredit, rentDue);
+    const paidThroughMonth = prepaidMonths > 0
+      ? addMonths(selectedMonth, prepaidMonths)
+      : (
+        displayPaidCurrent > 0 || prepaidFromBefore > 0 || previousDue > 0
+          ? selectedMonth
+          : ''
+      );
     let lastPaidMonth = tenant.lastPaidMonth || '';
     const lastPositivePaid = ledger.slice().reverse().find((entry) => entry.paid > 0);
     if (lastPositivePaid) {
@@ -898,7 +905,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       insurancePreviousAmount: insuranceDisplay.previous,
       lateMonths,
       prepaidMonths,
-      paidThroughMonth: prepaidMonths > 0 ? addMonths(selectedMonth, prepaidMonths) : selectedMonth,
+      paidThroughMonth,
       lastPaidMonth,
       lastPaidMonthLabel: lastPaidMonth ? formatMonth(lastPaidMonth) : '-',
       insuranceAmount: effectiveInsuranceAmount,
