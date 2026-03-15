@@ -796,17 +796,19 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       ))
       : null;
     const handoverArchivedView = handoverArchivedTenant ? getArchivedTenantDisplayView(state, handoverArchivedTenant, selectedMonth) : null;
-    const manualPrepaidAppliedCurrent = normalizeAmount(
-      manualPrepaidFromBefore != null
-        ? Math.min(rentDue, Number(currentLedger.prepaidFromBefore || 0))
-        : 0
+    const coveredCurrentBeforeArchived = normalizeAmount(
+      isPreContractOccupancy
+        ? occupancyPaidCurrent
+        : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + prepaidFromBefore)
     );
     const displayPaidCurrent = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + manualPrepaidAppliedCurrent))
+      coveredCurrentBeforeArchived
       + Number(handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const displayPaidCurrentRaw = normalizeAmount(
-      (isPreContractOccupancy ? occupancyPaidCurrent : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + manualPrepaidAppliedCurrent))
+      (isPreContractOccupancy
+        ? occupancyPaidCurrent
+        : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + prepaidFromBefore))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
@@ -837,8 +839,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     if (isPreContractOccupancy || startsNextMonthVisible) status = 'precontract';
     else if (previousDue > 0) status = 'overdue';
     else if (rentDue <= 0 || totalDue <= 0 || remainingCurrent <= 0) status = 'paid';
-    else if ((displayPaidCurrent + prepaidFromBefore) >= rentDue && rentDue > 0) status = 'paid';
-    else if (displayPaidCurrent > 0 || (prepaidFromBefore > 0 && remainingCurrent > 0)) status = 'partial';
+    else if (displayPaidCurrent >= rentDue && rentDue > 0) status = 'paid';
+    else if (displayPaidCurrent > 0 && remainingCurrent > 0) status = 'partial';
     else if (shouldMarkCurrentMonthLateByDate && today() > dueDate && remainingCurrent > 0) status = 'overdue';
     else status = 'upcoming';
 
