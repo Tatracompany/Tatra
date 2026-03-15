@@ -557,8 +557,25 @@
     setNotesOverride(state, canonicalSourceTenantId, selectedMonth, getDetailTextInputValue(notesInput, tenantForDisplay.notes || ''));
     setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
     setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
-    const prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount, tenantForDisplay);
-    const prepaidAccepted = prepaidSaveResult !== undefined && prepaidSaveResult !== null;
+      let prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount, tenantForDisplay);
+      if (!prepaidSaveResult && canonicalSourceTenantId) {
+        const nextMonthForPrepaid = addMonths(selectedMonth, 1);
+        if (typeof setPrepaidNextOverride === 'function') {
+          setPrepaidNextOverride(state, canonicalSourceTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
+        }
+        if (typeof setOpeningCreditOverride === 'function') {
+          setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonthForPrepaid, prepaidAmount > 0 ? prepaidAmount : null);
+        }
+        if (tenant) {
+          tenant.prepaidNextMonth = prepaidAmount > 0 ? prepaidAmount : 0;
+        }
+        tenantForDisplay.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
+        prepaidSaveResult = {
+          sourceTenantId: canonicalSourceTenantId,
+          nextMonth: nextMonthForPrepaid
+        };
+      }
+      const prepaidAccepted = prepaidSaveResult !== undefined && prepaidSaveResult !== null;
     saveState(state);
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
