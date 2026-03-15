@@ -222,13 +222,7 @@
   }
 
   function getCarriedMonthSnapshotRows(state, monthKey, buildingName) {
-    ensureCarriedMonthSnapshotsState(state);
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedMonth || !Array.isArray(state.carriedMonthSnapshots[normalizedMonth])) return null;
-    const rows = state.carriedMonthSnapshots[normalizedMonth];
-    if (!buildingName) return rows.slice();
-    const normalizedBuilding = String(buildingName || '').trim();
-    return rows.filter((row) => String(row && row.building || '').trim() === normalizedBuilding);
+    return null;
   }
 
   function seedCarryForwardIdentityOverrides(state, rows, monthKey) {
@@ -269,19 +263,6 @@
     const normalizedToMonth = String(toMonth || '').trim();
     if (!normalizedFromMonth || !normalizedToMonth) return false;
     if (compareMonthKeys(normalizedToMonth, normalizedFromMonth) <= 0) return false;
-    ensureCarriedMonthSnapshotsState(state);
-    if (Array.isArray(state.carriedMonthSnapshots[normalizedToMonth]) && state.carriedMonthSnapshots[normalizedToMonth].length) {
-      const existingRows = state.carriedMonthSnapshots[normalizedToMonth];
-      let upgradedRows = false;
-      existingRows.forEach((row) => {
-        if (!row) return;
-        if (Number(row.carrySnapshotVersion || 0) >= carrySnapshotVersion) return;
-        row.carrySnapshotVersion = carrySnapshotVersion;
-        upgradedRows = true;
-      });
-      const seededExistingIdentityChanged = seedCarryForwardIdentityOverrides(state, existingRows, normalizedToMonth);
-      return upgradedRows || seededExistingIdentityChanged;
-    }
     if (typeof getAllVisibleUnitRows !== 'function') return false;
     const sourceRows = getAllVisibleUnitRows(state, normalizedFromMonth)
       .filter((row) => row && !row.isArchivedSnapshot)
@@ -337,8 +318,7 @@
         }
         return carriedRow;
       });
-    state.carriedMonthSnapshots[normalizedToMonth] = sourceRows;
-    seedCarryForwardIdentityOverrides(state, sourceRows, normalizedToMonth);
+    const seededIdentityChanged = seedCarryForwardIdentityOverrides(state, sourceRows, normalizedToMonth);
     if (typeof syncTenantMonthIdentityBulkToDb === 'function') {
       syncTenantMonthIdentityBulkToDb(
         normalizedToMonth,
@@ -360,7 +340,7 @@
         // Keep month creation usable even if the DB sync is temporarily unavailable.
       });
     }
-    return true;
+    return seededIdentityChanged || sourceRows.length > 0;
   }
 
   function formatDate(dateString) {

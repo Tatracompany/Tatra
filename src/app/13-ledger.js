@@ -1251,12 +1251,6 @@
   }
 
   function getBuildingUnitRows(state, buildingName, monthKey) {
-    const carriedRows = typeof getCarriedMonthSnapshotRows === 'function'
-      ? getCarriedMonthSnapshotRows(state, monthKey, buildingName)
-      : null;
-    if (carriedRows && carriedRows.length) {
-      return carriedRows.map((row) => materializeCarriedMonthRow(state, row, monthKey));
-    }
     const snapshotRows = getSnapshotBuildingUnitRows(state, buildingName, monthKey);
     if (snapshotRows && snapshotRows.length) {
       return snapshotRows;

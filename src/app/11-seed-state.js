@@ -649,10 +649,6 @@
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedMonth) return false;
     let changed = false;
-    if (state.carriedMonthSnapshots && Object.prototype.hasOwnProperty.call(state.carriedMonthSnapshots, normalizedMonth)) {
-      delete state.carriedMonthSnapshots[normalizedMonth];
-      changed = true;
-    }
     if (clearWholeMonthOverrideBucket(state.paidOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.carryOverrides, normalizedMonth)) changed = true;
     if (clearWholeMonthOverrideBucket(state.notesOverrides, normalizedMonth)) changed = true;
