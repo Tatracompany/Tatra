@@ -777,7 +777,10 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     else if (today() > dueDate && remainingCurrent > 0) status = 'overdue';
 
     const lateMonths = monthsLate(previousDue, rentDue);
-    const prepaidMonths = advanceMonthsCovered(prepaidCredit + prepaidNext, rentDue);
+    // Prepaid entered for the next month should stay in the current month's
+    // prepaid column only. It should not change same-month "paid through" or
+    // "advance covers" display.
+    const prepaidMonths = advanceMonthsCovered(prepaidCredit, rentDue);
     let lastPaidMonth = tenant.lastPaidMonth || '';
     const lastPositivePaid = ledger.slice().reverse().find((entry) => entry.paid > 0);
     if (lastPositivePaid) {

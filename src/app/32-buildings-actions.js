@@ -150,7 +150,7 @@
     return getPaymentsForTenant(state, tenant.id).some((payment) => (
       String(payment && payment.tenantId || '').trim()
       && payment.rentMonth === monthKey
-      && payment.method === 'Mark as paid'
+      && (payment.method === 'Mark as paid' || payment.method === 'Partial paid')
     ));
   }
 
@@ -170,6 +170,7 @@
       alert('This month is not using a reversible mark-as-paid action.');
       return;
     }
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
       if (typeof syncBuildingInlineEditToDb === 'function') {
         await syncBuildingInlineEditToDb({
@@ -183,24 +184,28 @@
       renderAll(state, tenantRecord.building);
       return;
     }
-    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     const reversiblePayments = getPaymentsForTenant(state, tenantId)
-      .filter((payment) => payment.rentMonth === currentMonth && payment.method === 'Mark as paid')
+      .filter((payment) => (
+        payment.rentMonth === currentMonth
+        && (payment.method === 'Mark as paid' || payment.method === 'Partial paid')
+      ))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     if (!reversiblePayments.length) {
-      alert('No auto mark-as-paid entry was found for this tenant in the current month.');
+      alert('No reversible current-month payment entry was found for this tenant.');
       return;
     }
     if (typeof deleteTenantPaymentFromDb === 'function') {
-      await deleteTenantPaymentFromDb({
-        sourceTenantId,
-        rentMonth: currentMonth,
-        method: 'Mark as paid'
-      });
+      for (const payment of reversiblePayments) {
+        await deleteTenantPaymentFromDb({
+          sourceTenantId,
+          rentMonth: currentMonth,
+          method: payment.method
+        });
+      }
     }
     const updatedTenant = getTenantView(state, tenantRecord, currentMonth);
     tenantRecord.lastPaidMonth = updatedTenant && updatedTenant.paidCurrent > 0 ? currentMonth : addMonths(currentMonth, -1);
-    logActivity(state, 'Marked unpaid', `${tenantRecord.building} ${tenantRecord.unit} auto paid entry removed for ${formatMonth(currentMonth)}.`);
+    logActivity(state, 'Marked unpaid', `${tenantRecord.building} ${tenantRecord.unit} current-month paid entries removed for ${formatMonth(currentMonth)}.`);
     renderAll(state, tenantRecord.building);
   }
 
