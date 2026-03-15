@@ -293,6 +293,8 @@ async function saveTenantProfileToDatabase(profile) {
   }
   const database = openDatabase(databasePath);
   try {
+    await database.exec('BEGIN');
+    await freezeTenantMonthBaseline(database, sourceTenantId, '2026-02');
     const tenancy = await database.prepare(`
       SELECT id
       FROM tenancies
@@ -330,6 +332,14 @@ async function saveTenantProfileToDatabase(profile) {
       VALUES ('last_tenant_profile_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
   } finally {
     await database.close();
   }
@@ -346,6 +356,15 @@ async function saveUnitIdentityToDatabase(payload) {
   const unitKey = `${floorLabel.toUpperCase()}::${unitLabel.toUpperCase()}`;
   const database = openDatabase(databasePath);
   try {
+    await database.exec('BEGIN');
+    const linkedTenancies = await database.prepare(`
+      SELECT source_tenant_id AS sourceTenantId
+      FROM tenancies
+      WHERE unit_id = ? AND is_active = 1 AND is_archived = 0
+    `).all(unitId);
+    for (const tenancy of linkedTenancies) {
+      await freezeTenantMonthBaseline(database, String(tenancy && tenancy.sourceTenantId || '').trim(), '2026-02');
+    }
     const result = await database.prepare(`
       UPDATE units
       SET
@@ -368,6 +387,14 @@ async function saveUnitIdentityToDatabase(payload) {
       VALUES ('last_unit_identity_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
   } finally {
     await database.close();
   }
@@ -386,6 +413,72 @@ async function upsertTenantMonthOverride(database, sourceTenantId, monthKey, ove
       tenancy_id = (SELECT id FROM tenancies WHERE source_tenant_id = excluded.source_tenant_id LIMIT 1),
       value_text = excluded.value_text
   `).run(sourceTenantId, sourceTenantId, monthKey, overrideKind, valueText);
+}
+
+async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
+  const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+  const normalizedMonthKey = String(monthKey || '').trim();
+  if (!normalizedSourceTenantId || !normalizedMonthKey || normalizedMonthKey <= BASELINE_MONTH_KEY) return;
+  const tenancy = await database.prepare(`
+    SELECT
+      tenancies.source_tenant_id AS sourceTenantId,
+      tenancies.tenant_name AS name,
+      tenancies.phone,
+      tenancies.civil_id AS civilId,
+      tenancies.nationality,
+      tenancies.move_in_date AS moveInDate,
+      tenancies.contract_start AS contractStart,
+      tenancies.contract_end AS contractEnd,
+      tenancies.contract_rent AS contractRent,
+      tenancies.discount,
+      tenancies.actual_rent AS actualRent,
+      tenancies.insurance_amount AS insuranceAmount,
+      tenancies.insurance_paid_month AS insurancePaidMonth,
+      tenancies.planned_vacate_date AS plannedVacateDate,
+      tenancies.notes,
+      units.unit_label AS unit,
+      units.floor_label AS floor
+    FROM tenancies
+    LEFT JOIN units ON units.id = tenancies.unit_id
+    WHERE tenancies.source_tenant_id = ?
+    LIMIT 1
+  `).get(normalizedSourceTenantId);
+  if (!tenancy) return;
+  const overrideEntries = [
+    ['name', String(tenancy.name || '').trim()],
+    ['unit', String(tenancy.unit || '').trim()],
+    ['floor', String(tenancy.floor || '').trim()],
+    ['moveInDate', String(tenancy.moveInDate || '').trim()],
+    ['contractStart', String(tenancy.contractStart || '').trim()],
+    ['contractEnd', String(tenancy.contractEnd || '').trim()],
+    ['phone', String(tenancy.phone || '').trim()],
+    ['civilId', String(tenancy.civilId || '').trim()],
+    ['nationality', String(tenancy.nationality || 'Not set').trim() || 'Not set'],
+    ['contract_rent', String(Number(tenancy.contractRent || 0))],
+    ['discount', String(Number(tenancy.discount || 0))],
+    ['actual_rent', String(Number(tenancy.actualRent || 0))],
+    ['insurance_amount', String(Number(tenancy.insuranceAmount || 0))],
+    ['insurance_paid_month', String(tenancy.insurancePaidMonth || '').trim()],
+    ['planned_vacate_date', String(tenancy.plannedVacateDate || '').trim()],
+    ['notes', String(tenancy.notes || '').trim()]
+  ];
+  for (const [overrideKind, valueText] of overrideEntries) {
+    await upsertTenantMonthOverride(database, normalizedSourceTenantId, normalizedMonthKey, overrideKind, valueText);
+  }
+}
+
+async function freezeMonthBaselineForAllTenants(database, monthKey) {
+  const normalizedMonthKey = String(monthKey || '').trim();
+  if (!normalizedMonthKey || normalizedMonthKey <= BASELINE_MONTH_KEY) return;
+  const rows = await database.prepare(`
+    SELECT source_tenant_id AS sourceTenantId
+    FROM tenancies
+    WHERE is_active = 1 AND is_archived = 0
+    ORDER BY source_tenant_id
+  `).all();
+  for (const row of rows) {
+    await freezeTenantMonthBaseline(database, String(row && row.sourceTenantId || '').trim(), normalizedMonthKey);
+  }
 }
 
 async function saveTenantMonthIdentityToDatabase(payload) {
@@ -500,6 +593,7 @@ async function resetMonthDataInDatabase(payload) {
       VALUES ('last_month_reset_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
+    await freezeMonthBaselineForAllTenants(database, monthKey);
     await database.exec('COMMIT');
   } catch (error) {
     try {
@@ -552,7 +646,9 @@ async function saveBuildingInlineEditToDatabase(payload) {
       WHERE source_tenant_id = ?
       LIMIT 1
     `).get(sourceTenantId);
+    await database.exec('BEGIN');
     if (shouldUpdateBaseTenancy) {
+      await freezeTenantMonthBaseline(database, sourceTenantId, '2026-02');
       const result = await database.prepare(`
         UPDATE tenancies
         SET
@@ -580,7 +676,6 @@ async function saveBuildingInlineEditToDatabase(payload) {
         throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
       }
     }
-    await database.exec('BEGIN');
     if (!shouldUpdateBaseTenancy && hasPayloadField('contractRent')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'contract_rent', String(Number(payload && payload.contractRent || 0)));
     }
