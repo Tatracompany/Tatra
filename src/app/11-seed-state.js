@@ -478,41 +478,15 @@
 
   function loadState() {
     try {
-      const raw = safeStorageGet(STORAGE_KEY);
-      if (!raw) {
-        const fresh = buildFreshSqlResetState();
-        saveState(fresh, { kind: 'passive' });
-        return fresh;
-      }
-      let parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.tenants) || !Array.isArray(parsed.payments)) {
-        throw new Error('Invalid state');
-      }
+      let parsed = buildFreshSqlResetState();
       if (typeof hasDbSnapshot === 'function' && hasDbSnapshot()) {
         if (typeof getDbSnapshotPayments === 'function') parsed.payments = getDbSnapshotPayments();
         if (typeof getDbSnapshotActivity === 'function') parsed.activity = getDbSnapshotActivity();
       }
-      if (typeof hasDbSnapshot === 'function' && hasDbSnapshot()) {
-        parsed.buildings = BUILDINGS.slice();
-      } else if (!Array.isArray(parsed.buildings)) {
-        parsed.buildings = BUILDINGS.slice();
-      }
+      parsed.buildings = BUILDINGS.slice();
       if (!Array.isArray(parsed.activity)) parsed.activity = [];
       if (!parsed.lastInsuranceRollMonth) parsed.lastInsuranceRollMonth = getCurrentMonthKey();
       ensureAppliedFixesState(parsed);
-      if (!parsed.appliedFixes['fresh-reset-all-buildings-v2']) {
-        const fresh = buildFreshSqlResetState();
-        saveState(fresh, { kind: 'passive' });
-        return fresh;
-      }
-      if (typeof isStateBehindCurrentDbSnapshot === 'function' && isStateBehindCurrentDbSnapshot(parsed)) {
-        if (parsed.__meta && typeof parsed.__meta === 'object') {
-          parsed.__meta.dbSnapshotVersion = '';
-        }
-        if (parsed.appliedFixes && typeof parsed.appliedFixes === 'object') {
-          delete parsed.appliedFixes['repair-broken-buildings-from-db-snapshot-v2'];
-        }
-      }
       ensureTenantIdentityOverridesState(parsed);
       ensurePrepaidNextOverridesState(parsed);
       ensureOpeningCreditOverridesState(parsed);
@@ -521,33 +495,6 @@
       ensurePaidOverridesState(parsed);
       ensureCarryOverridesState(parsed);
       ensureNotesOverridesState(parsed);
-      parsed.tenants = parsed.tenants.map((tenant, index) => Object.assign({
-        phone: '',
-        civilId: '',
-        nationality: 'Not set',
-        moveInDate: '',
-        isVacant: false,
-        isArchived: false,
-        insuranceAmount: 0,
-        insurancePaidMonth: '',
-        insurancePreviousAmount: 0,
-        insuranceCurrentAmount: 0,
-        notes: '',
-        dueDay: 20,
-        seedOrder: index
-      }, tenant, {
-        phone: normalizePhone(tenant.phone || ''),
-        civilId: String(tenant.civilId || '').trim(),
-        nationality: tenant.nationality || 'Not set',
-        moveInDate: String(tenant.moveInDate || tenant.contractStart || '').trim(),
-        insuranceAmount: Number(tenant.insuranceAmount || 0),
-        insurancePaidMonth: String(tenant.insurancePaidMonth || '').trim(),
-        insurancePreviousAmount: Number(tenant.insurancePreviousAmount || (tenant.insurancePeriod === 'previous' ? tenant.insuranceAmount : 0) || 0),
-        insuranceCurrentAmount: Number(tenant.insuranceCurrentAmount || (tenant.insurancePeriod === 'current' ? tenant.insuranceAmount : 0) || 0),
-        dueDay: Number(tenant.dueDay || 20),
-        floor: normalizeFloorLabel(tenant.floor),
-        actualRent: Number(tenant.actualRent || Math.max(Number(tenant.contractRent || 0) - Number(tenant.discount || 0), 0))
-      }));
       const restoredFromDbSnapshotChanged = restoreStateFromDbSnapshot(parsed);
       const duplicateVacantChanged = removeDuplicateVacantUnits(parsed);
       const uniqueTenantIdsChanged = ensureUniqueTenantIds(parsed);
@@ -594,7 +541,7 @@
   function saveState(state, options) {
     const saveKind = String(options && options.kind || 'user').trim() || 'user';
     if (typeof stampStateMeta === 'function') stampStateMeta(state, saveKind);
-    safeStorageSet(STORAGE_KEY, JSON.stringify(state));
+    safeStorageSet(STORAGE_KEY, '');
     if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(state);
     if (saveKind === 'user' && typeof queueStateExtrasSync === 'function') queueStateExtrasSync(state);
   }

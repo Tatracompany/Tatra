@@ -474,9 +474,7 @@
       } catch (error) {
         // Ignore storage cleanup failures.
       }
-      if (memoryState) {
-        return JSON.stringify(memoryState);
-      }
+      memoryState = null;
       return null;
     }
     try {
@@ -488,11 +486,7 @@
 
   function safeStorageSet(key, value) {
     if (key === STORAGE_KEY) {
-      try {
-        memoryState = JSON.parse(value);
-      } catch (parseError) {
-        memoryState = null;
-      }
+      memoryState = null;
       try {
         localStorage.removeItem(key);
       } catch (error) {

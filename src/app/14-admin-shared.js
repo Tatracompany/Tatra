@@ -252,11 +252,12 @@
   }
 
   function exportCurrentAppState() {
-    const stateRaw = safeStorageGet(STORAGE_KEY);
-    if (!stateRaw) {
-      showFlashMessage('No saved app state was found to export.');
+    const state = window.__appState;
+    if (!state || typeof state !== 'object') {
+      showFlashMessage('No live app state was found to export.');
       return;
     }
+    const stateRaw = JSON.stringify(state, null, 2);
     const blob = new Blob([stateRaw], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
