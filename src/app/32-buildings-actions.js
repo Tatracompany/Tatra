@@ -201,7 +201,11 @@
   }
 
   function setTenantPrepaidAmount(state, tenantId, desiredAmount) {
-    const tenantRecord = state.tenants.find((item) => item.id === tenantId);
+    const normalizedTenantId = String(tenantId || '').trim();
+    const tenantRecord = state.tenants.find((item) => (
+      String(item && item.id || '').trim() === normalizedTenantId
+      || String(item && item.sourceTenantId || '').trim() === normalizedTenantId
+    ));
     if (!tenantRecord) return;
     const selectedMonth = getSelectedBuildingMonth();
     if (!canEditBuildingMonth(tenantRecord.building, selectedMonth)) {
