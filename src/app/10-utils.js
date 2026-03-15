@@ -893,12 +893,32 @@
   let stateExtrasSyncTimer = null;
   let stateExtrasSyncPayload = null;
 
+  function buildStateExtrasPayload(state) {
+    return {
+      payments: Array.isArray(state && state.payments) ? state.payments.slice() : [],
+      activity: Array.isArray(state && state.activity) ? state.activity.slice() : []
+    };
+  }
+
+  function syncStateExtrasNow(state) {
+    if (!state || typeof fetch !== 'function') return Promise.resolve(null);
+    const payload = buildStateExtrasPayload(state);
+    stateExtrasSyncPayload = payload;
+    if (stateExtrasSyncTimer) {
+      window.clearTimeout(stateExtrasSyncTimer);
+      stateExtrasSyncTimer = null;
+    }
+    return postToLocalDbApi('/api/db/state-extras', payload).then((result) => {
+      if (stateExtrasSyncPayload === payload) {
+        stateExtrasSyncPayload = null;
+      }
+      return result;
+    });
+  }
+
   function queueStateExtrasSync(state) {
     if (!state || typeof fetch !== 'function') return;
-    stateExtrasSyncPayload = {
-      payments: Array.isArray(state.payments) ? state.payments.slice() : [],
-      activity: Array.isArray(state.activity) ? state.activity.slice() : []
-    };
+    stateExtrasSyncPayload = buildStateExtrasPayload(state);
     if (stateExtrasSyncTimer) {
       window.clearTimeout(stateExtrasSyncTimer);
     }

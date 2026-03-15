@@ -288,7 +288,7 @@
     }
   }
 
-  function applyDuePayment(state, tenantId) {
+  async function applyDuePayment(state, tenantId) {
     const tenantRecord = state.tenants.find((item) => item.id === tenantId);
     if (!tenantRecord) return;
     const selectedMonth = getSelectedDueMonth();
@@ -318,6 +318,9 @@
       note: 'Applied to previous due'
     });
     saveState(state);
+    if (typeof syncStateExtrasNow === 'function') {
+      await syncStateExtrasNow(state);
+    }
     logActivity(state, 'Due payment recorded', `${tenant.building} ${tenant.unit} due payment ${formatCurrency(appliedAmount)} applied to previous due.`);
     renderAll(state, tenant.building);
   }
@@ -331,7 +334,10 @@
     const monthFilter = document.getElementById('paymentMonthFilter');
     const searchInput = document.getElementById('paymentSearch');
 
-    const rows = state.payments
+    const payments = typeof getDbSnapshotPayments === 'function'
+      ? getDbSnapshotPayments()
+      : state.payments;
+    const rows = payments
       .slice()
       .filter((payment) => {
         const rentMonth = String(payment.rentMonth || '').trim();

@@ -25,7 +25,7 @@
     renderAll(state, tenant.building);
   }
 
-  function payDueAmount(state) {
+  async function payDueAmount(state) {
     const select = document.getElementById('dueTenantSelect');
     const amountInput = document.getElementById('dueAddAmount');
     const tenantId = String(select && select.value || '');
@@ -55,6 +55,9 @@
     const appliedAmount = Math.min(amount, tenantView.previousDue);
     setTenantDuePaidAmount(state, tenantId, selectedMonth, currentPaid + appliedAmount);
     saveState(state);
+    if (typeof syncStateExtrasNow === 'function') {
+      await syncStateExtrasNow(state);
+    }
     logActivity(state, 'Due payment recorded', `${tenant.building} ${tenant.unit} ${tenant.isArchived ? 'former tenant' : 'tenant'} due payment ${formatCurrency(appliedAmount)} applied to previous due.`);
     if (amountInput) amountInput.value = '';
     populateDueTenantSelect(state);

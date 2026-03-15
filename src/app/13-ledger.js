@@ -173,9 +173,7 @@
 
   function getAdvancePaymentsForNextMonth(state, tenantId, currentMonth) {
     const nextMonth = addMonths(currentMonth, 1);
-    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
-    return (state.payments || [])
-      .filter((payment) => candidateTenantIds.has(String(payment && payment.tenantId || '').trim()))
+    return getPaymentsForTenant(state, tenantId)
       .filter((payment) => payment.rentMonth === nextMonth && payment.method === 'Advance');
   }
 
