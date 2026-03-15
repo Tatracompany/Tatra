@@ -449,7 +449,7 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     LIMIT 1
   `).get(normalizedSourceTenantId);
   if (!tenancy) return;
-  const frozenOpeningCredit = 0;
+  const frozenOpeningCredit = Number(tenancy.prepaidNextMonth || 0);
   const overrideEntries = [
     ['name', String(tenancy.name || '').trim()],
     ['unit', String(tenancy.unit || '').trim()],
@@ -465,8 +465,8 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     ['actual_rent', String(Number(tenancy.actualRent || 0))],
     ['opening_credit', String(frozenOpeningCredit)],
     ['paid', '0'],
-    ['carry', '0'],
-    ['prepaid_next', '0'],
+    ['carry', String(Number(tenancy.previousDue || 0))],
+    ['prepaid_next', String(Number(tenancy.prepaidNextMonth || 0))],
     ['vacant_amount', '0'],
     ['old_tenant_due_paid', '0'],
     ['insurance_amount', String(Number(tenancy.insuranceAmount || 0))],
