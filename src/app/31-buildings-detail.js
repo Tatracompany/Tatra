@@ -558,9 +558,7 @@
     setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
     setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
     const prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount);
-    if (prepaidSaveResult === undefined && prepaidAmount > 0) {
-      return;
-    }
+    const prepaidAccepted = prepaidSaveResult !== undefined && prepaidSaveResult !== null;
     saveState(state);
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
@@ -577,7 +575,7 @@
         insuranceAmount,
         insurancePaidMonth,
         oldTenantDuePaid: oldTenantDuePaidNote,
-        prepaidAmount,
+        prepaidAmount: prepaidAccepted ? prepaidAmount : normalizeAmount(Number(tenantForDisplay.prepaidNext || 0)),
         plannedVacateDate,
         notes: getDetailTextInputValue(notesInput, tenantForDisplay.notes || '')
       });
@@ -585,7 +583,11 @@
     logActivity(state, 'Tenant updated', `${tenantForDisplay.building} ${tenantForDisplay.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${insurancePaidMonth || 'not set'} / planned vacate ${plannedVacateDate || 'not set'} / notes updated`);
     renderAll(state, tenantForDisplay.building);
     restoreBuildingRowUiState(state, rowUiState);
-    showFlashMessage(`Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`);
+    showFlashMessage(
+      prepaidAccepted || !(prepaidAmount > 0)
+        ? `Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`
+        : `Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}. Prepaid was not applied.`
+    );
   }
 
   function savePlannedVacateDate(state, tenantId) {
