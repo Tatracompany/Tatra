@@ -1113,6 +1113,24 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     });
   }
 
+  function monthHasFrozenSnapshot(monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return false;
+    if (compareMonthKeys(normalizedMonth, getDefaultActiveMonthKey()) <= 0) return false;
+    if (typeof getDbSnapshotTenantMonthStateEntries === 'function') {
+      const hasState = getDbSnapshotTenantMonthStateEntries().some((entry) => (
+        String(entry && entry.monthKey || '').trim() === normalizedMonth
+      ));
+      if (hasState) return true;
+    }
+    if (typeof getDbSnapshotTenantMonthOverrides === 'function') {
+      return getDbSnapshotTenantMonthOverrides().some((entry) => (
+        String(entry && entry.monthKey || '').trim() === normalizedMonth
+      ));
+    }
+    return false;
+  }
+
   function shouldSuppressVacantRowAgainstOccupiedRow(rows, tenant) {
     if (!tenant || !tenant.isVacant) return false;
     const buildingName = String(tenant.building || '').trim();
@@ -1133,6 +1151,20 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const snapshotUnits = getDbSnapshotUnitsForBuilding(buildingName);
     if (!snapshotUnits.length) return null;
     const selectedMonth = monthKey || getCurrentMonthKey();
+    const useFrozenSnapshotRowsOnly = monthHasFrozenSnapshot(selectedMonth);
+    if (useFrozenSnapshotRowsOnly) {
+      const orderedSnapshotUnits = snapshotUnits.slice().sort(compareSnapshotUnitPosition);
+      const rows = orderedSnapshotUnits.map((snapshotUnit) => {
+        const snapshotTenancy = typeof getDbSnapshotActiveTenancyForUnit === 'function'
+          ? getDbSnapshotActiveTenancyForUnit(String(snapshotUnit && snapshotUnit.id || '').trim())
+          : null;
+        if (snapshotTenancy) {
+          return buildSnapshotOccupiedRow(state, buildingName, snapshotUnit, snapshotTenancy, selectedMonth);
+        }
+        return buildSnapshotVacantRow(state, buildingName, snapshotUnit, selectedMonth);
+      });
+      return dedupeBuildingDisplayTenants(rows);
+    }
     const activeTenants = getTenantViews(state, selectedMonth).filter((tenant) => tenant.building === buildingName);
     const archivedTenants = state.tenants
       .filter((tenant) => tenant.building === buildingName)
