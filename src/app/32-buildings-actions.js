@@ -19,6 +19,11 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableContractRent = normalizeAmount(
+        tenant.contractRent > 0
+          ? tenant.contractRent
+          : (tenant.displayActualRent || tenant.rentDue || 0)
+      );
       const stableActualRent = normalizeAmount(
         tenant.displayActualRent != null
           ? tenant.displayActualRent
@@ -28,6 +33,7 @@
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
+          contractRent: stableContractRent,
           paidOverride: tenant.rentDue,
           baseActualRent: stableActualRent
         });
@@ -80,6 +86,11 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableContractRent = normalizeAmount(
+        tenant.contractRent > 0
+          ? tenant.contractRent
+          : (tenant.displayActualRent || tenant.rentDue || 0)
+      );
       const stableActualRent = normalizeAmount(
         tenant.displayActualRent != null
           ? tenant.displayActualRent
@@ -89,6 +100,7 @@
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
+          contractRent: stableContractRent,
           paidOverride: appliedAmount,
           baseActualRent: stableActualRent
         });
@@ -184,6 +196,11 @@
     }
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableContractRent = normalizeAmount(
+        tenant.contractRent > 0
+          ? tenant.contractRent
+          : (tenant.displayActualRent || tenant.rentDue || 0)
+      );
       const stableActualRent = normalizeAmount(
         tenant.displayActualRent != null
           ? tenant.displayActualRent
@@ -193,6 +210,7 @@
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
+          contractRent: stableContractRent,
           paidOverride: 0,
           baseActualRent: stableActualRent
         });
