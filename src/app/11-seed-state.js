@@ -492,7 +492,6 @@
     if (typeof stampStateMeta === 'function') stampStateMeta(state, saveKind);
     safeStorageSet(STORAGE_KEY, '');
     if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(state);
-    if (saveKind === 'user' && typeof queueStateExtrasSync === 'function') queueStateExtrasSync(state);
   }
 
   function clearWholeMonthOverrideBucket(bucket, monthKey) {

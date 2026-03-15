@@ -163,77 +163,6 @@ async function restoreDatabaseFromUpload(databaseBuffer) {
   return await exportSnapshotToBrowserFile();
 }
 
-async function syncStateExtrasToDatabase(payload) {
-  const payments = Array.isArray(payload && payload.payments) ? payload.payments : [];
-  const activity = Array.isArray(payload && payload.activity) ? payload.activity : [];
-  const database = openDatabase(databasePath);
-  try {
-    await database.exec('BEGIN');
-    await database.exec('DELETE FROM payments;');
-    await database.exec('DELETE FROM activity_log;');
-
-    const insertPayment = database.prepare(`
-      INSERT INTO payments (
-        id, tenancy_id, source_tenant_id, amount, paid_on, rent_month, method, note, raw_json
-      ) VALUES (
-        ?,
-        (SELECT id FROM tenancies WHERE source_tenant_id = ? LIMIT 1),
-        ?, ?, ?, ?, ?, ?, ?
-      )
-    `);
-    for (const payment of payments) {
-      const paymentId = String(payment && payment.id || '').trim();
-      const tenantId = String(payment && payment.tenantId || '').trim();
-      if (!paymentId) continue;
-      await insertPayment.run(
-        paymentId,
-        tenantId,
-        tenantId,
-        Number(payment && payment.amount || 0),
-        String(payment && payment.date || '').trim(),
-        String(payment && payment.rentMonth || '').trim(),
-        String(payment && payment.method || '').trim(),
-        String(payment && payment.note || '').trim(),
-        JSON.stringify(payment || {})
-      );
-    }
-
-    const insertActivity = database.prepare(`
-      INSERT INTO activity_log (id, happened_at, actor, action, detail, raw_json)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    for (const entry of activity) {
-      const activityId = String(entry && entry.id || '').trim();
-      if (!activityId) continue;
-      await insertActivity.run(
-        activityId,
-        String(entry && entry.when || '').trim() || new Date().toISOString(),
-        String(entry && entry.actor || '').trim(),
-        String(entry && entry.action || '').trim(),
-        String(entry && entry.detail || '').trim(),
-        JSON.stringify(entry || {})
-      );
-    }
-
-    await database.exec(`
-      INSERT INTO app_meta(key, value)
-      VALUES ('last_state_extras_sync_at', CURRENT_TIMESTAMP)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-    `);
-    await database.exec('COMMIT');
-  } catch (error) {
-    try {
-      await database.exec('ROLLBACK');
-    } catch (_rollbackError) {
-      // Ignore rollback errors.
-    }
-    throw error;
-  } finally {
-    await database.close();
-  }
-  return await exportSnapshotToBrowserFile();
-}
-
 async function syncTenantProfileForTenancy(database, tenancyId, profile) {
   const profileId = await upsertTenantProfile(database, {
     tenantName: String(profile && profile.name || profile && profile.tenantName || '').trim(),
@@ -1257,24 +1186,6 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/export-snapshot') {
     try {
       const snapshot = await exportSnapshotToBrowserFile();
-      sendJson(response, 200, {
-        ok: true,
-        outputPath: browserSnapshotPath,
-        counts: snapshot.counts
-      });
-    } catch (error) {
-      sendJson(response, 500, {
-        ok: false,
-        error: String(error && error.message || error)
-      });
-    }
-    return true;
-  }
-
-  if (request.method === 'POST' && requestUrl.pathname === '/api/db/state-extras') {
-    try {
-      const body = await readJsonBody(request);
-      const snapshot = await syncStateExtrasToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

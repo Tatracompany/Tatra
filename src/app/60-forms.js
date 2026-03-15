@@ -565,7 +565,7 @@
       });
     });
 
-    const advancePayments = (state.payments || [])
+    const advancePayments = ((typeof getDbSnapshotPayments === 'function' ? getDbSnapshotPayments() : state.payments) || [])
       .filter((payment) => String(payment.method || '').trim() === 'Advance')
       .filter((payment) => tenantIdsInBuilding.has(String(payment.tenantId || '').trim()))
       .filter((payment) => {
@@ -588,15 +588,6 @@
       && normalizeFloorLabel(tenantLike && tenantLike.floor) === targetFloor
     );
     let changed = false;
-
-    const existingPaymentIds = new Set((state.payments || []).map((payment) => String(payment.id || '').trim()));
-    (snapshot.advancePayments || []).forEach((payment) => {
-      const paymentId = String(payment && payment.id || '').trim();
-      if (!paymentId || existingPaymentIds.has(paymentId)) return;
-      state.payments.push(Object.assign({}, payment));
-      existingPaymentIds.add(paymentId);
-      changed = true;
-    });
 
     (state.tenants || []).forEach((tenant) => {
       if (!tenant || tenant.isArchived || tenant.isVacant || isExcluded(tenant)) return;

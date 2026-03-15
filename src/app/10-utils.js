@@ -931,46 +931,9 @@
     });
   }
 
-  let stateExtrasSyncTimer = null;
-  let stateExtrasSyncPayload = null;
-
-  function buildStateExtrasPayload(state) {
-    return {
-      payments: Array.isArray(state && state.payments) ? state.payments.slice() : [],
-      activity: Array.isArray(state && state.activity) ? state.activity.slice() : []
-    };
-  }
-
   function syncStateExtrasNow(state) {
-    if (!state || typeof fetch !== 'function') return Promise.resolve(null);
-    const payload = buildStateExtrasPayload(state);
-    stateExtrasSyncPayload = payload;
-    if (stateExtrasSyncTimer) {
-      window.clearTimeout(stateExtrasSyncTimer);
-      stateExtrasSyncTimer = null;
-    }
-    return postToLocalDbApi('/api/db/state-extras', payload).then((result) => {
-      if (stateExtrasSyncPayload === payload) {
-        stateExtrasSyncPayload = null;
-      }
-      return result;
-    });
-  }
-
-  function queueStateExtrasSync(state) {
-    if (!state || typeof fetch !== 'function') return;
-    stateExtrasSyncPayload = buildStateExtrasPayload(state);
-    if (stateExtrasSyncTimer) {
-      window.clearTimeout(stateExtrasSyncTimer);
-    }
-    stateExtrasSyncTimer = window.setTimeout(() => {
-      const payload = stateExtrasSyncPayload;
-      stateExtrasSyncTimer = null;
-      stateExtrasSyncPayload = null;
-      postToLocalDbApi('/api/db/state-extras', payload).catch(() => {
-        // Keep UI responsive even if the local sync is temporarily unavailable.
-      });
-    }, 80);
+    if (!state || typeof refreshDbSnapshotFromServer !== 'function') return Promise.resolve(null);
+    return refreshDbSnapshotFromServer();
   }
 
   function replaceBuildingTenantOrderOverrideId(state, buildingName, previousId, nextId) {

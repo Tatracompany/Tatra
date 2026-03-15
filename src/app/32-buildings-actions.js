@@ -1,22 +1,3 @@
-  function setTenantDuePaidAmount(state, tenantId, monthKey, amount) {
-    const normalizedAmount = Math.max(0, Math.round(Number(amount || 0)));
-    state.payments = state.payments.filter((payment) => !(
-      payment.tenantId === tenantId
-      && payment.method === 'Due payment'
-      && payment.rentMonth === monthKey
-    ));
-    if (!(normalizedAmount > 0)) return;
-    state.payments.push({
-      id: `payment-${Date.now()}-due-edit-${Math.random().toString(16).slice(2, 8)}`,
-      tenantId,
-      amount: normalizedAmount,
-      date: new Date().toISOString().slice(0, 10),
-      rentMonth: monthKey,
-      method: 'Due payment',
-      note: 'Edited from building page'
-    });
-  }
-
   async function markTenantPaidForCurrentMonth(state, tenantId) {
     const tenantRecord = state.tenants.find((item) => item.id === tenantId);
     if (!tenantRecord) return;
@@ -38,12 +19,14 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
-      setPaidOverride(state, tenantId, currentMonth, tenant.rentDue);
-      tenantRecord.lastPaidMonth = currentMonth;
-      saveState(state);
-      if (typeof syncStateExtrasNow === 'function') {
-        await syncStateExtrasNow(state);
+      if (typeof syncBuildingInlineEditToDb === 'function') {
+        await syncBuildingInlineEditToDb({
+          sourceTenantId,
+          monthKey: currentMonth,
+          paidOverride: tenant.rentDue
+        });
       }
+      tenantRecord.lastPaidMonth = currentMonth;
       logActivity(state, 'Marked paid', `${tenant.building} ${tenant.unit} marked paid for ${formatMonth(currentMonth)}.`);
       renderAll(state, tenant.building);
       return;
@@ -91,12 +74,14 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
-      setPaidOverride(state, tenantId, currentMonth, appliedAmount);
-      tenantRecord.lastPaidMonth = currentMonth;
-      saveState(state);
-      if (typeof syncStateExtrasNow === 'function') {
-        await syncStateExtrasNow(state);
+      if (typeof syncBuildingInlineEditToDb === 'function') {
+        await syncBuildingInlineEditToDb({
+          sourceTenantId,
+          monthKey: currentMonth,
+          paidOverride: appliedAmount
+        });
       }
+      tenantRecord.lastPaidMonth = currentMonth;
       logActivity(state, 'Partial payment recorded', `${tenant.building} ${tenant.unit} partial paid ${formatCurrency(appliedAmount)} for ${formatMonth(currentMonth)}.`);
       renderAll(state, tenant.building);
       return;
@@ -186,12 +171,14 @@
       return;
     }
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
-      setPaidOverride(state, tenantId, currentMonth, 0);
-      tenantRecord.lastPaidMonth = addMonths(currentMonth, -1);
-      saveState(state);
-      if (typeof syncStateExtrasNow === 'function') {
-        await syncStateExtrasNow(state);
+      if (typeof syncBuildingInlineEditToDb === 'function') {
+        await syncBuildingInlineEditToDb({
+          sourceTenantId,
+          monthKey: currentMonth,
+          paidOverride: 0
+        });
       }
+      tenantRecord.lastPaidMonth = addMonths(currentMonth, -1);
       logActivity(state, 'Marked unpaid', `${tenantRecord.building} ${tenantRecord.unit} paid override removed for ${formatMonth(currentMonth)}.`);
       renderAll(state, tenantRecord.building);
       return;
@@ -215,56 +202,6 @@
     tenantRecord.lastPaidMonth = updatedTenant && updatedTenant.paidCurrent > 0 ? currentMonth : addMonths(currentMonth, -1);
     logActivity(state, 'Marked unpaid', `${tenantRecord.building} ${tenantRecord.unit} auto paid entry removed for ${formatMonth(currentMonth)}.`);
     renderAll(state, tenantRecord.building);
-  }
-
-  function setTenantPrepaidAmount(state, tenantId, desiredAmount, tenantViewOverride) {
-    const normalizedTenantId = String(tenantId || '').trim();
-    const matchedRecords = state.tenants.filter((item) => (
-      String(item && item.id || '').trim() === normalizedTenantId
-      || String(item && item.sourceTenantId || '').trim() === normalizedTenantId
-    ));
-    const tenantRecord = matchedRecords.find((item) => item && !item.isArchived && !item.isVacant)
-      || matchedRecords.find((item) => item && !item.isArchived)
-      || matchedRecords[0];
-    if (!tenantRecord) return;
-    const selectedMonth = getSelectedBuildingMonth();
-    if (!canEditBuildingMonth(tenantRecord.building, selectedMonth)) {
-      return null;
-    }
-    const tenant = tenantViewOverride || getTenantView(state, tenantRecord, selectedMonth);
-    if (!tenant) return;
-    const canonicalSourceTenantId = String(
-      tenantRecord.sourceTenantId
-      || tenant.sourceTenantId
-      || tenantRecord.id
-      || tenantId
-      || ''
-    ).trim();
-    const currentMonth = selectedMonth;
-    const nextMonth = addMonths(currentMonth, 1);
-    const existingAdvancePayments = getAdvancePaymentsForNextMonth(state, canonicalSourceTenantId, currentMonth);
-    const existingAmount = existingAdvancePayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    state.payments = state.payments.filter((payment) => !existingAdvancePayments.some((advance) => advance.id === payment.id));
-    if (typeof setPrepaidNextOverride === 'function') {
-      setPrepaidNextOverride(state, canonicalSourceTenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
-    }
-    if (typeof setOpeningCreditOverride === 'function') {
-      setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonth, desiredAmount > 0 ? desiredAmount : null);
-    }
-    tenantRecord.prepaidNextMonth = desiredAmount > 0 ? desiredAmount : 0;
-    if (desiredAmount > 0) {
-      state.payments.push({
-        id: `payment-${Date.now()}-prepaid`,
-        tenantId: canonicalSourceTenantId,
-        amount: desiredAmount,
-        date: new Date().toISOString().slice(0, 10),
-        rentMonth: nextMonth,
-        method: 'Advance',
-        note: 'Prepaid next month'
-      });
-    }
-    saveState(state);
-    return { tenantRecord, nextMonth, existingAmount, sourceTenantId: canonicalSourceTenantId };
   }
 
   async function saveTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
