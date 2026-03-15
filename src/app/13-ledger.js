@@ -59,6 +59,17 @@
     ensurePrepaidNextOverridesState(state);
     const normalizedMonth = String(monthKey || '').trim();
     const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      let matchedSnapshotState = false;
+      let snapshotStateTotal = 0;
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, normalizedMonth);
+        if (!snapshotState || snapshotState.prepaidNext == null) return;
+        matchedSnapshotState = true;
+        snapshotStateTotal += Number(snapshotState.prepaidNext || 0);
+      });
+      if (matchedSnapshotState) return normalizeAmount(snapshotStateTotal);
+    }
     let matchedLocal = false;
     let localTotal = 0;
     candidateTenantIds.forEach((candidateId) => {
@@ -86,6 +97,17 @@
     ensureOpeningCreditOverridesState(state);
     const normalizedMonth = String(monthKey || '').trim();
     const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      let matchedSnapshotState = false;
+      let snapshotStateTotal = 0;
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, normalizedMonth);
+        if (!snapshotState || snapshotState.openingCredit == null) return;
+        matchedSnapshotState = true;
+        snapshotStateTotal += Number(snapshotState.openingCredit || 0);
+      });
+      if (matchedSnapshotState) return normalizeAmount(snapshotStateTotal);
+    }
     let matchedLocal = false;
     let localTotal = 0;
     candidateTenantIds.forEach((candidateId) => {
@@ -377,6 +399,13 @@
 
   function getPaidOverride(state, tenantId, monthKey) {
     ensurePaidOverridesState(state);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
+        if (snapshotState && snapshotState.paid != null) return normalizeAmount(snapshotState.paid);
+      }
+    }
     if (state.paidOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.paidOverrides[tenantId], monthKey)) {
       return normalizeAmount(state.paidOverrides[tenantId][monthKey]);
     }
@@ -405,6 +434,13 @@
 
   function getCarryOverride(state, tenantId, monthKey) {
     ensureCarryOverridesState(state);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
+        if (snapshotState && snapshotState.carry != null) return normalizeAmount(snapshotState.carry);
+      }
+    }
     if (state.carryOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.carryOverrides[tenantId], monthKey)) {
       return normalizeAmount(state.carryOverrides[tenantId][monthKey]);
     }
@@ -433,6 +469,13 @@
 
   function getActualRentOverride(state, tenantId, monthKey) {
     ensureActualRentOverridesState(state);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
+        if (snapshotState && snapshotState.actualRent != null) return normalizeAmount(snapshotState.actualRent);
+      }
+    }
     if (state.actualRentOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.actualRentOverrides[tenantId], monthKey)) {
       return normalizeAmount(state.actualRentOverrides[tenantId][monthKey]);
     }
@@ -461,6 +504,13 @@
 
   function getVacantAmountOverride(state, tenantId, monthKey) {
     ensureVacantAmountOverridesState(state);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
+        if (snapshotState && snapshotState.vacantAmount != null) return normalizeAmount(snapshotState.vacantAmount);
+      }
+    }
     if (state.vacantAmountOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.vacantAmountOverrides[tenantId], monthKey)) {
       return normalizeAmount(state.vacantAmountOverrides[tenantId][monthKey]);
     }
@@ -489,6 +539,13 @@
 
   function getNotesOverride(state, tenantId, monthKey) {
     ensureNotesOverridesState(state);
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
+        if (snapshotState && snapshotState.notes != null) return String(snapshotState.notes || '');
+      }
+    }
     if (state.notesOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.notesOverrides[tenantId], monthKey)) {
       return String(state.notesOverrides[tenantId][monthKey] || '');
     }

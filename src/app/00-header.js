@@ -243,6 +243,22 @@
     return snapshot.tenantMonthOverrides.slice();
   }
 
+  function getDbSnapshotTenantMonthStateEntries() {
+    const snapshot = getDbSnapshot();
+    if (!snapshot || !Array.isArray(snapshot.tenantMonthState)) return [];
+    return snapshot.tenantMonthState.slice();
+  }
+
+  function getDbSnapshotTenantMonthState(sourceTenantId, monthKey) {
+    const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedSourceTenantId || !normalizedMonthKey) return null;
+    return getDbSnapshotTenantMonthStateEntries().find((entry) => (
+      String(entry && entry.sourceTenantId || '').trim() === normalizedSourceTenantId
+      && String(entry && entry.monthKey || '').trim() === normalizedMonthKey
+    )) || null;
+  }
+
   function getDbSnapshotTenantMonthOverride(sourceTenantId, monthKey, overrideKind) {
     const normalizedSourceTenantId = String(sourceTenantId || '').trim();
     const normalizedMonthKey = String(monthKey || '').trim();

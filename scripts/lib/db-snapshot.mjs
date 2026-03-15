@@ -143,6 +143,23 @@ export function readDatabaseSnapshot(databasePath) {
     ORDER BY source_tenant_id, month_key, override_kind
   `).all();
 
+  const tenantMonthState = db.prepare(`
+    SELECT
+      source_tenant_id AS sourceTenantId,
+      month_key AS monthKey,
+      MAX(CASE WHEN override_kind = 'paid' THEN value_text END) AS paid,
+      MAX(CASE WHEN override_kind = 'carry' THEN value_text END) AS carry,
+      MAX(CASE WHEN override_kind = 'actual_rent' THEN value_text END) AS actualRent,
+      MAX(CASE WHEN override_kind = 'vacant_amount' THEN value_text END) AS vacantAmount,
+      MAX(CASE WHEN override_kind = 'notes' THEN value_text END) AS notes,
+      MAX(CASE WHEN override_kind = 'prepaid_next' THEN value_text END) AS prepaidNext,
+      MAX(CASE WHEN override_kind = 'opening_credit' THEN value_text END) AS openingCredit,
+      MAX(CASE WHEN override_kind = 'old_tenant_due_paid' THEN value_text END) AS oldTenantDuePaid
+    FROM tenant_month_overrides
+    GROUP BY source_tenant_id, month_key
+    ORDER BY source_tenant_id, month_key
+  `).all();
+
   const payments = db.prepare(`
     SELECT
       id,
@@ -181,6 +198,7 @@ export function readDatabaseSnapshot(databasePath) {
       vacancyStates: vacancyStates.length,
       rowOrder: rowOrder.length,
       tenantMonthOverrides: tenantMonthOverrides.length,
+      tenantMonthState: tenantMonthState.length,
       tenantProfiles: tenantProfiles.length,
       tenancyHistory: tenancyHistory.length,
       payments: payments.length,
@@ -194,6 +212,7 @@ export function readDatabaseSnapshot(databasePath) {
     vacancyStates,
     rowOrder,
     tenantMonthOverrides,
+    tenantMonthState,
     payments,
     activity
   };
