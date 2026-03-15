@@ -294,7 +294,7 @@ async function saveTenantProfileToDatabase(profile) {
   const database = openDatabase(databasePath);
   try {
     await database.exec('BEGIN');
-    await freezeTenantMonthBaseline(database, sourceTenantId, '2026-02');
+    await ensureFrozenMonthBaseline(database, sourceTenantId, '2026-02');
     const tenancy = await database.prepare(`
       SELECT id
       FROM tenancies
@@ -363,7 +363,7 @@ async function saveUnitIdentityToDatabase(payload) {
       WHERE unit_id = ? AND is_active = 1 AND is_archived = 0
     `).all(unitId);
     for (const tenancy of linkedTenancies) {
-      await freezeTenantMonthBaseline(database, String(tenancy && tenancy.sourceTenantId || '').trim(), '2026-02');
+      await ensureFrozenMonthBaseline(database, String(tenancy && tenancy.sourceTenantId || '').trim(), '2026-02');
     }
     const result = await database.prepare(`
       UPDATE units
@@ -511,6 +511,14 @@ async function hasFrozenMonthSnapshot(database, sourceTenantId, monthKey) {
     LIMIT 1
   `).get(normalizedSourceTenantId, normalizedMonthKey);
   return !!existing;
+}
+
+async function ensureFrozenMonthBaseline(database, sourceTenantId, monthKey) {
+  const normalizedSourceTenantId = String(sourceTenantId || '').trim();
+  const normalizedMonthKey = String(monthKey || '').trim();
+  if (!normalizedSourceTenantId || !normalizedMonthKey || normalizedMonthKey <= BASELINE_MONTH_KEY) return;
+  if (await hasFrozenMonthSnapshot(database, normalizedSourceTenantId, normalizedMonthKey)) return;
+  await freezeTenantMonthBaseline(database, normalizedSourceTenantId, normalizedMonthKey);
 }
 
 async function saveTenantMonthIdentityToDatabase(payload) {
@@ -680,7 +688,7 @@ async function saveBuildingInlineEditToDatabase(payload) {
     `).get(sourceTenantId);
     await database.exec('BEGIN');
     if (shouldUpdateBaseTenancy) {
-      await freezeTenantMonthBaseline(database, sourceTenantId, '2026-02');
+      await ensureFrozenMonthBaseline(database, sourceTenantId, '2026-02');
       const result = await database.prepare(`
         UPDATE tenancies
         SET
