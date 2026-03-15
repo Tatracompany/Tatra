@@ -166,59 +166,7 @@
   }
 
   function buildCarryForwardPreviewRows(state, fromMonth, toMonth) {
-    const normalizedFromMonth = String(fromMonth || '').trim();
-    const normalizedToMonth = String(toMonth || '').trim();
-    if (!normalizedFromMonth || !normalizedToMonth || typeof getAllVisibleUnitRows !== 'function') return [];
-    return getAllVisibleUnitRows(state, normalizedFromMonth)
-      .filter((row) => row && !row.isArchivedSnapshot)
-      .map((row) => {
-        const carriedRow = JSON.parse(JSON.stringify(Object.assign({}, row, {
-          carriedFromMonth: normalizedFromMonth,
-          carriedMonthKey: normalizedToMonth,
-          carrySnapshotVersion: 'live-preview'
-        })));
-        if (!carriedRow.isVacant) {
-          const carriedRentDue = Number(carriedRow.displayActualRent || carriedRow.baseActualRent || carriedRow.actualRent || 0);
-          const isFahaheelShabaka = (
-            normalizedToMonth === '2026-02'
-            && String(carriedRow.building || '').trim().toLowerCase() === 'fahaheel'
-            && (
-              String(carriedRow.unit || '').trim() === '\u0633\u0637\u062D'
-              || String(carriedRow.name || '').trim() === '\u0634\u0628\u0643\u0629'
-              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'fahaheel-\u0633\u0637\u062D'
-              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'tenant-unit-fahaheel-fresh-20260314105252-55'
-            )
-          );
-          const carriedSourcePrepaidFromBefore = isFahaheelShabaka ? 597.87 : 0;
-          const carriedCurrentMonth = isFahaheelShabaka ? carriedRentDue : 0;
-          const carriedPrepaidFromBefore = isFahaheelShabaka
-            ? Math.max(carriedSourcePrepaidFromBefore - carriedCurrentMonth, 0)
-            : 0;
-          const carriedPrepaidCredit = carriedPrepaidFromBefore;
-          const carriedTotalDue = isFahaheelShabaka
-            ? 0
-            : Math.max(carriedRentDue - carriedPrepaidFromBefore, 0);
-          carriedRow.paidCurrent = carriedCurrentMonth;
-          carriedRow.paidCurrentRaw = carriedCurrentMonth;
-          carriedRow.prepaidFromBefore = carriedPrepaidFromBefore;
-          carriedRow.prepaidCredit = carriedPrepaidCredit;
-          carriedRow.prepaidNext = 0;
-          carriedRow.previousDue = 0;
-          carriedRow.previousPaid = 0;
-          carriedRow.remainingCurrent = carriedCurrentMonth;
-          carriedRow.rentDue = carriedRentDue;
-          carriedRow.totalDue = carriedTotalDue;
-          carriedRow.status = carriedTotalDue <= 0
-            ? (carriedRentDue > 0 ? 'paid' : 'upcoming')
-            : (carriedPrepaidFromBefore > 0 ? 'partial' : 'unpaid');
-          carriedRow.lateMonths = 0;
-          carriedRow.prepaidMonths = 0;
-          carriedRow.paidThroughMonth = carriedTotalDue > 0 ? normalizedFromMonth : normalizedToMonth;
-          carriedRow.lastPaidMonth = '';
-          carriedRow.lastPaidMonthLabel = '-';
-        }
-        return carriedRow;
-      });
+    return [];
   }
 
   function getCarriedMonthSnapshotRows(state, monthKey, buildingName) {
@@ -226,121 +174,11 @@
   }
 
   function seedCarryForwardIdentityOverrides(state, rows, monthKey) {
-    if (!state || !Array.isArray(rows) || typeof setTenantIdentityOverride !== 'function') return false;
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedMonth) return false;
-    let changed = false;
-    rows.forEach((row) => {
-      if (!row || row.isVacant) return;
-      const tenantId = String(row.sourceTenantId || row.id || '').trim();
-      if (!tenantId) return;
-      [
-        ['name', row.name],
-        ['unit', row.unit],
-        ['floor', row.floor],
-        ['moveInDate', row.moveInDate],
-        ['contractStart', row.contractStart],
-        ['contractEnd', row.contractEnd],
-        ['phone', row.phone],
-        ['civilId', row.civilId],
-        ['nationality', row.nationality]
-      ].forEach(([field, value]) => {
-        const existingValue = typeof getTenantIdentityOverride === 'function'
-          ? getTenantIdentityOverride(state, tenantId, field, normalizedMonth)
-          : null;
-        if (existingValue != null) return;
-        setTenantIdentityOverride(state, tenantId, field, normalizedMonth, value);
-        changed = true;
-      });
-    });
-    return changed;
+    return false;
   }
 
   function ensureCarryForwardMonth(state, fromMonth, toMonth) {
-    const carrySnapshotVersion = 5;
-    if (!state) return false;
-    const normalizedFromMonth = String(fromMonth || '').trim();
-    const normalizedToMonth = String(toMonth || '').trim();
-    if (!normalizedFromMonth || !normalizedToMonth) return false;
-    if (compareMonthKeys(normalizedToMonth, normalizedFromMonth) <= 0) return false;
-    if (typeof getAllVisibleUnitRows !== 'function') return false;
-    const sourceRows = getAllVisibleUnitRows(state, normalizedFromMonth)
-      .filter((row) => row && !row.isArchivedSnapshot)
-      .map((row) => {
-        const carriedRow = JSON.parse(JSON.stringify(Object.assign({}, row, {
-          carriedFromMonth: normalizedFromMonth,
-          carriedMonthKey: normalizedToMonth,
-          carrySnapshotVersion
-        })));
-        if (!carriedRow.isVacant) {
-          const carriedRentDue = Number(carriedRow.displayActualRent || carriedRow.baseActualRent || carriedRow.actualRent || 0);
-          const isFahaheelShabaka = (
-            normalizedToMonth === '2026-02'
-            && String(carriedRow.building || '').trim().toLowerCase() === 'fahaheel'
-            && (
-              String(carriedRow.unit || '').trim() === '\u0633\u0637\u062D'
-              || String(carriedRow.name || '').trim() === '\u0634\u0628\u0643\u0629'
-              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'fahaheel-\u0633\u0637\u062D'
-              || String(carriedRow.sourceTenantId || carriedRow.id || '').trim() === 'tenant-unit-fahaheel-fresh-20260314105252-55'
-            )
-          );
-          const carriedSourcePrepaidFromBefore = isFahaheelShabaka ? 597.87 : 0;
-          const carriedCurrentMonth = isFahaheelShabaka
-            ? carriedRentDue
-            : 0;
-          const carriedPrepaidFromBefore = isFahaheelShabaka
-            ? Math.max(carriedSourcePrepaidFromBefore - carriedCurrentMonth, 0)
-            : 0;
-          const carriedPrepaidCredit = carriedPrepaidFromBefore;
-          const carriedTotalDue = isFahaheelShabaka
-            ? 0
-            : Math.max(carriedRentDue - carriedPrepaidFromBefore, 0);
-          carriedRow.paidCurrent = 0;
-          carriedRow.paidCurrentRaw = 0;
-          carriedRow.prepaidFromBefore = carriedPrepaidFromBefore;
-          carriedRow.prepaidCredit = carriedPrepaidCredit;
-          carriedRow.prepaidNext = 0;
-          carriedRow.previousDue = 0;
-          carriedRow.previousPaid = 0;
-          carriedRow.remainingCurrent = carriedCurrentMonth;
-          carriedRow.rentDue = carriedRentDue;
-          carriedRow.totalDue = carriedTotalDue;
-          carriedRow.paidCurrent = carriedCurrentMonth;
-          carriedRow.paidCurrentRaw = carriedCurrentMonth;
-          carriedRow.status = carriedTotalDue <= 0
-            ? (carriedRentDue > 0 ? 'paid' : 'upcoming')
-            : (carriedPrepaidFromBefore > 0 ? 'partial' : 'unpaid');
-          carriedRow.lateMonths = 0;
-          carriedRow.prepaidMonths = 0;
-          carriedRow.paidThroughMonth = carriedTotalDue > 0 ? normalizedFromMonth : normalizedToMonth;
-          carriedRow.lastPaidMonth = '';
-          carriedRow.lastPaidMonthLabel = '-';
-        }
-        return carriedRow;
-      });
-    const seededIdentityChanged = seedCarryForwardIdentityOverrides(state, sourceRows, normalizedToMonth);
-    if (typeof syncTenantMonthIdentityBulkToDb === 'function') {
-      syncTenantMonthIdentityBulkToDb(
-        normalizedToMonth,
-        sourceRows
-          .filter((row) => row && !row.isVacant && String(row.sourceTenantId || row.id || '').trim())
-          .map((row) => ({
-            sourceTenantId: String(row.sourceTenantId || row.id || '').trim(),
-            name: row.name,
-            unit: row.unit,
-            floor: row.floor,
-            moveInDate: row.moveInDate,
-            contractStart: row.contractStart,
-            contractEnd: row.contractEnd,
-            phone: row.phone,
-            civilId: row.civilId,
-            nationality: row.nationality
-          }))
-      ).catch(() => {
-        // Keep month creation usable even if the DB sync is temporarily unavailable.
-      });
-    }
-    return seededIdentityChanged || sourceRows.length > 0;
+    return false;
   }
 
   function formatDate(dateString) {

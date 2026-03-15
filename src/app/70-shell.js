@@ -35,21 +35,7 @@
   }
 
   async function runOneTimeMonthResetsBeforeLoad() {
-    const resetMonthKey = '2026-02';
-    const resetMarkerKey = 'tatra-db-reset-month-2026-02-v10';
-    if (typeof safeStorageGet !== 'function' || typeof safeStorageSet !== 'function') return;
-    if (String(safeStorageGet(resetMarkerKey) || '').trim() === 'done') return;
-    try {
-      if (typeof syncResetMonthDataToDb === 'function') {
-        await syncResetMonthDataToDb(resetMonthKey);
-      }
-    } catch (_error) {
-      return;
-    }
-    safeStorageSet(resetMarkerKey, 'done');
-    if (typeof refreshDbSnapshotFromServer === 'function') {
-      await refreshDbSnapshotFromServer();
-    }
+    return;
   }
 
   function bindBuildingCards(state) {
@@ -79,34 +65,7 @@
   }
 
   function bindStaleStateWarning() {
-    if (window.__tatraStaleStateWarningBound) return;
-    window.__tatraStaleStateWarningBound = true;
-    window.addEventListener('storage', (event) => {
-      if (!event || event.key !== STORAGE_KEY || !event.newValue) return;
-      try {
-        const parsed = JSON.parse(event.newValue);
-        const incomingSavedAt = typeof getStateLastSavedAt === 'function' ? getStateLastSavedAt(parsed) : 0;
-        const incomingSessionId = typeof getStateLastSavedSessionId === 'function' ? getStateLastSavedSessionId(parsed) : '';
-        const incomingSaveKind = typeof getStateLastSaveKind === 'function' ? getStateLastSaveKind(parsed) : 'user';
-        const currentSavedAt = Math.max(0, Number(window.__tatraKnownStateSavedAt || 0));
-        const currentSessionId = String(window.__tatraKnownStateSavedSessionId || '').trim();
-        if (!(incomingSavedAt > currentSavedAt)) return;
-        if (incomingSessionId && currentSessionId && incomingSessionId === currentSessionId) {
-          window.__tatraKnownStateSavedAt = incomingSavedAt;
-          window.__tatraKnownStateSavedSessionId = incomingSessionId;
-          return;
-        }
-        window.__tatraKnownStateSavedAt = incomingSavedAt;
-        window.__tatraKnownStateSavedSessionId = incomingSessionId;
-        if (incomingSaveKind !== 'user') return;
-        window.__tatraStateIsStale = true;
-        if (typeof showFlashMessage === 'function') {
-          showFlashMessage('Another tab saved newer data. Refresh this page before editing.');
-        }
-      } catch (error) {
-        // Ignore malformed storage events.
-      }
-    });
+    return;
   }
 
   function ensureFrozenTableHeaderHost() {
@@ -297,37 +256,7 @@
 
   function renderAll(state, selectedBuilding) {
     window.__appState = state;
-    let noteSnapshotsChanged = false;
-    let carriedMonthChanged = false;
-    if (typeof ensureCarryForwardMonth === 'function') {
-      carriedMonthChanged = ensureCarryForwardMonth(state, '2026-01', '2026-02') || carriedMonthChanged;
-    }
     const currentPage = String((document.body && document.body.dataset.page) || '');
-    if (currentPage === 'buildings') {
-      const selectedMonth = getSelectedBuildingMonth();
-      if (isMonthEditable(selectedMonth)) {
-        noteSnapshotsChanged = ensureNoteSnapshotsForMonth(state, selectedMonth) || noteSnapshotsChanged;
-      }
-    }
-    if (currentPage === 'tenants') {
-      const selectedMonth = getSelectedTenantMonth();
-      if (isMonthEditable(selectedMonth)) {
-        noteSnapshotsChanged = ensureNoteSnapshotsForMonth(state, selectedMonth) || noteSnapshotsChanged;
-      }
-    }
-    if (currentPage === 'due') {
-      const selectedMonth = getSelectedDueMonth();
-      if (isMonthEditable(selectedMonth)) {
-        noteSnapshotsChanged = ensureNoteSnapshotsForMonth(state, selectedMonth) || noteSnapshotsChanged;
-      }
-    }
-    if (currentPage === 'vacant') {
-      const selectedMonth = getSelectedVacantMonth();
-      if (isMonthEditable(selectedMonth)) {
-        noteSnapshotsChanged = ensureNoteSnapshotsForMonth(state, selectedMonth) || noteSnapshotsChanged;
-      }
-    }
-    if (noteSnapshotsChanged || carriedMonthChanged) saveState(state, { kind: 'passive' });
     resetRenderCache();
     renderSidebarUser();
 
