@@ -516,6 +516,7 @@
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
     const totalCurrentMonth = previousPaidTotal
       + tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth), 0)
+      + prepaidTotal
       + insuranceCurrentTotal
       + oldTenantDuePaidTotal;
     const januaryBaselineAdjustment = tenants.reduce((sum, tenant) => (
