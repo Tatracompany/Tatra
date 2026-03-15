@@ -813,24 +813,26 @@
     const unitId = String(payload && payload.unitId || '').trim();
     const monthKey = String(payload && payload.monthKey || '').trim();
     if ((!sourceTenantId && !unitId) || !monthKey) return Promise.resolve(null);
-    return postToLocalDbApi('/api/db/building-inline-save', {
+    const requestBody = {
       sourceTenantId,
       unitId,
-      monthKey,
-      contractRent: Number(payload && payload.contractRent || 0),
-      discount: Number(payload && payload.discount || 0),
-      baseActualRent: Number(payload && payload.baseActualRent || 0),
-      actualRentOverride: Number(payload && payload.actualRentOverride || 0),
-      vacantAmount: Number(payload && payload.vacantAmount || 0),
-      carryOverride: Number(payload && payload.carryOverride || 0),
-      paidOverride: Number(payload && payload.paidOverride || 0),
-      insuranceAmount: Number(payload && payload.insuranceAmount || 0),
-      insurancePaidMonth: String(payload && payload.insurancePaidMonth || '').trim(),
-      oldTenantDuePaid: Number(payload && payload.oldTenantDuePaid || 0),
-      prepaidAmount: Number(payload && payload.prepaidAmount || 0),
-      plannedVacateDate: String(payload && payload.plannedVacateDate || '').trim(),
-      notes: String(payload && payload.notes || '').trim()
-    });
+      monthKey
+    };
+    const hasPayloadField = (fieldName) => Object.prototype.hasOwnProperty.call(payload || {}, fieldName);
+    if (hasPayloadField('contractRent')) requestBody.contractRent = Number(payload && payload.contractRent || 0);
+    if (hasPayloadField('discount')) requestBody.discount = Number(payload && payload.discount || 0);
+    if (hasPayloadField('baseActualRent')) requestBody.baseActualRent = Number(payload && payload.baseActualRent || 0);
+    if (hasPayloadField('actualRentOverride')) requestBody.actualRentOverride = Number(payload && payload.actualRentOverride || 0);
+    if (hasPayloadField('vacantAmount')) requestBody.vacantAmount = Number(payload && payload.vacantAmount || 0);
+    if (hasPayloadField('carryOverride')) requestBody.carryOverride = Number(payload && payload.carryOverride || 0);
+    if (hasPayloadField('paidOverride')) requestBody.paidOverride = Number(payload && payload.paidOverride || 0);
+    if (hasPayloadField('insuranceAmount')) requestBody.insuranceAmount = Number(payload && payload.insuranceAmount || 0);
+    if (hasPayloadField('insurancePaidMonth')) requestBody.insurancePaidMonth = String(payload && payload.insurancePaidMonth || '').trim();
+    if (hasPayloadField('oldTenantDuePaid')) requestBody.oldTenantDuePaid = Number(payload && payload.oldTenantDuePaid || 0);
+    if (hasPayloadField('prepaidAmount')) requestBody.prepaidAmount = Number(payload && payload.prepaidAmount || 0);
+    if (hasPayloadField('plannedVacateDate')) requestBody.plannedVacateDate = String(payload && payload.plannedVacateDate || '').trim();
+    if (hasPayloadField('notes')) requestBody.notes = String(payload && payload.notes || '').trim();
+    return postToLocalDbApi('/api/db/building-inline-save', requestBody);
   }
 
   function syncTenantPaymentToDb(payload) {

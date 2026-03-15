@@ -516,6 +516,7 @@ async function saveBuildingInlineEditToDatabase(payload) {
   let sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const unitId = String(payload && payload.unitId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
+  const hasPayloadField = (fieldName) => Object.prototype.hasOwnProperty.call(payload || {}, fieldName);
   if ((!sourceTenantId && !unitId) || !monthKey) {
     throw new Error('sourceTenantId or unitId, and monthKey are required.');
   }
@@ -534,6 +535,20 @@ async function saveBuildingInlineEditToDatabase(payload) {
     if (!sourceTenantId) {
       throw new Error('No tenancy found for this row.');
     }
+    const existingTenancy = await database.prepare(`
+      SELECT
+        contract_rent AS contractRent,
+        discount,
+        actual_rent AS actualRent,
+        prepaid_next_month AS prepaidNextMonth,
+        insurance_amount AS insuranceAmount,
+        insurance_paid_month AS insurancePaidMonth,
+        planned_vacate_date AS plannedVacateDate,
+        notes
+      FROM tenancies
+      WHERE source_tenant_id = ?
+      LIMIT 1
+    `).get(sourceTenantId);
     const result = await database.prepare(`
       UPDATE tenancies
       SET
@@ -547,28 +562,42 @@ async function saveBuildingInlineEditToDatabase(payload) {
         notes = ?
       WHERE source_tenant_id = ?
     `).run(
-      Number(payload && payload.contractRent || 0),
-      Number(payload && payload.discount || 0),
-      Number(payload && payload.baseActualRent || 0),
-      Number(payload && payload.prepaidAmount || 0),
-      Number(payload && payload.insuranceAmount || 0),
-      String(payload && payload.insurancePaidMonth || '').trim(),
-      String(payload && payload.plannedVacateDate || '').trim(),
-      String(payload && payload.notes || '').trim(),
+      hasPayloadField('contractRent') ? Number(payload && payload.contractRent || 0) : Number(existingTenancy && existingTenancy.contractRent || 0),
+      hasPayloadField('discount') ? Number(payload && payload.discount || 0) : Number(existingTenancy && existingTenancy.discount || 0),
+      hasPayloadField('baseActualRent') ? Number(payload && payload.baseActualRent || 0) : Number(existingTenancy && existingTenancy.actualRent || 0),
+      hasPayloadField('prepaidAmount') ? Number(payload && payload.prepaidAmount || 0) : Number(existingTenancy && existingTenancy.prepaidNextMonth || 0),
+      hasPayloadField('insuranceAmount') ? Number(payload && payload.insuranceAmount || 0) : Number(existingTenancy && existingTenancy.insuranceAmount || 0),
+      hasPayloadField('insurancePaidMonth') ? String(payload && payload.insurancePaidMonth || '').trim() : String(existingTenancy && existingTenancy.insurancePaidMonth || '').trim(),
+      hasPayloadField('plannedVacateDate') ? String(payload && payload.plannedVacateDate || '').trim() : String(existingTenancy && existingTenancy.plannedVacateDate || '').trim(),
+      hasPayloadField('notes') ? String(payload && payload.notes || '').trim() : String(existingTenancy && existingTenancy.notes || '').trim(),
       sourceTenantId
     );
     if (!result || Number(result.changes || 0) < 1) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
     await database.exec('BEGIN');
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid', String(Number(payload && payload.paidOverride || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'actual_rent', String(Number(payload && payload.actualRentOverride || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'notes', String(payload && payload.notes || '').trim());
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
-    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
+    if (hasPayloadField('carryOverride')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
+    }
+    if (hasPayloadField('paidOverride')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid', String(Number(payload && payload.paidOverride || 0)));
+    }
+    if (hasPayloadField('actualRentOverride')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'actual_rent', String(Number(payload && payload.actualRentOverride || 0)));
+    }
+    if (hasPayloadField('vacantAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
+    }
+    if (hasPayloadField('notes')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'notes', String(payload && payload.notes || '').trim());
+    }
+    if (hasPayloadField('prepaidAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
+      await upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
+    }
+    if (hasPayloadField('oldTenantDuePaid')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
+    }
     await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_building_inline_sync_at', CURRENT_TIMESTAMP)
