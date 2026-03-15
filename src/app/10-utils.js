@@ -828,34 +828,39 @@
     });
   }
 
-  async function snapshotMonthFinancialsFromVisibleMonth(state, fromMonthKey, toMonthKey) {
-    if (!state || typeof getTenantViews !== 'function' || typeof syncBuildingInlineEditToDb !== 'function') return;
+  function syncCreateMonthTabToDb(monthKey, rows) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    const normalizedRows = Array.isArray(rows) ? rows : [];
+    if (!normalizedMonthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/create-month-tab', {
+      monthKey: normalizedMonthKey,
+      rows: normalizedRows
+    });
+  }
+
+  function buildMonthSnapshotRowsFromVisibleMonth(state, fromMonthKey) {
+    if (!state || typeof getTenantViews !== 'function') return [];
     const sourceMonth = String(fromMonthKey || '').trim();
-    const targetMonth = String(toMonthKey || '').trim();
-    if (!sourceMonth || !targetMonth) return;
-    const rows = getTenantViews(state, sourceMonth)
+    if (!sourceMonth) return [];
+    return getTenantViews(state, sourceMonth)
       .filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
-    for (const tenant of rows) {
-      await syncBuildingInlineEditToDb({
+  }
+
+  async function snapshotMonthFinancialsFromVisibleMonth(state, fromMonthKey, toMonthKey) {
+    const rows = buildMonthSnapshotRowsFromVisibleMonth(state, fromMonthKey).map((tenant) => ({
         sourceTenantId: String(tenant.sourceTenantId || tenant.id || '').trim(),
-        unitId: String(tenant.unitId || '').trim(),
-        monthKey: targetMonth,
         contractRent: Number(tenant.contractRent || 0),
         discount: Number(tenant.discount || 0),
-        baseActualRent: Number(tenant.baseActualRent || tenant.displayActualRent || tenant.rentDue || 0),
-        actualRentOverride: Number(tenant.displayActualRent || tenant.baseActualRent || tenant.rentDue || 0),
+        actualRent: Number(tenant.displayActualRent || tenant.baseActualRent || tenant.rentDue || 0),
         vacantAmount: Number(tenant.displayVacantAmount || 0),
-        openingCreditAmount: Number(tenant.prepaidFromBefore || 0),
-        carryOverride: 0,
-        paidOverride: 0,
+        prepaidFromBefore: Number(tenant.prepaidFromBefore || 0),
         insuranceAmount: Number(tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0),
         insurancePaidMonth: String(tenant.insurancePaidMonth || '').trim(),
-        oldTenantDuePaid: 0,
         prepaidAmount: Number(tenant.prepaidNext || 0),
         plannedVacateDate: String(tenant.plannedVacateDate || '').trim(),
         notes: String(tenant.notes || '').trim()
-      });
-    }
+      }));
+    await syncCreateMonthTabToDb(toMonthKey, rows);
   }
 
   async function createMonthTab(monthKey) {

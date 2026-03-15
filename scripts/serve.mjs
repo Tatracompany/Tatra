@@ -744,6 +744,69 @@ async function deleteMonthDataInDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function createMonthTabInDatabase(payload) {
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+  if (!monthKey || monthKey <= BASELINE_MONTH_KEY) {
+    throw new Error('A future monthKey is required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    await database.exec('BEGIN');
+    await database.prepare(`
+      DELETE FROM tenant_month_overrides
+      WHERE month_key = ?
+    `).run(monthKey);
+    await database.prepare(`
+      DELETE FROM unit_row_order
+      WHERE month_key = ?
+    `).run(monthKey);
+    await database.prepare(`
+      DELETE FROM payments
+      WHERE rent_month = ?
+    `).run(monthKey);
+    await freezeMonthBaselineForAllTenants(database, monthKey);
+    for (const row of rows) {
+      const sourceTenantId = String(row && row.sourceTenantId || '').trim();
+      if (!sourceTenantId) continue;
+      const entries = [
+        ['contract_rent', String(Number(row && row.contractRent || 0))],
+        ['discount', String(Number(row && row.discount || 0))],
+        ['actual_rent', String(Number(row && row.actualRent || 0))],
+        ['opening_credit', String(Number(row && row.prepaidFromBefore || 0))],
+        ['carry', '0'],
+        ['paid', '0'],
+        ['prepaid_next', String(Number(row && row.prepaidNext || 0))],
+        ['insurance_amount', String(Number(row && row.insuranceAmount || 0))],
+        ['insurance_paid_month', String(row && row.insurancePaidMonth || '').trim()],
+        ['planned_vacate_date', String(row && row.plannedVacateDate || '').trim()],
+        ['notes', String(row && row.notes || '').trim()],
+        ['vacant_amount', String(Number(row && row.vacantAmount || 0))],
+        ['old_tenant_due_paid', '0']
+      ];
+      for (const [overrideKind, valueText] of entries) {
+        await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+      }
+    }
+    await database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('last_month_create_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function saveBuildingInlineEditToDatabase(payload) {
   let sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const unitId = String(payload && payload.unitId || '').trim();
@@ -1684,6 +1747,24 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = await deleteMonthDataInDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/create-month-tab') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await createMonthTabInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
