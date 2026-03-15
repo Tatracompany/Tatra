@@ -805,8 +805,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
             ? baseActualRent
             : (
               isPreContractOccupancy
-                ? (displayPaidCurrentRaw > 0 ? (handoverVacantBaseAmount || defaultActualRent) : 0)
-                : (hasSelectedMonthMoveIn ? defaultActualRent : 0)
+                ? (handoverVacantBaseAmount || defaultActualRent)
+                : defaultActualRent
             )
         )
         : rentDue,
