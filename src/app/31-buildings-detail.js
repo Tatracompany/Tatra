@@ -536,16 +536,6 @@
       tenant.actualRent = Math.max(contractRent - discount, 0);
     }
     const baseActualRent = tenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
-    if (actualRentAmount !== baseActualRent) {
-      setActualRentOverride(state, canonicalSourceTenantId, selectedMonth, actualRentAmount);
-    } else {
-      setActualRentOverride(state, canonicalSourceTenantId, selectedMonth, null);
-    }
-    if (vacantAmount > 0) {
-      setVacantAmountOverride(state, canonicalSourceTenantId, selectedMonth, vacantAmount);
-    } else {
-      setVacantAmountOverride(state, canonicalSourceTenantId, selectedMonth, null);
-    }
     const effectiveRentDue = Math.max(actualRentAmount, 0);
     const prepaidFromBeforeAmount = normalizeAmountInputValue(tenantForDisplay.prepaidFromBefore || 0, allowDecimalAmounts);
     const currentMonthAmount = requestedCurrentMonthAmount;
@@ -554,7 +544,6 @@
       ? remainingCurrentAmount
       : requestedUnpaidTotalAmount;
     const previousDueAmount = Math.max(unpaidTotalAmount - remainingCurrentAmount, 0);
-    setCarryOverride(state, canonicalSourceTenantId, selectedMonth, previousDueAmount + paidPreviousAmount);
     if (tenant && insuranceAmount > 0 && insurancePaidMonth) {
       tenant.insuranceAmount = insuranceAmount;
       tenant.insurancePaidMonth = insurancePaidMonth;
@@ -570,10 +559,6 @@
     if (tenant) {
       tenant.plannedVacateDate = plannedVacateDate;
     }
-    setOldTenantDuePaidNote(state, tenantForDisplay.building, tenantForDisplay.unit, selectedMonth, oldTenantDuePaidNote);
-    setNotesOverride(state, canonicalSourceTenantId, selectedMonth, getDetailTextInputValue(notesInput, tenantForDisplay.notes || ''));
-    setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
-    setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
     const prepaidTargetTenantId = String(
       canonicalSourceTenantId
       || tenantForDisplay.sourceTenantId
@@ -582,19 +567,10 @@
       || tenantId
       || ''
     ).trim();
-    const nextMonthForPrepaid = addMonths(selectedMonth, 1);
-    if (prepaidTargetTenantId && typeof setPrepaidNextOverride === 'function') {
-      setPrepaidNextOverride(state, prepaidTargetTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
-    }
-    if (prepaidTargetTenantId && typeof setOpeningCreditOverride === 'function') {
-      setOpeningCreditOverride(state, prepaidTargetTenantId, nextMonthForPrepaid, prepaidAmount > 0 ? prepaidAmount : null);
-    }
     if (tenant) {
       tenant.prepaidNextMonth = prepaidAmount > 0 ? prepaidAmount : 0;
     }
     tenantForDisplay.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
-    const prepaidAccepted = true;
-    saveState(state);
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
         sourceTenantId: canonicalSourceTenantId,

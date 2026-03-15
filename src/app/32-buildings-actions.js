@@ -250,7 +250,7 @@
     return { tenantRecord, nextMonth, existingAmount, sourceTenantId: canonicalSourceTenantId };
   }
 
-  function saveTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
+  async function saveTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
     const prepaidInput = findDetailInput('data-edit-prepaid', tenantId);
     const prepaidAmount = Number(prepaidInput && prepaidInput.value || 0);
     if (!(prepaidAmount >= 0)) {
@@ -264,12 +264,6 @@
       || ''
     ).trim();
     const nextMonth = addMonths(selectedMonth, 1);
-    if (typeof setPrepaidNextOverride === 'function' && canonicalSourceTenantId) {
-      setPrepaidNextOverride(state, canonicalSourceTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
-    }
-    if (typeof setOpeningCreditOverride === 'function' && canonicalSourceTenantId) {
-      setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonth, prepaidAmount > 0 ? prepaidAmount : null);
-    }
     const tenantRecord = state.tenants.find((item) => (
       String(item && item.id || '').trim() === canonicalSourceTenantId
       || String(item && item.sourceTenantId || '').trim() === canonicalSourceTenantId
@@ -281,7 +275,7 @@
       tenantViewOverride.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
     }
     if (typeof syncBuildingInlineEditToDb === 'function') {
-      syncBuildingInlineEditToDb({
+      await syncBuildingInlineEditToDb({
         sourceTenantId: canonicalSourceTenantId,
         monthKey: selectedMonth,
         prepaidAmount
