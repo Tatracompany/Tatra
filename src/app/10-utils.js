@@ -828,10 +828,42 @@
     });
   }
 
+  async function snapshotMonthFinancialsFromVisibleMonth(state, fromMonthKey, toMonthKey) {
+    if (!state || typeof getTenantViews !== 'function' || typeof syncBuildingInlineEditToDb !== 'function') return;
+    const sourceMonth = String(fromMonthKey || '').trim();
+    const targetMonth = String(toMonthKey || '').trim();
+    if (!sourceMonth || !targetMonth) return;
+    const rows = getTenantViews(state, sourceMonth)
+      .filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
+    for (const tenant of rows) {
+      await syncBuildingInlineEditToDb({
+        sourceTenantId: String(tenant.sourceTenantId || tenant.id || '').trim(),
+        unitId: String(tenant.unitId || '').trim(),
+        monthKey: targetMonth,
+        contractRent: Number(tenant.contractRent || 0),
+        discount: Number(tenant.discount || 0),
+        baseActualRent: Number(tenant.baseActualRent || tenant.displayActualRent || tenant.rentDue || 0),
+        actualRentOverride: Number(tenant.displayActualRent || tenant.baseActualRent || tenant.rentDue || 0),
+        vacantAmount: Number(tenant.displayVacantAmount || 0),
+        openingCreditAmount: Number(tenant.prepaidFromBefore || 0),
+        carryOverride: 0,
+        paidOverride: 0,
+        insuranceAmount: Number(tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0),
+        insurancePaidMonth: String(tenant.insurancePaidMonth || '').trim(),
+        oldTenantDuePaid: 0,
+        prepaidAmount: Number(tenant.prepaidNext || 0),
+        plannedVacateDate: String(tenant.plannedVacateDate || '').trim(),
+        notes: String(tenant.notes || '').trim()
+      });
+    }
+  }
+
   async function createMonthTab(monthKey) {
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedMonthKey) return null;
+    const sourceMonthKey = getLatestCreatedMonthKey();
     await syncResetMonthDataToDb(normalizedMonthKey);
+    await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
   }
