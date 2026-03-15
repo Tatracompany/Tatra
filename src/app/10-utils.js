@@ -38,7 +38,7 @@
   }
 
   function getVisibleUpperMonthKey() {
-    return getPreviewMonthKey();
+    return getDefaultActiveMonthKey();
   }
 
   function getBuildingPreviewUpperMonthKey(buildingName) {

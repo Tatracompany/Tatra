@@ -61,7 +61,7 @@
       <p class="section-label">Working month</p>
       <div class="sidebar-month-head">
         <strong>${escapeHtml(formatMonth(activeMonth))}</strong>
-        <span class="small-note">January is the source month. February is carried forward from January once, then keeps its own saved state.</span>
+        <span class="small-note">January is the active working month.</span>
       </div>
       <div class="sidebar-month-controls">
         <button type="button" class="secondary-action" data-working-month-shift="-1"${disablePrev ? ' disabled' : ''}>Prev</button>
@@ -108,8 +108,8 @@
     const isPreview = isPreviewOnlyMonth(selectedMonth);
     banner.classList.toggle('is-preview', isPreview);
     banner.innerHTML = isPreview
-      ? `<strong>${escapeHtml(formatMonth(selectedMonth))} carried from January.</strong><span>This month started from January, but it now stands on its own and will not keep changing with later January edits.</span>`
-      : `<strong>${escapeHtml(formatMonth(selectedMonth))} working month.</strong><span>You are working directly in January, which is the source month used to create February.</span>`;
+      ? `<strong>${escapeHtml(formatMonth(selectedMonth))} preview month.</strong><span>This month is not currently open for editing.</span>`
+      : `<strong>${escapeHtml(formatMonth(selectedMonth))} working month.</strong><span>You are working directly in January.</span>`;
   }
 
   function renderAdminAccounts() {
