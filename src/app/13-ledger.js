@@ -816,12 +816,13 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
           )
           : 0
       );
+    const shouldMarkCurrentMonthLateByDate = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
     let status = 'upcoming';
     if (isPreContractOccupancy || startsNextMonthVisible) status = 'precontract';
     else if (previousDue > 0) status = 'overdue';
     else if (displayPaidCurrent >= rentDue && rentDue > 0) status = 'paid';
     else if (displayPaidCurrent > 0) status = 'partial';
-    else if (today() > dueDate && remainingCurrent > 0) status = 'overdue';
+    else if (shouldMarkCurrentMonthLateByDate && today() > dueDate && remainingCurrent > 0) status = 'overdue';
 
     const lateMonths = monthsLate(previousDue, rentDue);
     // Prepaid entered for the next month should stay in the current month's
