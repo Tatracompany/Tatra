@@ -21,7 +21,7 @@
     const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
     const payments = typeof getDbSnapshotPayments === 'function'
       ? getDbSnapshotPayments()
-      : (state.payments || []);
+      : [];
     return payments.filter((payment) => (
       candidateTenantIds.has(String(payment && payment.tenantId || '').trim())
     ));

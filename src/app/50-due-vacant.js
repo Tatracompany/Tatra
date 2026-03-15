@@ -340,7 +340,7 @@
 
     const payments = typeof getDbSnapshotPayments === 'function'
       ? getDbSnapshotPayments()
-      : state.payments;
+      : [];
     const rows = payments
       .slice()
       .filter((payment) => {

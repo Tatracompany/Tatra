@@ -565,7 +565,7 @@
       });
     });
 
-    const advancePayments = ((typeof getDbSnapshotPayments === 'function' ? getDbSnapshotPayments() : state.payments) || [])
+    const advancePayments = ((typeof getDbSnapshotPayments === 'function' ? getDbSnapshotPayments() : []) || [])
       .filter((payment) => String(payment.method || '').trim() === 'Advance')
       .filter((payment) => tenantIdsInBuilding.has(String(payment.tenantId || '').trim()))
       .filter((payment) => {
