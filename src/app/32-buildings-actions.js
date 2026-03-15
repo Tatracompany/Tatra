@@ -227,16 +227,6 @@
     const nextMonth = addMonths(currentMonth, 1);
     const existingAdvancePayments = getAdvancePaymentsForNextMonth(state, canonicalSourceTenantId, currentMonth);
     const existingAmount = existingAdvancePayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-    if (desiredAmount > existingAmount && tenant.previousDue > 0) {
-      alert('Prepaid is blocked because this tenant has previous due.');
-      logActivity(state, 'Prepaid blocked', `${tenant.building} ${tenant.unit} blocked because previous due exists.`);
-      return;
-    }
-    if (desiredAmount > existingAmount && tenant.status !== 'paid' && tenant.remainingCurrent > 0) {
-      alert('Prepaid is blocked until the current month is fully paid.');
-      logActivity(state, 'Prepaid blocked', `${tenant.building} ${tenant.unit} blocked because current month is not fully paid.`);
-      return;
-    }
     state.payments = state.payments.filter((payment) => !existingAdvancePayments.some((advance) => advance.id === payment.id));
     if (typeof setPrepaidNextOverride === 'function') {
       setPrepaidNextOverride(state, canonicalSourceTenantId, currentMonth, desiredAmount > 0 ? desiredAmount : null);
