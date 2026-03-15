@@ -659,6 +659,96 @@ async function saveBuildingInlineEditToDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function setTenantPaymentInDatabase(payload) {
+  const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  const rentMonth = String(payload && payload.rentMonth || '').trim();
+  const method = String(payload && payload.method || '').trim();
+  if (!sourceTenantId || !rentMonth || !method) {
+    throw new Error('sourceTenantId, rentMonth, and method are required.');
+  }
+  const amount = Number(payload && payload.amount || 0);
+  const paymentId = String(payload && payload.paymentId || '').trim() || `payment-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const paidOn = String(payload && payload.paidOn || '').trim() || new Date().toISOString().slice(0, 10);
+  const note = String(payload && payload.note || '').trim();
+  const database = openDatabase(databasePath);
+  try {
+    await database.exec('BEGIN');
+    await database.prepare(`
+      DELETE FROM payments
+      WHERE source_tenant_id = ?
+        AND rent_month = ?
+        AND method = ?
+    `).run(sourceTenantId, rentMonth, method);
+    if (amount > 0) {
+      await database.prepare(`
+        INSERT INTO payments (
+          id, tenancy_id, source_tenant_id, amount, paid_on, rent_month, method, note, raw_json
+        ) VALUES (
+          ?,
+          (SELECT id FROM tenancies WHERE source_tenant_id = ? LIMIT 1),
+          ?, ?, ?, ?, ?, ?, ?
+        )
+      `).run(
+        paymentId,
+        sourceTenantId,
+        sourceTenantId,
+        amount,
+        paidOn,
+        rentMonth,
+        method,
+        note,
+        JSON.stringify({
+          id: paymentId,
+          tenantId: sourceTenantId,
+          amount,
+          date: paidOn,
+          rentMonth,
+          method,
+          note
+        })
+      );
+    }
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
+async function deleteTenantPaymentInDatabase(payload) {
+  const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  const rentMonth = String(payload && payload.rentMonth || '').trim();
+  const method = String(payload && payload.method || '').trim();
+  if (!sourceTenantId || !rentMonth || !method) {
+    throw new Error('sourceTenantId, rentMonth, and method are required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    await database.prepare(`
+      DELETE FROM payments
+      WHERE id IN (
+        SELECT id
+        FROM payments
+        WHERE source_tenant_id = ?
+          AND rent_month = ?
+          AND method = ?
+        ORDER BY paid_on DESC, id DESC
+        LIMIT 1
+      )
+    `).run(sourceTenantId, rentMonth, method);
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function saveVacantUnitMetaToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
   const buildingName = String(payload && payload.buildingName || '').trim();
@@ -1133,6 +1223,42 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = await syncStateExtrasToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/payment-set') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await setTenantPaymentInDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/payment-delete') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await deleteTenantPaymentInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

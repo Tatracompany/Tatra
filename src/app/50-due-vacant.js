@@ -103,7 +103,7 @@
       .find((node) => node.getAttribute(attributeName) === tenantId) || null;
   }
 
-  function saveDueRowEdit(state, tenantId, selectedMonth) {
+  async function saveDueRowEdit(state, tenantId, selectedMonth) {
     const tenant = state.tenants.find((item) => item.id === tenantId);
     if (!tenant) return;
     if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
@@ -113,9 +113,15 @@
     const paidPreviousInput = findDueRowInput('data-due-edit-paid', tenantId);
     const previousDueAmount = Math.max(0, Math.round(Number(previousDueInput && previousDueInput.value || 0)));
     const paidPreviousAmount = Math.max(0, Math.round(Number(paidPreviousInput && paidPreviousInput.value || 0)));
-    setCarryOverride(state, tenantId, selectedMonth, previousDueAmount + paidPreviousAmount);
-    setTenantDuePaidAmount(state, tenantId, selectedMonth, paidPreviousAmount);
-    saveState(state);
+    const sourceTenantId = String(tenant.sourceTenantId || tenant.id || tenantId || '').trim();
+    if (typeof syncBuildingInlineEditToDb === 'function') {
+      await syncBuildingInlineEditToDb({
+        sourceTenantId,
+        monthKey: selectedMonth,
+        carryOverride: previousDueAmount + paidPreviousAmount,
+        oldTenantDuePaid: paidPreviousAmount
+      });
+    }
     logActivity(
       state,
       'Due row updated',
@@ -308,18 +314,16 @@
       return;
     }
     const appliedAmount = Math.min(amount, tenant.previousDue);
-    state.payments.push({
-      id: `payment-${Date.now()}-due`,
-      tenantId,
-      amount: appliedAmount,
-      date: new Date().toISOString().slice(0, 10),
-      rentMonth: selectedMonth,
-      method: 'Due payment',
-      note: 'Applied to previous due'
-    });
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
+    if (typeof syncTenantPaymentToDb === 'function') {
+      await syncTenantPaymentToDb({
+        sourceTenantId,
+        amount: appliedAmount,
+        paidOn: new Date().toISOString().slice(0, 10),
+        rentMonth: selectedMonth,
+        method: 'Due payment',
+        note: 'Applied to previous due'
+      });
     }
     logActivity(state, 'Due payment recorded', `${tenant.building} ${tenant.unit} due payment ${formatCurrency(appliedAmount)} applied to previous due.`);
     renderAll(state, tenant.building);

@@ -51,12 +51,17 @@
       alert('This tenant does not have previous due to clear.');
       return;
     }
-    const currentPaid = getTenantDuePaidAmount(state, tenantId, selectedMonth);
     const appliedAmount = Math.min(amount, tenantView.previousDue);
-    setTenantDuePaidAmount(state, tenantId, selectedMonth, currentPaid + appliedAmount);
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
+    const sourceTenantId = String(tenantView.sourceTenantId || tenant.sourceTenantId || tenant.id || tenantId || '').trim();
+    if (typeof syncTenantPaymentToDb === 'function') {
+      await syncTenantPaymentToDb({
+        sourceTenantId,
+        amount: appliedAmount,
+        paidOn: new Date().toISOString().slice(0, 10),
+        rentMonth: selectedMonth,
+        method: 'Due payment',
+        note: 'Applied from due form'
+      });
     }
     logActivity(state, 'Due payment recorded', `${tenant.building} ${tenant.unit} ${tenant.isArchived ? 'former tenant' : 'tenant'} due payment ${formatCurrency(appliedAmount)} applied to previous due.`);
     if (amountInput) amountInput.value = '';

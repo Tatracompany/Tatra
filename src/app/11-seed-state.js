@@ -29,17 +29,7 @@
       buildings: BUILDINGS.slice(),
       tenants: [],
       payments: [],
-      prepaidNextOverrides: {},
-      openingCreditOverrides: {},
-      actualRentOverrides: {},
-      vacantAmountOverrides: {},
-      paidOverrides: {},
-      carryOverrides: {},
-      notesOverrides: {},
-      tenantIdentityOverrides: {},
-      carriedMonthSnapshots: {},
       tenantOrderOverrides: {},
-      oldTenantDuePaidNotes: {},
       lastInsuranceRollMonth: currentMonth,
       activity: [
         {
@@ -487,53 +477,12 @@
       if (!Array.isArray(parsed.activity)) parsed.activity = [];
       if (!parsed.lastInsuranceRollMonth) parsed.lastInsuranceRollMonth = getCurrentMonthKey();
       ensureAppliedFixesState(parsed);
-      ensureTenantIdentityOverridesState(parsed);
-      ensurePrepaidNextOverridesState(parsed);
-      ensureOpeningCreditOverridesState(parsed);
-      ensureActualRentOverridesState(parsed);
-      ensureVacantAmountOverridesState(parsed);
-      ensurePaidOverridesState(parsed);
-      ensureCarryOverridesState(parsed);
-      ensureNotesOverridesState(parsed);
-      const restoredFromDbSnapshotChanged = restoreStateFromDbSnapshot(parsed);
-      const duplicateVacantChanged = removeDuplicateVacantUnits(parsed);
-      const uniqueTenantIdsChanged = ensureUniqueTenantIds(parsed);
-      const duplicatePaymentChanged = removeDuplicateSeedCurrentMonthPayments(parsed);
-      const restoredSeedPaymentsChanged = false;
-      const collapsedSeedPaymentsChanged = false;
-      const repairedSalwa247Changed = false;
-      const insuranceChanged = rollInsuranceForwardIfNeeded(parsed);
-      const removedBuildingsChanged = false;
-      const normalizedHawali16105NameChanged = false;
-      const clearedFutureMonthsChanged = false;
-      const unit5FebruaryUnpaidChanged = false;
-      const removedHawali06161Unit6Changed = false;
-      const restoredHawali06161Unit6Changed = false;
-      const restoredHawali8587RowsChanged = false;
-      const restoredHawali8532BasementChanged = false;
-      const restoredHawali1646BasementChanged = false;
-      const restoredHawali175BasementChanged = false;
-      const repairedHawali362DuplicatesChanged = false;
-      const removedHawali362Unit53Changed = false;
-      const repairedHawali16105RowCountChanged = false;
-      const movedFahaheelShabakaPrepaidChanged = false;
-      const templateSeedChanged = false;
-      const normalizedInsuranceChanged = normalizeTenantInsuranceState(parsed);
-      const clearedFreeTextNotesChanged = clearFreeTextTenantNotes(parsed);
-      const clearedLegacyTenantOrderOverridesChanged = clearLegacyTenantIdOrderOverrides(parsed);
-      const normalizedPrepaidNextIdsChanged = normalizePrepaidNextStorageToSourceTenantIds(parsed);
-      const migratedPrepaidNextChanged = migrateAdvancePaymentsToPrepaidNextOverrides(parsed);
-      const migratedOpeningCreditChanged = migratePrepaidNextToOpeningCreditOverrides(parsed);
-      const resetFebruaryCarryChanged = !parsed.appliedFixes['reset-february-carry-v17']
-        ? resetCarriedMonthState(parsed, '2026-02')
-        : false;
-      parsed.appliedFixes['reset-february-carry-v17'] = true;
-      if (restoredFromDbSnapshotChanged || duplicateVacantChanged || uniqueTenantIdsChanged || duplicatePaymentChanged || restoredSeedPaymentsChanged || collapsedSeedPaymentsChanged || repairedSalwa247Changed || insuranceChanged || removedBuildingsChanged || normalizedHawali16105NameChanged || clearedFutureMonthsChanged || unit5FebruaryUnpaidChanged || removedHawali06161Unit6Changed || restoredHawali06161Unit6Changed || restoredHawali8587RowsChanged || restoredHawali8532BasementChanged || restoredHawali1646BasementChanged || restoredHawali175BasementChanged || repairedHawali362DuplicatesChanged || removedHawali362Unit53Changed || repairedHawali16105RowCountChanged || movedFahaheelShabakaPrepaidChanged || templateSeedChanged || normalizedInsuranceChanged || clearedFreeTextNotesChanged || clearedLegacyTenantOrderOverridesChanged || normalizedPrepaidNextIdsChanged || migratedPrepaidNextChanged || migratedOpeningCreditChanged || resetFebruaryCarryChanged) saveState(parsed, { kind: 'passive' });
+      restoreStateFromDbSnapshot(parsed);
+      rollInsuranceForwardIfNeeded(parsed);
       if (typeof rememberLoadedStateMeta === 'function') rememberLoadedStateMeta(parsed);
       return parsed;
     } catch (error) {
       const fresh = buildFreshSqlResetState();
-      saveState(fresh, { kind: 'passive' });
       return fresh;
     }
   }

@@ -36,6 +36,7 @@
       return;
     }
     const currentMonth = selectedMonth;
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
       setPaidOverride(state, tenantId, currentMonth, tenant.rentDue);
       tenantRecord.lastPaidMonth = currentMonth;
@@ -47,20 +48,17 @@
       renderAll(state, tenant.building);
       return;
     }
-    state.payments.push({
-      id: `payment-${Date.now()}-mark-paid`,
-      tenantId,
-      amount: tenant.remainingCurrent,
-      date: new Date().toISOString().slice(0, 10),
-      rentMonth: currentMonth,
-      method: 'Mark as paid',
-      note: 'Auto-filled remaining current month amount'
-    });
-    tenantRecord.lastPaidMonth = currentMonth;
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
+    if (typeof syncTenantPaymentToDb === 'function') {
+      await syncTenantPaymentToDb({
+        sourceTenantId,
+        amount: tenant.remainingCurrent,
+        paidOn: new Date().toISOString().slice(0, 10),
+        rentMonth: currentMonth,
+        method: 'Mark as paid',
+        note: 'Auto-filled remaining current month amount'
+      });
     }
+    tenantRecord.lastPaidMonth = currentMonth;
     logActivity(state, 'Marked paid', `${tenant.building} ${tenant.unit} marked paid for ${formatMonth(currentMonth)} with ${formatCurrency(tenant.remainingCurrent)}.`);
     renderAll(state, tenant.building);
   }
@@ -91,6 +89,7 @@
     }
     const appliedAmount = Math.min(enteredAmount, tenant.remainingCurrent);
     const currentMonth = selectedMonth;
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
       setPaidOverride(state, tenantId, currentMonth, appliedAmount);
       tenantRecord.lastPaidMonth = currentMonth;
@@ -102,20 +101,17 @@
       renderAll(state, tenant.building);
       return;
     }
-    state.payments.push({
-      id: `payment-${Date.now()}-partial-paid`,
-      tenantId,
-      amount: appliedAmount,
-      date: new Date().toISOString().slice(0, 10),
-      rentMonth: currentMonth,
-      method: 'Partial paid',
-      note: 'Partial current month payment'
-    });
-    tenantRecord.lastPaidMonth = currentMonth;
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
+    if (typeof syncTenantPaymentToDb === 'function') {
+      await syncTenantPaymentToDb({
+        sourceTenantId,
+        amount: appliedAmount,
+        paidOn: new Date().toISOString().slice(0, 10),
+        rentMonth: currentMonth,
+        method: 'Partial paid',
+        note: 'Partial current month payment'
+      });
     }
+    tenantRecord.lastPaidMonth = currentMonth;
     logActivity(state, 'Partial payment recorded', `${tenant.building} ${tenant.unit} partial paid ${formatCurrency(appliedAmount)} for ${formatMonth(currentMonth)}.`);
     renderAll(state, tenant.building);
   }
@@ -140,18 +136,16 @@
       return;
     }
     const appliedAmount = Math.min(enteredAmount, tenant.previousDue);
-    state.payments.push({
-      id: `payment-${Date.now()}-building-due`,
-      tenantId,
-      amount: appliedAmount,
-      date: new Date().toISOString().slice(0, 10),
-      rentMonth: selectedMonth,
-      method: 'Due payment',
-      note: 'Applied from building page'
-    });
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
+    if (typeof syncTenantPaymentToDb === 'function') {
+      await syncTenantPaymentToDb({
+        sourceTenantId,
+        amount: appliedAmount,
+        paidOn: new Date().toISOString().slice(0, 10),
+        rentMonth: selectedMonth,
+        method: 'Due payment',
+        note: 'Applied from building page'
+      });
     }
     logActivity(state, 'Due payment recorded', `${tenant.building} ${tenant.unit} previous due payment ${formatCurrency(appliedAmount)} applied for ${formatMonth(selectedMonth)}.`);
     renderAll(state, tenant.building);
@@ -168,8 +162,8 @@
       if (paidOverride != null) return normalizeAmount(paidOverride) > 0;
       return normalizeAmount(tenant.paidCurrentRaw || 0) > 0 && normalizeAmount(tenant.prepaidFromBefore || 0) <= 0;
     }
-    return state.payments.some((payment) => (
-      payment.tenantId === tenant.id
+    return getPaymentsForTenant(state, tenant.id).some((payment) => (
+      String(payment && payment.tenantId || '').trim()
       && payment.rentMonth === monthKey
       && payment.method === 'Mark as paid'
     ));
@@ -202,21 +196,23 @@
       renderAll(state, tenantRecord.building);
       return;
     }
-    const reversiblePayments = state.payments
-      .filter((payment) => payment.tenantId === tenantId && payment.rentMonth === currentMonth && payment.method === 'Mark as paid')
+    const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
+    const reversiblePayments = getPaymentsForTenant(state, tenantId)
+      .filter((payment) => payment.rentMonth === currentMonth && payment.method === 'Mark as paid')
       .sort((a, b) => new Date(b.date) - new Date(a.date));
     if (!reversiblePayments.length) {
       alert('No auto mark-as-paid entry was found for this tenant in the current month.');
       return;
     }
-    const paymentToRemove = reversiblePayments[0];
-    state.payments = state.payments.filter((payment) => payment.id !== paymentToRemove.id);
+    if (typeof deleteTenantPaymentFromDb === 'function') {
+      await deleteTenantPaymentFromDb({
+        sourceTenantId,
+        rentMonth: currentMonth,
+        method: 'Mark as paid'
+      });
+    }
     const updatedTenant = getTenantView(state, tenantRecord, currentMonth);
     tenantRecord.lastPaidMonth = updatedTenant && updatedTenant.paidCurrent > 0 ? currentMonth : addMonths(currentMonth, -1);
-    saveState(state);
-    if (typeof syncStateExtrasNow === 'function') {
-      await syncStateExtrasNow(state);
-    }
     logActivity(state, 'Marked unpaid', `${tenantRecord.building} ${tenantRecord.unit} auto paid entry removed for ${formatMonth(currentMonth)}.`);
     renderAll(state, tenantRecord.building);
   }

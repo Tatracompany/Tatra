@@ -833,6 +833,34 @@
     });
   }
 
+  function syncTenantPaymentToDb(payload) {
+    const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+    const rentMonth = String(payload && payload.rentMonth || '').trim();
+    const method = String(payload && payload.method || '').trim();
+    if (!sourceTenantId || !rentMonth || !method) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/payment-set', {
+      sourceTenantId,
+      paymentId: String(payload && payload.paymentId || '').trim(),
+      amount: Number(payload && payload.amount || 0),
+      paidOn: String(payload && payload.paidOn || '').trim(),
+      rentMonth,
+      method,
+      note: String(payload && payload.note || '').trim()
+    });
+  }
+
+  function deleteTenantPaymentFromDb(payload) {
+    const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+    const rentMonth = String(payload && payload.rentMonth || '').trim();
+    const method = String(payload && payload.method || '').trim();
+    if (!sourceTenantId || !rentMonth || !method) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/payment-delete', {
+      sourceTenantId,
+      rentMonth,
+      method
+    });
+  }
+
   function syncVacantUnitMetaToDb(payload) {
     const unitId = String(payload && payload.unitId || '').trim();
     const buildingName = String(payload && payload.buildingName || '').trim();
