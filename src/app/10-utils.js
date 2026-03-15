@@ -861,6 +861,19 @@
     });
   }
 
+  function syncActivityEntryToDb(payload) {
+    const action = String(payload && payload.action || '').trim();
+    const detail = String(payload && payload.detail || '').trim();
+    if (!action) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/activity-log', {
+      id: String(payload && payload.id || '').trim(),
+      when: String(payload && payload.when || '').trim(),
+      actor: String(payload && payload.actor || '').trim(),
+      action,
+      detail
+    });
+  }
+
   function syncVacantUnitMetaToDb(payload) {
     const unitId = String(payload && payload.unitId || '').trim();
     const buildingName = String(payload && payload.buildingName || '').trim();

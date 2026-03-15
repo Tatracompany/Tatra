@@ -1,12 +1,19 @@
   function logActivity(state, action, detail) {
-    state.activity.unshift({
+    const entry = {
       id: `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       when: new Date().toISOString(),
       actor: getCurrentUser(),
       action,
       detail
-    });
+    };
+    state.activity.unshift(entry);
     state.activity = state.activity.slice(0, 100);
+    if (typeof syncActivityEntryToDb === 'function') {
+      syncActivityEntryToDb(entry).catch(() => {
+        // Keep the UI responsive even if activity logging is temporarily unavailable.
+      });
+      return;
+    }
     saveState(state);
   }
 

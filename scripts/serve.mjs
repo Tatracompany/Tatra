@@ -749,6 +749,58 @@ async function deleteTenantPaymentInDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function appendActivityEntryToDatabase(payload) {
+  const activityId = String(payload && payload.id || '').trim() || `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const happenedAt = String(payload && payload.when || '').trim() || new Date().toISOString();
+  const actor = String(payload && payload.actor || '').trim();
+  const action = String(payload && payload.action || '').trim();
+  const detail = String(payload && payload.detail || '').trim();
+  if (!action) {
+    throw new Error('action is required.');
+  }
+  const database = openDatabase(databasePath);
+  try {
+    await database.exec('BEGIN');
+    await database.prepare(`
+      INSERT INTO activity_log (id, happened_at, actor, action, detail, raw_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      activityId,
+      happenedAt,
+      actor,
+      action,
+      detail,
+      JSON.stringify({
+        id: activityId,
+        when: happenedAt,
+        actor,
+        action,
+        detail
+      })
+    );
+    await database.prepare(`
+      DELETE FROM activity_log
+      WHERE id IN (
+        SELECT id
+        FROM activity_log
+        ORDER BY happened_at DESC, id DESC
+        LIMIT -1 OFFSET 100
+      )
+    `).run();
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function saveVacantUnitMetaToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
   const buildingName = String(payload && payload.buildingName || '').trim();
@@ -1259,6 +1311,24 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const body = await readJsonBody(request);
       const snapshot = await deleteTenantPaymentInDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot.counts
+      });
+    } catch (error) {
+      sendJson(response, 500, {
+        ok: false,
+        error: String(error && error.message || error)
+      });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/activity-log') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await appendActivityEntryToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,

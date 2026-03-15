@@ -958,7 +958,7 @@
     if (dateField) dateField.value = todayIso;
     if (monthField) monthField.value = currentMonth;
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const formData = new FormData(form);
       const tenantId = String(formData.get('tenantId') || '');
@@ -979,28 +979,28 @@
         logActivity(state, 'Payment blocked', `${tenant.building} ${tenant.unit} current month payment blocked because previous due exists.`);
         return;
       }
-      state.payments.push({
-        id: `payment-${Date.now()}`,
-        tenantId,
-        amount,
-        date: String(formData.get('date') || todayIso),
-        rentMonth,
-        method: String(formData.get('method') || ''),
-        note: String(formData.get('note') || '').trim()
-      });
-      if (nextMonthAdvance > 0) {
-        state.payments.push({
-          id: `payment-${Date.now()}-advance`,
-          tenantId,
-          amount: nextMonthAdvance,
-          date: String(formData.get('date') || todayIso),
-          rentMonth: addMonths(rentMonth, 1),
-          method: 'Advance',
-          note: 'Prepaid next month'
+      const sourceTenantId = String(tenant.sourceTenantId || tenant.id || tenantId || '').trim();
+      const paidOn = String(formData.get('date') || todayIso);
+      const method = String(formData.get('method') || '').trim();
+      const note = String(formData.get('note') || '').trim();
+      if (typeof syncTenantPaymentToDb === 'function' && amount > 0) {
+        await syncTenantPaymentToDb({
+          sourceTenantId,
+          amount,
+          paidOn,
+          rentMonth,
+          method,
+          note
+        });
+      }
+      if (typeof syncTenantPaymentToDb === 'function') {
+        await syncBuildingInlineEditToDb({
+          sourceTenantId,
+          monthKey: rentMonth,
+          prepaidAmount: nextMonthAdvance > 0 ? nextMonthAdvance : 0
         });
       }
       tenant.lastPaidMonth = rentMonth;
-      saveState(state);
       logActivity(state, 'Payment recorded', `${tenant.building} ${tenant.unit} ${formatCurrency(amount)} for ${formatMonth(rentMonth)}`);
       form.reset();
       if (dateField) dateField.value = todayIso;
