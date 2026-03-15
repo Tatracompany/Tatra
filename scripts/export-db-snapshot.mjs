@@ -11,11 +11,15 @@ const databasePath = process.argv[2]
   : getDefaultDatabasePath(projectRoot);
 const outputPath = path.join(projectRoot, 'src', 'data', 'db-state.generated.js');
 
-ensureDatabaseFileExists(projectRoot, databasePath);
-prepareDatabase(databasePath, path.join(projectRoot, 'db', 'schema.sql'));
-const snapshot = readDatabaseSnapshot(databasePath);
-const content = buildBrowserSnapshotScript(snapshot);
+async function main() {
+  ensureDatabaseFileExists(projectRoot, databasePath);
+  await prepareDatabase(databasePath, path.join(projectRoot, 'db', 'schema.sql'));
+  const snapshot = await readDatabaseSnapshot(databasePath);
+  const content = buildBrowserSnapshotScript(snapshot);
 
-fs.writeFileSync(outputPath, content, 'utf8');
+  fs.writeFileSync(outputPath, content, 'utf8');
 
-console.log(`Exported DB snapshot to ${outputPath}`);
+  console.log(`Exported DB snapshot to ${outputPath}`);
+}
+
+await main();

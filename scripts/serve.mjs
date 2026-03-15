@@ -131,24 +131,28 @@ function addMonths(monthKey, delta) {
   return `${nextYear}-${nextMonth}`;
 }
 
-function exportSnapshotToBrowserFile() {
-  const snapshot = readDatabaseSnapshot(databasePath);
+async function exportSnapshotToBrowserFile() {
+  const snapshot = await readDatabaseSnapshot(databasePath);
   fs.writeFileSync(browserSnapshotPath, buildBrowserSnapshotScript(snapshot), 'utf8');
   return snapshot;
 }
 
-function restoreDatabaseFromUpload(databaseBuffer) {
+async function restoreDatabaseFromUpload(databaseBuffer) {
   if (!Buffer.isBuffer(databaseBuffer) || !databaseBuffer.length) {
     throw new Error('Uploaded database content is empty.');
+  }
+
+  if (!String(databasePath || '').trim().toLowerCase().endsWith('.sqlite')) {
+    throw new Error('Binary database restore is only available for SQLite targets. Use Postgres migration/cutover tools for DATABASE_URL deployments.');
   }
 
   const tempRestorePath = `${databasePath}.restore-${Date.now()}.tmp`;
   fs.writeFileSync(tempRestorePath, databaseBuffer);
 
   try {
-    prepareDatabase(tempRestorePath, schemaPath);
+    await prepareDatabase(tempRestorePath, schemaPath);
     const restoredDatabase = openDatabase(tempRestorePath);
-    restoredDatabase.close();
+    await restoredDatabase.close();
     fs.copyFileSync(tempRestorePath, databasePath);
   } finally {
     if (fs.existsSync(tempRestorePath)) {
@@ -156,17 +160,17 @@ function restoreDatabaseFromUpload(databaseBuffer) {
     }
   }
 
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function syncStateExtrasToDatabase(payload) {
+async function syncStateExtrasToDatabase(payload) {
   const payments = Array.isArray(payload && payload.payments) ? payload.payments : [];
   const activity = Array.isArray(payload && payload.activity) ? payload.activity : [];
   const database = openDatabase(databasePath);
   try {
-    database.exec('BEGIN');
-    database.exec('DELETE FROM payments;');
-    database.exec('DELETE FROM activity_log;');
+    await database.exec('BEGIN');
+    await database.exec('DELETE FROM payments;');
+    await database.exec('DELETE FROM activity_log;');
 
     const insertPayment = database.prepare(`
       INSERT INTO payments (
@@ -177,11 +181,11 @@ function syncStateExtrasToDatabase(payload) {
         ?, ?, ?, ?, ?, ?, ?
       )
     `);
-    payments.forEach((payment) => {
+    for (const payment of payments) {
       const paymentId = String(payment && payment.id || '').trim();
       const tenantId = String(payment && payment.tenantId || '').trim();
-      if (!paymentId) return;
-      insertPayment.run(
+      if (!paymentId) continue;
+      await insertPayment.run(
         paymentId,
         tenantId,
         tenantId,
@@ -192,16 +196,16 @@ function syncStateExtrasToDatabase(payload) {
         String(payment && payment.note || '').trim(),
         JSON.stringify(payment || {})
       );
-    });
+    }
 
     const insertActivity = database.prepare(`
       INSERT INTO activity_log (id, happened_at, actor, action, detail, raw_json)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    activity.forEach((entry) => {
+    for (const entry of activity) {
       const activityId = String(entry && entry.id || '').trim();
-      if (!activityId) return;
-      insertActivity.run(
+      if (!activityId) continue;
+      await insertActivity.run(
         activityId,
         String(entry && entry.when || '').trim() || new Date().toISOString(),
         String(entry && entry.actor || '').trim(),
@@ -209,36 +213,36 @@ function syncStateExtrasToDatabase(payload) {
         String(entry && entry.detail || '').trim(),
         JSON.stringify(entry || {})
       );
-    });
+    }
 
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_state_extras_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function syncTenantProfileForTenancy(database, tenancyId, profile) {
-  const profileId = upsertTenantProfile(database, {
+async function syncTenantProfileForTenancy(database, tenancyId, profile) {
+  const profileId = await upsertTenantProfile(database, {
     tenantName: String(profile && profile.name || profile && profile.tenantName || '').trim(),
     civilId: String(profile && profile.civilId || '').trim(),
     phone: String(profile && profile.phone || '').trim(),
     nationality: String(profile && profile.nationality || 'Not set').trim() || 'Not set'
   });
   if (!profileId || !tenancyId) return '';
-  database.prepare(`
+  await database.prepare(`
     UPDATE tenancies
     SET profile_id = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
@@ -246,7 +250,7 @@ function syncTenantProfileForTenancy(database, tenancyId, profile) {
   return profileId;
 }
 
-function resolveRowOrderUnitId(database, buildingId, buildingName, orderKey) {
+async function resolveRowOrderUnitId(database, buildingId, buildingName, orderKey) {
   const normalizedOrderKey = String(orderKey || '').trim();
   const normalizedBuildingName = String(buildingName || '').trim();
   const prefix = `${normalizedBuildingName}::`;
@@ -258,7 +262,7 @@ function resolveRowOrderUnitId(database, buildingId, buildingName, orderKey) {
     return rowUnitId || null;
   }
   if (!lookupKey || lookupKey.startsWith('UNIT::')) return null;
-  const match = database.prepare(`
+  const match = await database.prepare(`
     SELECT id
     FROM units
     WHERE building_id = ? AND unit_key = ?
@@ -267,7 +271,7 @@ function resolveRowOrderUnitId(database, buildingId, buildingName, orderKey) {
   return match ? String(match.id || '').trim() : null;
 }
 
-function saveUnitRowOrderToDatabase(buildingName, monthKey, orderedIds) {
+async function saveUnitRowOrderToDatabase(buildingName, monthKey, orderedIds) {
   const normalizedBuildingName = String(buildingName || '').trim();
   const normalizedMonthKey = String(monthKey || '').trim();
   const ids = Array.isArray(orderedIds)
@@ -278,7 +282,7 @@ function saveUnitRowOrderToDatabase(buildingName, monthKey, orderedIds) {
   }
   const database = openDatabase(databasePath);
   try {
-    const building = database.prepare(`
+    const building = await database.prepare(`
       SELECT id, name
       FROM buildings
       WHERE name = ?
@@ -287,8 +291,8 @@ function saveUnitRowOrderToDatabase(buildingName, monthKey, orderedIds) {
     if (!building) {
       throw new Error(`Unknown building: ${normalizedBuildingName}`);
     }
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       DELETE FROM unit_row_order
       WHERE building_id = ? AND month_key = ?
     `).run(building.id, normalizedMonthKey);
@@ -296,35 +300,35 @@ function saveUnitRowOrderToDatabase(buildingName, monthKey, orderedIds) {
       INSERT INTO unit_row_order (building_id, month_key, position, order_key, unit_id)
       VALUES (?, ?, ?, ?, ?)
     `);
-    ids.forEach((orderKey, index) => {
-      insertRowOrder.run(
+    for (const [index, orderKey] of ids.entries()) {
+      await insertRowOrder.run(
         building.id,
         normalizedMonthKey,
         index,
         orderKey,
-        resolveRowOrderUnitId(database, building.id, normalizedBuildingName, orderKey)
+        await resolveRowOrderUnitId(database, building.id, normalizedBuildingName, orderKey)
       );
-    });
-    database.exec(`
+    }
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_row_order_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function savePlannedVacateToDatabase(sourceTenantId, plannedVacateDate) {
+async function savePlannedVacateToDatabase(sourceTenantId, plannedVacateDate) {
   const normalizedSourceTenantId = String(sourceTenantId || '').trim();
   const normalizedPlannedVacateDate = String(plannedVacateDate || '').trim();
   if (!normalizedSourceTenantId) {
@@ -332,7 +336,7 @@ function savePlannedVacateToDatabase(sourceTenantId, plannedVacateDate) {
   }
   const database = openDatabase(databasePath);
   try {
-    const result = database.prepare(`
+    const result = await database.prepare(`
       UPDATE tenancies
       SET planned_vacate_date = ?
       WHERE source_tenant_id = ?
@@ -340,25 +344,25 @@ function savePlannedVacateToDatabase(sourceTenantId, plannedVacateDate) {
     if (!result || Number(result.changes || 0) < 1) {
       throw new Error(`No tenancy found for sourceTenantId ${normalizedSourceTenantId}`);
     }
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_planned_vacate_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function saveTenantProfileToDatabase(profile) {
+async function saveTenantProfileToDatabase(profile) {
   const sourceTenantId = String(profile && profile.sourceTenantId || '').trim();
   if (!sourceTenantId) {
     throw new Error('sourceTenantId is required.');
   }
   const database = openDatabase(databasePath);
   try {
-    const tenancy = database.prepare(`
+    const tenancy = await database.prepare(`
       SELECT id
       FROM tenancies
       WHERE source_tenant_id = ?
@@ -367,7 +371,7 @@ function saveTenantProfileToDatabase(profile) {
     if (!tenancy) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
-    const result = database.prepare(`
+    const result = await database.prepare(`
       UPDATE tenancies
       SET
         tenant_name = ?,
@@ -389,19 +393,19 @@ function saveTenantProfileToDatabase(profile) {
       sourceTenantId
     );
     if (!result || Number(result.changes || 0) < 1) throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
-    syncTenantProfileForTenancy(database, String(tenancy.id || '').trim(), profile);
-    database.exec(`
+    await syncTenantProfileForTenancy(database, String(tenancy.id || '').trim(), profile);
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_tenant_profile_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function saveUnitIdentityToDatabase(payload) {
+async function saveUnitIdentityToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
   const unitLabel = String(payload && payload.unit || '').trim();
   const floorLabel = String(payload && payload.floor || '').trim();
@@ -411,7 +415,7 @@ function saveUnitIdentityToDatabase(payload) {
   const unitKey = `${floorLabel.toUpperCase()}::${unitLabel.toUpperCase()}`;
   const database = openDatabase(databasePath);
   try {
-    const result = database.prepare(`
+    const result = await database.prepare(`
       UPDATE units
       SET
         unit_label = ?,
@@ -428,19 +432,19 @@ function saveUnitIdentityToDatabase(payload) {
     if (!result || Number(result.changes || 0) < 1) {
       throw new Error(`No unit found for unitId ${unitId}`);
     }
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_unit_identity_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText) {
-  database.prepare(`
+async function upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText) {
+  await database.prepare(`
     INSERT INTO tenant_month_overrides (tenancy_id, source_tenant_id, month_key, override_kind, value_text)
     VALUES (
       (SELECT id FROM tenancies WHERE source_tenant_id = ? LIMIT 1),
@@ -453,7 +457,7 @@ function upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideK
   `).run(sourceTenantId, sourceTenantId, monthKey, overrideKind, valueText);
 }
 
-function saveTenantMonthIdentityToDatabase(payload) {
+async function saveTenantMonthIdentityToDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
   if (!sourceTenantId || !monthKey) {
@@ -461,8 +465,8 @@ function saveTenantMonthIdentityToDatabase(payload) {
   }
   const database = openDatabase(databasePath);
   try {
-    database.exec('BEGIN');
-    [
+    await database.exec('BEGIN');
+    for (const [overrideKind, valueText] of [
       ['name', String(payload && payload.name || '').trim()],
       ['unit', String(payload && payload.unit || '').trim()],
       ['floor', String(payload && payload.floor || '').trim()],
@@ -472,29 +476,29 @@ function saveTenantMonthIdentityToDatabase(payload) {
       ['phone', String(payload && payload.phone || '').trim()],
       ['civilId', String(payload && payload.civilId || '').trim()],
       ['nationality', String(payload && payload.nationality || 'Not set').trim() || 'Not set']
-    ].forEach(([overrideKind, valueText]) => {
-      upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
-    });
-    database.exec(`
+    ]) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+    }
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_tenant_month_identity_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function saveTenantMonthIdentityBulkToDatabase(payload) {
+async function saveTenantMonthIdentityBulkToDatabase(payload) {
   const monthKey = String(payload && payload.monthKey || '').trim();
   const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
   if (!monthKey || !rows.length) {
@@ -502,11 +506,11 @@ function saveTenantMonthIdentityBulkToDatabase(payload) {
   }
   const database = openDatabase(databasePath);
   try {
-    database.exec('BEGIN');
-    rows.forEach((row) => {
+    await database.exec('BEGIN');
+    for (const row of rows) {
       const sourceTenantId = String(row && row.sourceTenantId || '').trim();
-      if (!sourceTenantId) return;
-      [
+      if (!sourceTenantId) continue;
+      for (const [overrideKind, valueText] of [
         ['name', String(row && row.name || '').trim()],
         ['unit', String(row && row.unit || '').trim()],
         ['floor', String(row && row.floor || '').trim()],
@@ -516,70 +520,70 @@ function saveTenantMonthIdentityBulkToDatabase(payload) {
         ['phone', String(row && row.phone || '').trim()],
         ['civilId', String(row && row.civilId || '').trim()],
         ['nationality', String(row && row.nationality || 'Not set').trim() || 'Not set']
-      ].forEach(([overrideKind, valueText]) => {
-        upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
-      });
-    });
-    database.exec(`
+      ]) {
+        await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+      }
+    }
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_tenant_month_identity_bulk_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function resetMonthDataInDatabase(payload) {
+async function resetMonthDataInDatabase(payload) {
   const monthKey = String(payload && payload.monthKey || '').trim();
   if (!monthKey) {
     throw new Error('monthKey is required.');
   }
   const database = openDatabase(databasePath);
   try {
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       DELETE FROM tenant_month_overrides
       WHERE month_key = ?
     `).run(monthKey);
-    database.prepare(`
+    await database.prepare(`
       DELETE FROM unit_row_order
       WHERE month_key = ?
     `).run(monthKey);
-    database.prepare(`
+    await database.prepare(`
       DELETE FROM payments
       WHERE rent_month = ?
         AND COALESCE(method, '') <> 'Advance'
     `).run(monthKey);
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_month_reset_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function saveBuildingInlineEditToDatabase(payload) {
+async function saveBuildingInlineEditToDatabase(payload) {
   let sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const unitId = String(payload && payload.unitId || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
@@ -589,7 +593,7 @@ function saveBuildingInlineEditToDatabase(payload) {
   const database = openDatabase(databasePath);
   try {
     if (!sourceTenantId && unitId) {
-      const matchedTenancy = database.prepare(`
+      const matchedTenancy = await database.prepare(`
         SELECT source_tenant_id AS sourceTenantId
         FROM tenancies
         WHERE unit_id = ? AND is_active = 1
@@ -601,7 +605,7 @@ function saveBuildingInlineEditToDatabase(payload) {
     if (!sourceTenantId) {
       throw new Error('No tenancy found for this row.');
     }
-    const result = database.prepare(`
+    const result = await database.prepare(`
       UPDATE tenancies
       SET
         contract_rent = ?,
@@ -627,35 +631,35 @@ function saveBuildingInlineEditToDatabase(payload) {
     if (!result || Number(result.changes || 0) < 1) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
-    database.exec('BEGIN');
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid', String(Number(payload && payload.paidOverride || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'actual_rent', String(Number(payload && payload.actualRentOverride || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'notes', String(payload && payload.notes || '').trim());
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
-    upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
-    database.exec(`
+    await database.exec('BEGIN');
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid', String(Number(payload && payload.paidOverride || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'actual_rent', String(Number(payload && payload.actualRentOverride || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'vacant_amount', String(Number(payload && payload.vacantAmount || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'notes', String(payload && payload.notes || '').trim());
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, addMonths(monthKey, 1), 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
+    await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_building_inline_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function saveVacantUnitMetaToDatabase(payload) {
+async function saveVacantUnitMetaToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
   const buildingName = String(payload && payload.buildingName || '').trim();
   const unitLabel = String(payload && payload.unit || '').trim();
@@ -667,13 +671,13 @@ function saveVacantUnitMetaToDatabase(payload) {
   const database = openDatabase(databasePath);
   try {
     const resolvedUnit = unitId
-      ? database.prepare(`
+      ? await database.prepare(`
           SELECT id
           FROM units
           WHERE id = ?
           LIMIT 1
         `).get(unitId)
-      : database.prepare(`
+      : await database.prepare(`
           SELECT units.id AS id
           FROM units
           INNER JOIN buildings ON buildings.id = units.building_id
@@ -686,8 +690,8 @@ function saveVacantUnitMetaToDatabase(payload) {
     if (!resolvedUnitId) {
       throw new Error('No unit found for vacant row.');
     }
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       INSERT INTO unit_vacancy_state (
         unit_id, is_vacant, vacant_since, last_tenant_name, last_contract_rent,
         last_actual_rent, last_discount, old_tenant_due_paid, notes, raw_json, updated_at
@@ -712,26 +716,26 @@ function saveVacantUnitMetaToDatabase(payload) {
       String(payload && payload.notes || '').trim(),
       JSON.stringify(payload || {})
     );
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_vacant_meta_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function vacateTenantInDatabase(payload) {
+async function vacateTenantInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const vacateDate = String(payload && payload.vacateDate || '').trim();
   if (!sourceTenantId || !vacateDate) {
@@ -739,7 +743,7 @@ function vacateTenantInDatabase(payload) {
   }
   const database = openDatabase(databasePath);
   try {
-    const tenancy = database.prepare(`
+    const tenancy = await database.prepare(`
       SELECT id, unit_id AS unitId, tenant_name AS tenantName
       FROM tenancies
       WHERE source_tenant_id = ?
@@ -748,8 +752,8 @@ function vacateTenantInDatabase(payload) {
     if (!tenancy) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       UPDATE tenancies
       SET
         is_active = 0,
@@ -763,7 +767,7 @@ function vacateTenantInDatabase(payload) {
       String(payload && payload.archivedNotes || '').trim(),
       sourceTenantId
     );
-    database.prepare(`
+    await database.prepare(`
       INSERT INTO unit_vacancy_state (
         unit_id, is_vacant, vacant_since, last_tenant_name, last_contract_rent,
         last_actual_rent, last_discount, old_tenant_due_paid, notes, raw_json, updated_at
@@ -789,26 +793,26 @@ function vacateTenantInDatabase(payload) {
       String(payload && payload.vacancyNotes || '').trim(),
       JSON.stringify(payload || {})
     );
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_vacate_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function createTenantInDatabase(payload) {
+async function createTenantInDatabase(payload) {
   const buildingName = String(payload && payload.buildingName || '').trim();
   const unit = String(payload && payload.unit || '').trim();
   const floor = String(payload && payload.floor || '').trim();
@@ -823,7 +827,7 @@ function createTenantInDatabase(payload) {
   }
   const database = openDatabase(databasePath);
   try {
-    const building = database.prepare(`
+    const building = await database.prepare(`
       SELECT id
       FROM buildings
       WHERE name = ?
@@ -833,7 +837,7 @@ function createTenantInDatabase(payload) {
       throw new Error(`Unknown building: ${buildingName}`);
     }
     const unitKey = `${String(floor || '').trim().toUpperCase()}::${String(unit || '').trim().toUpperCase()}`;
-    const unitRecord = database.prepare(`
+    const unitRecord = await database.prepare(`
       SELECT id
       FROM units
       WHERE building_id = ? AND unit_key = ?
@@ -842,7 +846,7 @@ function createTenantInDatabase(payload) {
     if (!unitRecord) {
       throw new Error(`No unit found for ${buildingName} ${unit}`);
     }
-    const duplicateMatches = findMatchingTenantProfile(database, {
+    const duplicateMatches = await findMatchingTenantProfile(database, {
       tenantName,
       phone,
       civilId
@@ -856,7 +860,7 @@ function createTenantInDatabase(payload) {
       }
     }
     if (existingProfileId) {
-      const existingProfile = database.prepare(`
+      const existingProfile = await database.prepare(`
         SELECT id
         FROM tenant_profiles
         WHERE id = ?
@@ -866,7 +870,7 @@ function createTenantInDatabase(payload) {
         throw new Error(`Saved tenant profile not found for ${existingProfileId}`);
       }
     }
-    const resolvedProfileId = existingProfileId || upsertTenantProfile(database, {
+    const resolvedProfileId = existingProfileId || await upsertTenantProfile(database, {
       tenantName,
       civilId,
       phone,
@@ -877,12 +881,12 @@ function createTenantInDatabase(payload) {
     }
     const sourceTenantId = String(payload && payload.sourceTenantId || '').trim() || `db-created-${Date.now()}`;
     const tenancyId = `tenancy-db-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       DELETE FROM unit_vacancy_state
       WHERE unit_id = ?
     `).run(unitRecord.id);
-    database.prepare(`
+    await database.prepare(`
       INSERT INTO tenancies (
         id, profile_id, unit_id, source_tenant_id, tenant_name, phone, civil_id, nationality, move_in_date,
         contract_start, contract_end, contract_rent, discount, actual_rent, previous_due,
@@ -914,7 +918,7 @@ function createTenantInDatabase(payload) {
       JSON.stringify(payload || {})
     );
     if (existingProfileId) {
-      database.prepare(`
+      await database.prepare(`
         UPDATE tenant_profiles
         SET
           full_name = CASE WHEN ? <> '' THEN ? ELSE full_name END,
@@ -933,59 +937,59 @@ function createTenantInDatabase(payload) {
         resolvedProfileId
       );
     }
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_tenant_create_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
-function repairTenantProfilesInDatabase() {
+async function repairTenantProfilesInDatabase() {
   const database = openDatabase(databasePath);
   try {
-    database.exec('BEGIN');
-    const repaired = repairMissingTenancyProfiles(database);
+    await database.exec('BEGIN');
+    const repaired = await repairMissingTenancyProfiles(database);
     if (repaired > 0) {
-      database.exec(`
+      await database.exec(`
         INSERT INTO app_meta(key, value)
         VALUES ('last_tenant_profile_repair_at', CURRENT_TIMESTAMP)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value;
       `);
     }
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
     return repaired;
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
 }
 
-function undoVacateTenantInDatabase(payload) {
+async function undoVacateTenantInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   if (!sourceTenantId) {
     throw new Error('sourceTenantId is required.');
   }
   const database = openDatabase(databasePath);
   try {
-    const tenancy = database.prepare(`
+    const tenancy = await database.prepare(`
       SELECT unit_id AS unitId
       FROM tenancies
       WHERE source_tenant_id = ?
@@ -994,8 +998,8 @@ function undoVacateTenantInDatabase(payload) {
     if (!tenancy) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
-    database.exec('BEGIN');
-    database.prepare(`
+    await database.exec('BEGIN');
+    await database.prepare(`
       UPDATE tenancies
       SET
         is_active = 1,
@@ -1008,27 +1012,27 @@ function undoVacateTenantInDatabase(payload) {
       String(payload && payload.notes || '').trim(),
       sourceTenantId
     );
-    database.prepare(`
+    await database.prepare(`
       DELETE FROM unit_vacancy_state
       WHERE unit_id = ?
     `).run(tenancy.unitId);
-    database.exec(`
+    await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_undo_vacate_sync_at', CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value;
     `);
-    database.exec('COMMIT');
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
     throw error;
   } finally {
-    database.close();
+    await database.close();
   }
-  return exportSnapshotToBrowserFile();
+  return await exportSnapshotToBrowserFile();
 }
 
 async function handleApiRequest(request, response, requestUrl) {
@@ -1053,8 +1057,8 @@ async function handleApiRequest(request, response, requestUrl) {
 
   if (request.method === 'GET' && requestUrl.pathname === '/api/db/snapshot') {
     try {
-      repairTenantProfilesInDatabase();
-      const snapshot = readDatabaseSnapshot(databasePath);
+      await repairTenantProfilesInDatabase();
+      const snapshot = await readDatabaseSnapshot(databasePath);
       sendJson(response, 200, snapshot);
     } catch (error) {
       sendJson(response, 500, {
@@ -1094,7 +1098,7 @@ async function handleApiRequest(request, response, requestUrl) {
     }
     try {
       const body = await readRawBody(request);
-      const snapshot = restoreDatabaseFromUpload(body);
+      const snapshot = await restoreDatabaseFromUpload(body);
       sendJson(response, 200, {
         ok: true,
         counts: snapshot.counts
@@ -1110,7 +1114,7 @@ async function handleApiRequest(request, response, requestUrl) {
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/export-snapshot') {
     try {
-      const snapshot = exportSnapshotToBrowserFile();
+      const snapshot = await exportSnapshotToBrowserFile();
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1128,7 +1132,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/state-extras') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = syncStateExtrasToDatabase(body);
+      const snapshot = await syncStateExtrasToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1146,7 +1150,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/row-order') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveUnitRowOrderToDatabase(body.buildingName, body.monthKey, body.orderedIds);
+      const snapshot = await saveUnitRowOrderToDatabase(body.buildingName, body.monthKey, body.orderedIds);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1164,7 +1168,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/planned-vacate') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = savePlannedVacateToDatabase(body.sourceTenantId, body.plannedVacateDate);
+      const snapshot = await savePlannedVacateToDatabase(body.sourceTenantId, body.plannedVacateDate);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1182,7 +1186,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-profile') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveTenantProfileToDatabase(body);
+      const snapshot = await saveTenantProfileToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1200,7 +1204,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-month-identity') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveTenantMonthIdentityToDatabase(body);
+      const snapshot = await saveTenantMonthIdentityToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1218,7 +1222,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-month-identity-bulk') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveTenantMonthIdentityBulkToDatabase(body);
+      const snapshot = await saveTenantMonthIdentityBulkToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1236,7 +1240,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/reset-month-data') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = resetMonthDataInDatabase(body);
+      const snapshot = await resetMonthDataInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1254,7 +1258,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/unit-identity') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveUnitIdentityToDatabase(body);
+      const snapshot = await saveUnitIdentityToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1272,7 +1276,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/vacate-tenant') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = vacateTenantInDatabase(body);
+      const snapshot = await vacateTenantInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1290,7 +1294,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/building-inline-save') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveBuildingInlineEditToDatabase(body);
+      const snapshot = await saveBuildingInlineEditToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1308,7 +1312,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/vacant-unit-meta') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = saveVacantUnitMetaToDatabase(body);
+      const snapshot = await saveVacantUnitMetaToDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1326,7 +1330,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/create-tenant') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = createTenantInDatabase(body);
+      const snapshot = await createTenantInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1344,7 +1348,7 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/undo-vacate') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = undoVacateTenantInDatabase(body);
+      const snapshot = await undoVacateTenantInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
@@ -1363,7 +1367,7 @@ async function handleApiRequest(request, response, requestUrl) {
 }
 
 ensureDatabaseFileExists(root, databasePath);
-prepareDatabase(databasePath, schemaPath);
+await prepareDatabase(databasePath, schemaPath);
 
 const server = http.createServer(async (request, response) => {
   if (!isAuthorizedRequest(request)) {

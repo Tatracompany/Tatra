@@ -20,22 +20,22 @@ Suggested workflow:
 Online deployment:
 1. Push this repo to GitHub.
 2. Create a new Render Blueprint from the repo.
-3. Keep the persistent disk enabled so SQLite lives at `/var/data/tatra.sqlite`.
-4. Set `APP_USERNAME` and `APP_PASSWORD` in Render so the public URL is protected.
-5. Open the deployed URL and use it normally from any device.
+3. Render will create a managed PostgreSQL database named `tatra-db`.
+4. The web service reads `DATABASE_URL` from that database automatically.
+5. Set `APP_USERNAME` and `APP_PASSWORD` in Render only if you want basic auth on the public URL.
+6. Open the deployed URL and use it normally from any device.
 
 Notes:
-- The live source of truth remains SQLite.
+- The live source of truth should be PostgreSQL.
 - The generated `db-state.generated.js` file is only a fallback snapshot.
-- On first deploy, if `/var/data/tatra.sqlite` does not exist yet, the app copies the bundled `db/tatra.sqlite` into the persistent disk automatically.
+- To move existing data from SQLite into PostgreSQL, run:
+  - `npm run db:migrate-postgres`
+  - with `DATABASE_URL` set to the target Postgres connection string.
 
 Online DB backup to this computer:
-1. In Render, add `BACKUP_TOKEN` to the `tatra` service environment.
-2. On this computer, set a matching user environment variable named `TATRA_BACKUP_TOKEN`.
-3. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-online-db.ps1`.
-4. Backups are saved to `C:\Users\Y PC\Desktop\online-db-backup-tatra`.
+1. Use database-level Postgres backups from Render for the online database.
+2. Keep GitHub as the backup for code.
+3. If you still want a local export file, run `npm run db:export-snapshot`.
 
 Online DB restore from this computer:
-1. Choose a backup file from `C:\Users\Y PC\Desktop\online-db-backup-tatra`.
-2. Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/restore-online-db.ps1 -BackupFile "FULL_PATH_TO_SQLITE_FILE"`.
-3. The online SQLite database will be replaced by that backup.
+1. Restore the Render Postgres database from Render backups, or re-run the SQLite-to-Postgres migration into a fresh Postgres instance if needed.

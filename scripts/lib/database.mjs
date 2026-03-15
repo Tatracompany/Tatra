@@ -1,8 +1,139 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import pg from 'pg';
+
+const { Pool } = pg;
+
+const poolCache = new Map();
+
+function isPostgresTarget(target) {
+  return /^postgres(ql)?:\/\//i.test(String(target || '').trim());
+}
+
+function getOrCreatePool(connectionString) {
+  const key = String(connectionString || '').trim();
+  if (!poolCache.has(key)) {
+    poolCache.set(key, new Pool({
+      connectionString: key,
+      ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false }
+    }));
+  }
+  return poolCache.get(key);
+}
+
+function translateSqlPlaceholders(sqlText) {
+  let parameterIndex = 0;
+  let output = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+
+  for (let index = 0; index < sqlText.length; index += 1) {
+    const char = sqlText[index];
+    const previousChar = index > 0 ? sqlText[index - 1] : '';
+    if (char === '\'' && !inDoubleQuote && previousChar !== '\\') {
+      inSingleQuote = !inSingleQuote;
+      output += char;
+      continue;
+    }
+    if (char === '"' && !inSingleQuote && previousChar !== '\\') {
+      inDoubleQuote = !inDoubleQuote;
+      output += char;
+      continue;
+    }
+    if (char === '?' && !inSingleQuote && !inDoubleQuote) {
+      parameterIndex += 1;
+      output += `$${parameterIndex}`;
+      continue;
+    }
+    output += char;
+  }
+
+  return output;
+}
+
+function toPgCompatibleSql(sqlText) {
+  return translateSqlPlaceholders(String(sqlText || '')
+    .replace(/PRAGMA\s+foreign_keys\s*=\s*ON\s*;?/gi, '')
+    .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'BIGSERIAL PRIMARY KEY')
+    .replace(/\bCURRENT_TIMESTAMP\b/gi, 'CURRENT_TIMESTAMP'));
+}
+
+function createSqliteAdapter(databasePath) {
+  fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+  const database = new DatabaseSync(databasePath);
+  return {
+    kind: 'sqlite',
+    async exec(sqlText) {
+      database.exec(sqlText);
+    },
+    prepare(sqlText) {
+      const statement = database.prepare(sqlText);
+      return {
+        async get(...params) {
+          return statement.get(...params);
+        },
+        async all(...params) {
+          return statement.all(...params);
+        },
+        async run(...params) {
+          return statement.run(...params);
+        }
+      };
+    },
+    async close() {
+      database.close();
+    }
+  };
+}
+
+function createPostgresAdapter(connectionString) {
+  const pool = getOrCreatePool(connectionString);
+  let client = null;
+  return {
+    kind: 'postgres',
+    async connect() {
+      if (!client) {
+        client = await pool.connect();
+      }
+      return client;
+    },
+    async exec(sqlText) {
+      const dbClient = await this.connect();
+      await dbClient.query(toPgCompatibleSql(sqlText));
+    },
+    prepare(sqlText) {
+      const translatedSql = toPgCompatibleSql(sqlText);
+      return {
+        get: async (...params) => {
+          const dbClient = await this.connect();
+          const result = await dbClient.query(translatedSql, params);
+          return result.rows[0] || null;
+        },
+        all: async (...params) => {
+          const dbClient = await this.connect();
+          const result = await dbClient.query(translatedSql, params);
+          return result.rows;
+        },
+        run: async (...params) => {
+          const dbClient = await this.connect();
+          const result = await dbClient.query(translatedSql, params);
+          return { changes: Number(result.rowCount || 0) };
+        }
+      };
+    },
+    async close() {
+      if (client) {
+        client.release();
+        client = null;
+      }
+    }
+  };
+}
 
 export function getDefaultDatabasePath(projectRoot) {
+  const configuredUrl = String(process.env.DATABASE_URL || '').trim();
+  if (configuredUrl) return configuredUrl;
   const configuredPath = String(process.env.DATABASE_PATH || '').trim();
   if (configuredPath) {
     return path.isAbsolute(configuredPath)
@@ -12,13 +143,16 @@ export function getDefaultDatabasePath(projectRoot) {
   return path.join(projectRoot, 'db', 'tatra.sqlite');
 }
 
-export function openDatabase(databasePath) {
-  fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-  return new DatabaseSync(databasePath);
+export function openDatabase(databaseTarget) {
+  if (isPostgresTarget(databaseTarget)) {
+    return createPostgresAdapter(databaseTarget);
+  }
+  return createSqliteAdapter(databaseTarget);
 }
 
-export function ensureDatabaseFileExists(projectRoot, databasePath) {
-  const resolvedDatabasePath = path.resolve(databasePath);
+export function ensureDatabaseFileExists(projectRoot, databaseTarget) {
+  if (isPostgresTarget(databaseTarget)) return;
+  const resolvedDatabasePath = path.resolve(databaseTarget);
   if (fs.existsSync(resolvedDatabasePath)) return;
   fs.mkdirSync(path.dirname(resolvedDatabasePath), { recursive: true });
 
@@ -35,9 +169,19 @@ export function ensureDatabaseFileExists(projectRoot, databasePath) {
   database.close();
 }
 
-export function applySchema(database, schemaPath) {
-  const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-  database.exec(schemaSql);
+function resolveSchemaPath(schemaPath, databaseTarget) {
+  if (!isPostgresTarget(databaseTarget)) return schemaPath;
+  if (schemaPath.endsWith('schema.sql')) {
+    const pgSchemaPath = schemaPath.replace(/schema\.sql$/i, 'schema.pg.sql');
+    if (fs.existsSync(pgSchemaPath)) return pgSchemaPath;
+  }
+  return schemaPath;
+}
+
+export async function applySchema(database, schemaPath, databaseTarget = '') {
+  const resolvedSchemaPath = resolveSchemaPath(schemaPath, databaseTarget);
+  const schemaSql = fs.readFileSync(resolvedSchemaPath, 'utf8');
+  await database.exec(schemaSql);
 }
 
 function normalizeProfileName(value) {
@@ -50,7 +194,7 @@ function normalizeProfilePhone(value) {
   return digits;
 }
 
-export function findMatchingTenantProfile(database, tenant) {
+export async function findMatchingTenantProfile(database, tenant) {
   const civilId = String(tenant && tenant.civilId || '').trim();
   const fullName = String(tenant && tenant.tenantName || '').trim();
   const phone = String(tenant && tenant.phone || '').trim();
@@ -59,8 +203,8 @@ export function findMatchingTenantProfile(database, tenant) {
   const matches = [];
 
   if (civilId) {
-    const civilMatch = database.prepare(`
-      SELECT id, full_name AS fullName, civil_id AS civilId, phone, nationality
+    const civilMatch = await database.prepare(`
+      SELECT id, full_name AS "fullName", civil_id AS "civilId", phone, nationality
       FROM tenant_profiles
       WHERE civil_id = ?
       LIMIT 1
@@ -69,8 +213,8 @@ export function findMatchingTenantProfile(database, tenant) {
   }
 
   if (normalizedPhone) {
-    const phoneMatch = database.prepare(`
-      SELECT id, full_name AS fullName, civil_id AS civilId, phone, nationality
+    const phoneMatch = await database.prepare(`
+      SELECT id, full_name AS "fullName", civil_id AS "civilId", phone, nationality
       FROM tenant_profiles
       WHERE normalized_phone = ?
       LIMIT 1
@@ -81,8 +225,8 @@ export function findMatchingTenantProfile(database, tenant) {
   }
 
   if (normalizedName) {
-    const nameMatch = database.prepare(`
-      SELECT id, full_name AS fullName, civil_id AS civilId, phone, nationality
+    const nameMatch = await database.prepare(`
+      SELECT id, full_name AS "fullName", civil_id AS "civilId", phone, nationality
       FROM tenant_profiles
       WHERE normalized_name = ?
       LIMIT 1
@@ -95,15 +239,14 @@ export function findMatchingTenantProfile(database, tenant) {
   return matches;
 }
 
-function ensureTenancyProfileColumn(database) {
-  const columns = database.prepare(`PRAGMA table_info(tenancies)`).all();
-  const hasProfileId = columns.some((column) => String(column && column.name || '').trim() === 'profile_id');
-  if (!hasProfileId) {
-    database.exec(`ALTER TABLE tenancies ADD COLUMN profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL;`);
-  }
+async function ensureTenancyProfileColumn(database) {
+  await database.exec(`
+    ALTER TABLE tenancies
+    ADD COLUMN IF NOT EXISTS profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL;
+  `);
 }
 
-export function upsertTenantProfile(database, tenant) {
+export async function upsertTenantProfile(database, tenant) {
   const civilId = String(tenant && tenant.civilId || '').trim();
   const fullName = String(tenant && tenant.tenantName || '').trim();
   const phone = String(tenant && tenant.phone || '').trim();
@@ -112,12 +255,12 @@ export function upsertTenantProfile(database, tenant) {
   const normalizedPhone = normalizeProfilePhone(phone);
 
   let existing = null;
-  const matches = findMatchingTenantProfile(database, tenant);
+  const matches = await findMatchingTenantProfile(database, tenant);
   if (matches.length) {
     existing = { id: String(matches[0].profile && matches[0].profile.id || '').trim() };
   }
   if (!existing && normalizedName && normalizedPhone) {
-    existing = database.prepare(`
+    existing = await database.prepare(`
       SELECT id
       FROM tenant_profiles
       WHERE normalized_name = ? AND normalized_phone = ?
@@ -126,7 +269,7 @@ export function upsertTenantProfile(database, tenant) {
   }
 
   if (existing) {
-    database.prepare(`
+    await database.prepare(`
       UPDATE tenant_profiles
       SET
         full_name = CASE WHEN ? <> '' THEN ? ELSE full_name END,
@@ -151,7 +294,7 @@ export function upsertTenantProfile(database, tenant) {
   }
 
   const profileId = `profile-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  database.prepare(`
+  await database.prepare(`
     INSERT INTO tenant_profiles (
       id, full_name, civil_id, phone, nationality, normalized_name, normalized_phone,
       created_at, updated_at, last_seen_at
@@ -168,8 +311,8 @@ export function upsertTenantProfile(database, tenant) {
   return profileId;
 }
 
-export function ensureTenantHistorySchema(database) {
-  database.exec(`
+export async function ensureTenantHistorySchema(database) {
+  await database.exec(`
     CREATE TABLE IF NOT EXISTS tenant_profiles (
       id TEXT PRIMARY KEY,
       full_name TEXT NOT NULL DEFAULT '',
@@ -186,32 +329,32 @@ export function ensureTenantHistorySchema(database) {
     CREATE INDEX IF NOT EXISTS idx_tenant_profiles_civil_id ON tenant_profiles(civil_id);
   `);
 
-  ensureTenancyProfileColumn(database);
-  database.exec(`CREATE INDEX IF NOT EXISTS idx_tenancies_profile_id ON tenancies(profile_id);`);
+  await ensureTenancyProfileColumn(database);
+  await database.exec(`CREATE INDEX IF NOT EXISTS idx_tenancies_profile_id ON tenancies(profile_id);`);
 
-  const rows = database.prepare(`
-    SELECT id, tenant_name AS tenantName, civil_id AS civilId, phone, nationality
+  const rows = await database.prepare(`
+    SELECT id, tenant_name AS "tenantName", civil_id AS "civilId", phone, nationality
     FROM tenancies
     WHERE profile_id IS NULL OR TRIM(profile_id) = ''
     ORDER BY created_at, id
   `).all();
 
   if (!rows.length) return;
-  database.exec('BEGIN');
+  await database.exec('BEGIN');
   try {
     const updateTenancyProfile = database.prepare(`
       UPDATE tenancies
       SET profile_id = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    rows.forEach((row) => {
-      const profileId = upsertTenantProfile(database, row);
-      updateTenancyProfile.run(profileId, String(row.id || '').trim());
-    });
-    database.exec('COMMIT');
+    for (const row of rows) {
+      const profileId = await upsertTenantProfile(database, row);
+      await updateTenancyProfile.run(profileId, String(row.id || '').trim());
+    }
+    await database.exec('COMMIT');
   } catch (error) {
     try {
-      database.exec('ROLLBACK');
+      await database.exec('ROLLBACK');
     } catch (_rollbackError) {
       // Ignore rollback errors.
     }
@@ -219,24 +362,24 @@ export function ensureTenantHistorySchema(database) {
   }
 }
 
-export function prepareDatabase(databasePath, schemaPath) {
-  const database = openDatabase(databasePath);
+export async function prepareDatabase(databaseTarget, schemaPath) {
+  const database = openDatabase(databaseTarget);
   try {
-    applySchema(database, schemaPath);
-    ensureTenantHistorySchema(database);
+    await applySchema(database, schemaPath, databaseTarget);
+    await ensureTenantHistorySchema(database);
   } finally {
-    database.close();
+    await database.close();
   }
 }
 
-export function repairMissingTenancyProfiles(database) {
+export async function repairMissingTenancyProfiles(database) {
   if (!database) return 0;
-  const rows = database.prepare(`
+  const rows = await database.prepare(`
     SELECT
       id,
-      source_tenant_id AS sourceTenantId,
-      tenant_name AS tenantName,
-      civil_id AS civilId,
+      source_tenant_id AS "sourceTenantId",
+      tenant_name AS "tenantName",
+      civil_id AS "civilId",
       phone,
       nationality
     FROM tenancies
@@ -251,17 +394,17 @@ export function repairMissingTenancyProfiles(database) {
     WHERE id = ?
   `);
   let repaired = 0;
-  rows.forEach((row) => {
-    const profileId = upsertTenantProfile(database, row);
-    if (!profileId) return;
-    updateTenancyProfile.run(profileId, String(row.id || '').trim());
+  for (const row of rows) {
+    const profileId = await upsertTenantProfile(database, row);
+    if (!profileId) continue;
+    await updateTenancyProfile.run(profileId, String(row.id || '').trim());
     repaired += 1;
-  });
+  }
   return repaired;
 }
 
-export function resetTables(database) {
-  database.exec(`
+export async function resetTables(database) {
+  await database.exec(`
     DELETE FROM unit_row_order;
     DELETE FROM tenant_month_overrides;
     DELETE FROM payments;
@@ -272,4 +415,10 @@ export function resetTables(database) {
     DELETE FROM buildings;
     DELETE FROM activity_log;
   `);
+}
+
+export async function closeAllPools() {
+  const pools = Array.from(poolCache.values());
+  poolCache.clear();
+  await Promise.all(pools.map((pool) => pool.end()));
 }

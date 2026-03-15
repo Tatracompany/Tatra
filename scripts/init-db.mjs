@@ -9,14 +9,20 @@ const databasePath = process.argv[2]
   ? path.resolve(projectRoot, process.argv[2])
   : getDefaultDatabasePath(projectRoot);
 
-ensureDatabaseFileExists(projectRoot, databasePath);
-prepareDatabase(databasePath, schemaPath);
-const database = openDatabase(databasePath);
-database.exec(`
-  INSERT INTO app_meta(key, value)
-  VALUES ('schema_initialized_at', CURRENT_TIMESTAMP)
-  ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-`);
-database.close();
+async function main() {
+  ensureDatabaseFileExists(projectRoot, databasePath);
+  await prepareDatabase(databasePath, schemaPath);
+  const database = await openDatabase(databasePath);
+  try {
+    await database.exec(`
+      INSERT INTO app_meta(key, value)
+      VALUES ('schema_initialized_at', CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `);
+  } finally {
+    await database.close();
+  }
+  console.log(`Initialized database at ${databasePath}`);
+}
 
-console.log(`Initialized database at ${databasePath}`);
+await main();

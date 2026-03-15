@@ -49,9 +49,10 @@ if (!state || !Array.isArray(state.tenants) || !Array.isArray(state.buildings)) 
   throw new Error('Invalid app state JSON.');
 }
 
-const database = openDatabase(databasePath);
-applySchema(database, schemaPath);
-resetTables(database);
+async function main() {
+  const database = await openDatabase(databasePath);
+  await applySchema(database, schemaPath, databasePath);
+  await resetTables(database);
 
 const insertBuilding = database.prepare(`
   INSERT INTO buildings (id, name, area, total_units, source_kind)
@@ -93,34 +94,34 @@ const insertActivity = database.prepare(`
 `);
 
 const buildingIdByName = new Map();
-state.buildings.forEach((building, index) => {
+for (const [index, building] of state.buildings.entries()) {
   const id = String(building.id || `building-${index + 1}`).trim();
   const name = String(building.name || '').trim();
-  if (!name) return;
+  if (!name) continue;
   buildingIdByName.set(name, id);
-  insertBuilding.run(
+  await insertBuilding.run(
     id,
     name,
     String(building.area || '').trim(),
     Number(building.totalUnits || 0)
   );
-});
+}
 
 const unitIdByCompositeKey = new Map();
 const unitSeedPositionByBuilding = new Map();
-state.tenants.forEach((tenant) => {
+for (const tenant of state.tenants) {
   const buildingName = String(tenant.building || '').trim();
   const buildingId = buildingIdByName.get(buildingName);
-  if (!buildingId) return;
+  if (!buildingId) continue;
   const unitKey = unitKeyFor(tenant);
-  if (!unitKey || !String(tenant.unit || '').trim()) return;
+  if (!unitKey || !String(tenant.unit || '').trim()) continue;
   const compositeKey = `${buildingId}::${unitKey}`;
-  if (unitIdByCompositeKey.has(compositeKey)) return;
+  if (unitIdByCompositeKey.has(compositeKey)) continue;
   const nextPosition = unitSeedPositionByBuilding.get(buildingId) || 0;
   const unitId = `unit-${buildingId}-${nextPosition + 1}`;
   unitIdByCompositeKey.set(compositeKey, unitId);
   unitSeedPositionByBuilding.set(buildingId, nextPosition + 1);
-  insertUnit.run(
+  await insertUnit.run(
     unitId,
     buildingId,
     String(tenant.unit || '').trim(),
@@ -130,20 +131,20 @@ state.tenants.forEach((tenant) => {
     Number(tenant.seedOrder ?? nextPosition),
     tenant.isVacant ? 'vacant' : (tenant.isArchived ? 'archived' : 'occupied')
   );
-});
+}
 
 const tenancyIdBySourceTenantId = new Map();
-state.tenants.forEach((tenant, index) => {
+for (const [index, tenant] of state.tenants.entries()) {
   const buildingName = String(tenant.building || '').trim();
   const buildingId = buildingIdByName.get(buildingName);
-  if (!buildingId) return;
+  if (!buildingId) continue;
   const compositeKey = `${buildingId}::${unitKeyFor(tenant)}`;
   const unitId = unitIdByCompositeKey.get(compositeKey);
-  if (!unitId) return;
+  if (!unitId) continue;
   const sourceTenantId = String(tenant.id || '').trim();
 
   if (tenant.isVacant) {
-    insertVacancy.run(
+    await insertVacancy.run(
       unitId,
       1,
       String(tenant.vacatedOn || '').trim(),
@@ -155,12 +156,12 @@ state.tenants.forEach((tenant, index) => {
       String(tenant.notes || '').trim(),
       JSON.stringify(tenant)
     );
-    return;
+    continue;
   }
 
   const tenancyId = `tenancy-${index + 1}`;
   tenancyIdBySourceTenantId.set(sourceTenantId, tenancyId);
-  insertTenancy.run(
+  await insertTenancy.run(
     tenancyId,
     unitId,
     sourceTenantId,
@@ -186,11 +187,11 @@ state.tenants.forEach((tenant, index) => {
     String(tenant.notes || '').trim(),
     JSON.stringify(tenant)
   );
-});
+}
 
-(state.payments || []).forEach((payment) => {
+for (const payment of (state.payments || [])) {
   const sourceTenantId = String(payment.tenantId || '').trim();
-  insertPayment.run(
+  await insertPayment.run(
     String(payment.id || '').trim(),
     tenancyIdBySourceTenantId.get(sourceTenantId) || null,
     sourceTenantId,
@@ -201,43 +202,43 @@ state.tenants.forEach((tenant, index) => {
     String(payment.note || '').trim(),
     JSON.stringify(payment)
   );
-});
+}
 
-[
+for (const entry of [
   ...overrideEntries(state.actualRentOverrides, 'actual_rent'),
   ...overrideEntries(state.paidOverrides, 'paid'),
   ...overrideEntries(state.carryOverrides, 'carry'),
   ...overrideEntries(state.notesOverrides, 'notes'),
   ...overrideEntries(state.tenantIdentityOverrides, 'identity')
-].forEach((entry) => {
-  insertOverride.run(
+]) {
+  await insertOverride.run(
     tenancyIdBySourceTenantId.get(entry.sourceTenantId) || null,
     entry.sourceTenantId,
     entry.monthKey,
     entry.overrideKind,
     entry.valueText
   );
-});
+}
 
-Object.entries(state.tenantOrderOverrides || {}).forEach(([buildingName, monthBucket]) => {
+for (const [buildingName, monthBucket] of Object.entries(state.tenantOrderOverrides || {})) {
   const buildingId = buildingIdByName.get(String(buildingName || '').trim());
-  if (!buildingId || !monthBucket || typeof monthBucket !== 'object') return;
-  Object.entries(monthBucket).forEach(([monthKey, orderedIds]) => {
-    if (!Array.isArray(orderedIds)) return;
-    orderedIds.forEach((orderKey, index) => {
-      insertRowOrder.run(
+  if (!buildingId || !monthBucket || typeof monthBucket !== 'object') continue;
+  for (const [monthKey, orderedIds] of Object.entries(monthBucket)) {
+    if (!Array.isArray(orderedIds)) continue;
+    for (const [index, orderKey] of orderedIds.entries()) {
+      await insertRowOrder.run(
         buildingId,
         String(monthKey || '').trim(),
         index,
         String(orderKey || '').trim(),
         null
       );
-    });
-  });
-});
+    }
+  }
+}
 
-(state.activity || []).forEach((item) => {
-  insertActivity.run(
+for (const item of (state.activity || [])) {
+  await insertActivity.run(
     String(item.id || '').trim() || `activity-${Date.now()}`,
     String(item.when || '').trim(),
     String(item.actor || '').trim(),
@@ -245,13 +246,16 @@ Object.entries(state.tenantOrderOverrides || {}).forEach(([buildingName, monthBu
     String(item.detail || '').trim(),
     JSON.stringify(item)
   );
-});
+}
 
-database.exec(`
+await database.exec(`
   INSERT INTO app_meta(key, value) VALUES ('last_state_import_at', CURRENT_TIMESTAMP)
   ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 `);
-ensureTenantHistorySchema(database);
-database.close();
+await ensureTenantHistorySchema(database);
+await database.close();
 
 console.log(`Imported app state into ${databasePath}`);
+}
+
+await main();
