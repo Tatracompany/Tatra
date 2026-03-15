@@ -498,12 +498,35 @@ async function cloneMonthForwardForAllTenants(database, fromMonthKey, toMonthKey
   const normalizedToMonthKey = String(toMonthKey || '').trim();
   if (!normalizedFromMonthKey || !normalizedToMonthKey || normalizedToMonthKey <= BASELINE_MONTH_KEY) return;
   await freezeMonthBaselineForAllTenants(database, normalizedToMonthKey);
+  const tenancies = await database.prepare(`
+    SELECT
+      source_tenant_id AS sourceTenantId,
+      prepaid_next_month AS prepaidNextMonth
+    FROM tenancies
+    WHERE is_active = 1 AND is_archived = 0
+    ORDER BY source_tenant_id
+  `).all();
   const rows = await database.prepare(`
     SELECT source_tenant_id AS sourceTenantId, override_kind AS overrideKind, value_text AS valueText
     FROM tenant_month_overrides
     WHERE month_key = ?
     ORDER BY source_tenant_id, override_kind
   `).all(normalizedFromMonthKey);
+  const advanceRows = await database.prepare(`
+    SELECT
+      source_tenant_id AS sourceTenantId,
+      amount
+    FROM payments
+    WHERE rent_month = ?
+      AND method = 'Advance'
+  `).all(normalizedToMonthKey);
+  const copiedOverrideKindsByTenant = new Map();
+  const advanceAmountByTenant = new Map();
+  advanceRows.forEach((row) => {
+    const sourceTenantId = String(row && row.sourceTenantId || '').trim();
+    if (!sourceTenantId) return;
+    advanceAmountByTenant.set(sourceTenantId, Number(advanceAmountByTenant.get(sourceTenantId) || 0) + Number(row && row.amount || 0));
+  });
   for (const row of rows) {
     const sourceTenantId = String(row && row.sourceTenantId || '').trim();
     const overrideKind = String(row && row.overrideKind || '').trim();
@@ -511,7 +534,18 @@ async function cloneMonthForwardForAllTenants(database, fromMonthKey, toMonthKey
     const valueText = overrideKind === 'paid'
       ? '0'
       : String(row && row.valueText || '').trim();
+    if (!copiedOverrideKindsByTenant.has(sourceTenantId)) copiedOverrideKindsByTenant.set(sourceTenantId, new Set());
+    copiedOverrideKindsByTenant.get(sourceTenantId).add(overrideKind);
     await upsertTenantMonthOverride(database, sourceTenantId, normalizedToMonthKey, overrideKind, valueText);
+  }
+  for (const tenancy of tenancies) {
+    const sourceTenantId = String(tenancy && tenancy.sourceTenantId || '').trim();
+    if (!sourceTenantId) continue;
+    const copiedKinds = copiedOverrideKindsByTenant.get(sourceTenantId) || new Set();
+    if (!copiedKinds.has('prepaid_next')) {
+      const effectivePrepaidNext = Number(advanceAmountByTenant.get(sourceTenantId) || tenancy && tenancy.prepaidNextMonth || 0);
+      await upsertTenantMonthOverride(database, sourceTenantId, normalizedToMonthKey, 'prepaid_next', String(effectivePrepaidNext));
+    }
   }
 }
 
