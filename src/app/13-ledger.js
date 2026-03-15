@@ -393,9 +393,17 @@
 
   function getPaidOverride(state, tenantId, monthKey) {
     ensurePaidOverridesState(state);
-    if (!state.paidOverrides[tenantId]) return null;
-    if (!Object.prototype.hasOwnProperty.call(state.paidOverrides[tenantId], monthKey)) return null;
-    return normalizeAmount(state.paidOverrides[tenantId][monthKey]);
+    if (state.paidOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.paidOverrides[tenantId], monthKey)) {
+      return normalizeAmount(state.paidOverrides[tenantId][monthKey]);
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'paid');
+        if (snapshotOverride) return normalizeAmount(snapshotOverride.valueText);
+      }
+    }
+    return null;
   }
 
   function setPaidOverride(state, tenantId, monthKey, amountOrNull) {
@@ -413,9 +421,17 @@
 
   function getCarryOverride(state, tenantId, monthKey) {
     ensureCarryOverridesState(state);
-    if (!state.carryOverrides[tenantId]) return null;
-    if (!Object.prototype.hasOwnProperty.call(state.carryOverrides[tenantId], monthKey)) return null;
-    return normalizeAmount(state.carryOverrides[tenantId][monthKey]);
+    if (state.carryOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.carryOverrides[tenantId], monthKey)) {
+      return normalizeAmount(state.carryOverrides[tenantId][monthKey]);
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'carry');
+        if (snapshotOverride) return normalizeAmount(snapshotOverride.valueText);
+      }
+    }
+    return null;
   }
 
   function setCarryOverride(state, tenantId, monthKey, amountOrNull) {
@@ -433,9 +449,17 @@
 
   function getActualRentOverride(state, tenantId, monthKey) {
     ensureActualRentOverridesState(state);
-    if (!state.actualRentOverrides[tenantId]) return null;
-    if (!Object.prototype.hasOwnProperty.call(state.actualRentOverrides[tenantId], monthKey)) return null;
-    return normalizeAmount(state.actualRentOverrides[tenantId][monthKey]);
+    if (state.actualRentOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.actualRentOverrides[tenantId], monthKey)) {
+      return normalizeAmount(state.actualRentOverrides[tenantId][monthKey]);
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'actual_rent');
+        if (snapshotOverride) return normalizeAmount(snapshotOverride.valueText);
+      }
+    }
+    return null;
   }
 
   function setActualRentOverride(state, tenantId, monthKey, amountOrNull) {
@@ -453,9 +477,17 @@
 
   function getVacantAmountOverride(state, tenantId, monthKey) {
     ensureVacantAmountOverridesState(state);
-    if (!state.vacantAmountOverrides[tenantId]) return null;
-    if (!Object.prototype.hasOwnProperty.call(state.vacantAmountOverrides[tenantId], monthKey)) return null;
-    return normalizeAmount(state.vacantAmountOverrides[tenantId][monthKey]);
+    if (state.vacantAmountOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.vacantAmountOverrides[tenantId], monthKey)) {
+      return normalizeAmount(state.vacantAmountOverrides[tenantId][monthKey]);
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'vacant_amount');
+        if (snapshotOverride) return normalizeAmount(snapshotOverride.valueText);
+      }
+    }
+    return null;
   }
 
   function setVacantAmountOverride(state, tenantId, monthKey, amountOrNull) {
@@ -473,9 +505,17 @@
 
   function getNotesOverride(state, tenantId, monthKey) {
     ensureNotesOverridesState(state);
-    if (!state.notesOverrides[tenantId]) return null;
-    if (!Object.prototype.hasOwnProperty.call(state.notesOverrides[tenantId], monthKey)) return null;
-    return String(state.notesOverrides[tenantId][monthKey] || '');
+    if (state.notesOverrides[tenantId] && Object.prototype.hasOwnProperty.call(state.notesOverrides[tenantId], monthKey)) {
+      return String(state.notesOverrides[tenantId][monthKey] || '');
+    }
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+      for (const candidateId of candidateTenantIds) {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'notes');
+        if (snapshotOverride) return String(snapshotOverride.valueText || '');
+      }
+    }
+    return null;
   }
 
   function setNotesOverride(state, tenantId, monthKey, noteText) {
@@ -546,18 +586,7 @@
   }
 
   function ensureNoteSnapshotsForMonth(state, monthKey) {
-    const targetMonth = String(monthKey || '').trim();
-    if (!targetMonth) return false;
-    ensureNotesOverridesState(state);
-    let changed = false;
-    state.tenants.forEach((tenant) => {
-      if (!tenant || tenant.isVacant || tenant.isArchived) return;
-      if (isBuildingMonthLocked(tenant.building, targetMonth)) return;
-      if (getNotesOverride(state, tenant.id, targetMonth) != null) return;
-      setNotesOverride(state, tenant.id, targetMonth, getInheritedTenantNote(state, tenant, targetMonth));
-      changed = true;
-    });
-    return changed;
+    return false;
   }
 
   function getHistoricalBacklogMap(tenant, anchorMonth, rentDue) {
