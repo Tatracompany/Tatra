@@ -131,6 +131,10 @@ function addMonths(monthKey, delta) {
   return `${nextYear}-${nextMonth}`;
 }
 
+function compareMonthKeys(left, right) {
+  return String(left || '').localeCompare(String(right || ''), 'en');
+}
+
 const BASELINE_MONTH_KEY = '2026-01';
 
 async function exportSnapshotToBrowserFile() {
