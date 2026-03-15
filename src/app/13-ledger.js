@@ -655,7 +655,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         openingCarry = openingCarryOverride;
       }
       const rowCreditCarry = getRowCreditCarryIntoMonth(state, tenant.id, monthPointer);
-      const effectiveOpeningCredit = normalizeAmount(openingCredit + rowCreditCarry);
+      const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, monthPointer);
+      const effectiveOpeningCredit = normalizeAmount(Math.max(openingCredit + rowCreditCarry, manualPrepaidFromBefore || 0));
       const due = normalizeAmount(getMonthlyRentDue(tenant, monthPointer, anchorMonth, rentDue));
       const previousPaid = normalizeAmount(Math.min(getTenantDuePaidAmount(state, tenant.id, monthPointer), openingCarry));
       const paymentBreakdown = getMonthPaymentBreakdown(state, tenant, monthPointer, anchorMonth, rentDue);
