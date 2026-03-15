@@ -159,15 +159,6 @@
         });
         if (!futureRow) return;
         if (sourceTenantId) {
-          setTenantIdentityOverride(state, sourceTenantId, 'name', futureIdentityFreezeMonth, futureRow.name);
-          setTenantIdentityOverride(state, sourceTenantId, 'unit', futureIdentityFreezeMonth, futureRow.unit);
-          setTenantIdentityOverride(state, sourceTenantId, 'floor', futureIdentityFreezeMonth, futureRow.floor);
-          setTenantIdentityOverride(state, sourceTenantId, 'moveInDate', futureIdentityFreezeMonth, futureRow.moveInDate);
-          setTenantIdentityOverride(state, sourceTenantId, 'contractStart', futureIdentityFreezeMonth, futureRow.contractStart);
-          setTenantIdentityOverride(state, sourceTenantId, 'contractEnd', futureIdentityFreezeMonth, futureRow.contractEnd);
-          setTenantIdentityOverride(state, sourceTenantId, 'phone', futureIdentityFreezeMonth, futureRow.phone);
-          setTenantIdentityOverride(state, sourceTenantId, 'civilId', futureIdentityFreezeMonth, futureRow.civilId);
-          setTenantIdentityOverride(state, sourceTenantId, 'nationality', futureIdentityFreezeMonth, futureRow.nationality);
           await persistTenantMonthIdentity(futureIdentityFreezeMonth, sourceTenantId, futureRow);
         }
         updateCarriedMonthRowIdentity(futureIdentityFreezeMonth, targetRowLike, futureRow);
@@ -229,8 +220,6 @@
         const previousVacantOrderKey = linkedVacantRecord && typeof getTenantOrderKey === 'function'
           ? getTenantOrderKey(linkedVacantRecord)
           : '';
-        setTenantIdentityOverride(state, vacantView.sourceTenantId, 'unit', selectedMonth, nextUnit);
-        setTenantIdentityOverride(state, vacantView.sourceTenantId, 'floor', selectedMonth, nextFloor);
         await persistTenantMonthIdentity(selectedMonth, vacantView.sourceTenantId, {
           name: String(sourceProfile && sourceProfile.name || '').trim(),
           unit: nextUnit,
@@ -328,15 +317,6 @@
           floor: nextFloor
         })
         : '';
-      setTenantIdentityOverride(state, tenant.id, 'name', selectedMonth, nextName);
-      setTenantIdentityOverride(state, tenant.id, 'unit', selectedMonth, nextUnit);
-      setTenantIdentityOverride(state, tenant.id, 'floor', selectedMonth, nextFloor);
-      setTenantIdentityOverride(state, tenant.id, 'moveInDate', selectedMonth, nextMoveInDate);
-      setTenantIdentityOverride(state, tenant.id, 'contractStart', selectedMonth, nextContractStart);
-      setTenantIdentityOverride(state, tenant.id, 'contractEnd', selectedMonth, nextContractEnd);
-      setTenantIdentityOverride(state, tenant.id, 'phone', selectedMonth, nextPhone);
-      setTenantIdentityOverride(state, tenant.id, 'civilId', selectedMonth, nextCivilId);
-      setTenantIdentityOverride(state, tenant.id, 'nationality', selectedMonth, nextNationality);
       updateCarriedMonthRowIdentity(selectedMonth, tenant, {
         name: nextName,
         unit: nextUnit,
@@ -381,6 +361,9 @@
           contractStart: nextContractStart,
           contractEnd: nextContractEnd
         });
+      }
+      if (typeof refreshSnapshotAndDerivedState === 'function') {
+        await refreshSnapshotAndDerivedState(state);
       }
       logActivity(state, 'Tenant profile updated', `${tenant.building} ${nextUnit} profile updated.`);
       renderAll(state, tenant.building);
@@ -711,9 +694,6 @@
     if (contractStartMonth && isMonthVisible(contractStartMonth)) {
       monthsToForceUnpaid.add(contractStartMonth);
     }
-    monthsToForceUnpaid.forEach((monthKey) => {
-      setPaidOverride(state, tenant.id, monthKey, 0);
-    });
     tenant.lastPaidMonth = addMonths(contractStartMonth || selectedMonth, -1);
     restoreBuildingFinancialSnapshot(state, buildingFinancialSnapshot, buildingName, tenant.unit, tenant.floor);
     saveState(state);

@@ -12,14 +12,9 @@
     return {
       buildings: BUILDINGS,
       tenants,
-        payments,
-        actualRentOverrides: {},
-        vacantAmountOverrides: {},
-        paidOverrides: {},
-        lastInsuranceRollMonth: currentMonth,
-      activity: [
-        { id: 'activity-seed', when: new Date().toISOString(), action: 'System seed loaded', actor: 'system', detail: 'Rebuilt stable English baseline with Salwa 165 data.' }
-      ]
+      payments,
+      lastInsuranceRollMonth: currentMonth,
+      activity: []
     };
   }
 
@@ -31,15 +26,7 @@
       payments: [],
       tenantOrderOverrides: {},
       lastInsuranceRollMonth: currentMonth,
-      activity: [
-        {
-          id: `activity-fresh-reset-${Date.now()}`,
-          when: new Date().toISOString(),
-          action: 'Fresh SQL reset applied',
-          actor: 'system',
-          detail: 'Cleared all live tenant rows, payments, overrides, and order data while keeping the building structure.'
-        }
-      ],
+      activity: [],
       appliedFixes: {
         'fresh-reset-all-buildings-v2': true
       }
@@ -245,29 +232,7 @@
   }
 
   function ensureUniqueTenantIds(state) {
-    const seenIds = new Set();
-    let changed = false;
-    state.tenants.forEach((tenant, index) => {
-      const originalId = String(tenant.id || '').trim();
-      if (originalId && !seenIds.has(originalId)) {
-        seenIds.add(originalId);
-        return;
-      }
-      const unitSlug = String(tenant.unit || '').toLowerCase().trim().replace(/\s+/g, '-');
-      const floorSlug = String(normalizeFloorLabel(tenant.floor) || '').toLowerCase().trim().replace(/\s+/g, '-');
-      const baseId = originalId || `${String(tenant.building || 'tenant').toLowerCase().trim().replace(/\s+/g, '-')}-${unitSlug || 'unit'}`;
-      let nextId = `${baseId}-${floorSlug || 'row'}-${index + 1}`;
-      let suffix = 2;
-      while (seenIds.has(nextId)) {
-        nextId = `${baseId}-${floorSlug || 'row'}-${index + 1}-${suffix}`;
-        suffix += 1;
-      }
-      tenant.id = nextId;
-      seenIds.add(nextId);
-      if (originalId) renameTenantIdAcrossState(state, originalId, nextId);
-      changed = true;
-    });
-    return changed;
+    return false;
   }
 
   function getDynamicTemplateBuildingNames() {
@@ -594,130 +559,19 @@
   }
 
   function resetCarriedMonthState(state, monthKey) {
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedMonth) return false;
-    let changed = false;
-    if (clearWholeMonthOverrideBucket(state.paidOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthOverrideBucket(state.carryOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthOverrideBucket(state.notesOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthOverrideBucket(state.openingCreditOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthOverrideBucket(state.actualRentOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthOverrideBucket(state.vacantAmountOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthIdentityOverrideBucket(state.tenantIdentityOverrides, normalizedMonth)) changed = true;
-    if (clearWholeMonthNestedBucket(state.oldTenantDuePaidNotes, normalizedMonth)) changed = true;
-    if (clearWholeMonthNestedBucket(state.tenantOrderOverrides, normalizedMonth)) changed = true;
-    const paymentsBefore = Array.isArray(state.payments) ? state.payments.length : 0;
-    state.payments = (state.payments || []).filter((payment) => {
-      const rentMonth = String(payment && payment.rentMonth || '').trim();
-      const method = String(payment && payment.method || '').trim();
-      if (rentMonth !== normalizedMonth) return true;
-      return method === 'Advance';
-    });
-    if (state.payments.length !== paymentsBefore) changed = true;
-    return changed;
+    return false;
   }
 
   function migrateAdvancePaymentsToPrepaidNextOverrides(state) {
-    ensureAppliedFixesState(state);
-    const appliedKey = 'migrate-advance-payments-to-prepaid-next-v1';
-    if (state.appliedFixes[appliedKey]) return false;
-    if (typeof setPrepaidNextOverride !== 'function') {
-      state.appliedFixes[appliedKey] = true;
-      return false;
-    }
-    let changed = false;
-    const groupedAmounts = new Map();
-    (state.payments || []).forEach((payment) => {
-      const method = String(payment && payment.method || '').trim();
-      const tenantId = String(payment && payment.tenantId || '').trim();
-      const rentMonth = String(payment && payment.rentMonth || '').trim();
-      if (method !== 'Advance' || !tenantId || !rentMonth) return;
-      const sourceMonth = addMonths(rentMonth, -1);
-      if (!sourceMonth || sourceMonth === rentMonth) return;
-      const mapKey = `${tenantId}::${sourceMonth}`;
-      groupedAmounts.set(mapKey, normalizeAmount((groupedAmounts.get(mapKey) || 0) + Number(payment.amount || 0)));
-    });
-    groupedAmounts.forEach((amount, mapKey) => {
-      const [tenantId, sourceMonth] = mapKey.split('::');
-      if (!(amount > 0) || !tenantId || !sourceMonth) return;
-      const existingAmount = typeof getPrepaidNextOverride === 'function'
-        ? getPrepaidNextOverride(state, tenantId, sourceMonth)
-        : null;
-      if (existingAmount != null && normalizeAmount(existingAmount) === normalizeAmount(amount)) return;
-      setPrepaidNextOverride(state, tenantId, sourceMonth, amount);
-      changed = true;
-    });
-    state.appliedFixes[appliedKey] = true;
-    return changed;
+    return false;
   }
 
   function normalizePrepaidNextStorageToSourceTenantIds(state) {
-    ensureAppliedFixesState(state);
-    const appliedKey = 'normalize-prepaid-next-source-ids-v1';
-    if (state.appliedFixes[appliedKey]) return false;
-    const canonicalSourceById = new Map();
-    (state.tenants || []).forEach((tenant) => {
-      if (!tenant) return;
-      const rowId = String(tenant.id || '').trim();
-      const sourceId = String(tenant.sourceTenantId || tenant.id || '').trim();
-      if (!sourceId) return;
-      if (rowId) canonicalSourceById.set(rowId, sourceId);
-      canonicalSourceById.set(sourceId, sourceId);
-    });
-    let changed = false;
-    ensurePrepaidNextOverridesState(state);
-    Object.keys(state.prepaidNextOverrides || {}).forEach((tenantId) => {
-      const canonicalId = canonicalSourceById.get(String(tenantId || '').trim()) || String(tenantId || '').trim();
-      if (!canonicalId || canonicalId === tenantId) return;
-      const existingBucket = state.prepaidNextOverrides[tenantId];
-      if (!existingBucket || typeof existingBucket !== 'object') return;
-      if (!state.prepaidNextOverrides[canonicalId]) state.prepaidNextOverrides[canonicalId] = {};
-      Object.keys(existingBucket).forEach((monthKey) => {
-        const existingAmount = Number(state.prepaidNextOverrides[canonicalId][monthKey] || 0);
-        const nextAmount = Number(existingBucket[monthKey] || 0);
-        state.prepaidNextOverrides[canonicalId][monthKey] = normalizeAmount(existingAmount + nextAmount);
-      });
-      delete state.prepaidNextOverrides[tenantId];
-      changed = true;
-    });
-    state.payments = (state.payments || []).map((payment) => {
-      const paymentTenantId = String(payment && payment.tenantId || '').trim();
-      const canonicalId = canonicalSourceById.get(paymentTenantId) || paymentTenantId;
-      if (!canonicalId || canonicalId === paymentTenantId) return payment;
-      changed = true;
-      return Object.assign({}, payment, { tenantId: canonicalId });
-    });
-    state.appliedFixes[appliedKey] = true;
-    return changed;
+    return false;
   }
 
   function migratePrepaidNextToOpeningCreditOverrides(state) {
-    ensureAppliedFixesState(state);
-    const appliedKey = 'migrate-prepaid-next-to-opening-credit-v1';
-    if (state.appliedFixes[appliedKey]) return false;
-    if (typeof setOpeningCreditOverride !== 'function') {
-      state.appliedFixes[appliedKey] = true;
-      return false;
-    }
-    ensureOpeningCreditOverridesState(state);
-    let changed = false;
-    Object.keys(state.prepaidNextOverrides || {}).forEach((tenantId) => {
-      const tenantBucket = state.prepaidNextOverrides[tenantId];
-      if (!tenantBucket || typeof tenantBucket !== 'object') return;
-      Object.keys(tenantBucket).forEach((monthKey) => {
-        const amount = normalizeAmount(tenantBucket[monthKey]);
-        if (!(amount > 0)) return;
-        const nextMonth = addMonths(monthKey, 1);
-        const existingAmount = typeof getOpeningCreditOverride === 'function'
-          ? getOpeningCreditOverride(state, tenantId, nextMonth)
-          : null;
-        if (existingAmount != null && normalizeAmount(existingAmount) === amount) return;
-        setOpeningCreditOverride(state, tenantId, nextMonth, amount);
-        changed = true;
-      });
-    });
-    state.appliedFixes[appliedKey] = true;
-    return changed;
+    return false;
   }
 
   function removeTenantLinkedPaymentsExceptAdvance(payments, tenantIds) {
@@ -784,154 +638,15 @@
   }
 
   function clearGlobalMonthData(state, monthKey) {
-    ensureAppliedFixesState(state);
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedMonth) return false;
-    const appliedKey = `cleared-month-${normalizedMonth}`;
-    if (state.appliedFixes[appliedKey]) return false;
-
-    const tenantIds = new Set(state.tenants.map((tenant) => String(tenant.id || '').trim()).filter(Boolean));
-    const buildingNames = new Set(state.buildings.map((building) => String(building.name || '').trim()).filter(Boolean));
-    let changed = false;
-
-    const nextPayments = state.payments.filter((payment) => {
-      const rentMonth = String(payment.rentMonth || '').trim();
-      const paymentDateMonth = getMonthKeyFromDate(String(payment.date || '').trim());
-      return rentMonth !== normalizedMonth && paymentDateMonth !== normalizedMonth;
-    });
-    if (nextPayments.length !== state.payments.length) {
-      state.payments = nextPayments;
-      changed = true;
-    }
-
-    if (clearTenantMonthOverrideBucket(state.actualRentOverrides, tenantIds, normalizedMonth)) changed = true;
-    if (clearTenantMonthOverrideBucket(state.vacantAmountOverrides, tenantIds, normalizedMonth)) changed = true;
-    if (clearTenantMonthOverrideBucket(state.paidOverrides, tenantIds, normalizedMonth)) changed = true;
-    if (clearTenantMonthOverrideBucket(state.carryOverrides, tenantIds, normalizedMonth)) changed = true;
-    if (clearTenantMonthOverrideBucket(state.notesOverrides, tenantIds, normalizedMonth)) changed = true;
-    if (clearTenantIdentityMonthOverrideBucket(state.tenantIdentityOverrides, tenantIds, normalizedMonth)) changed = true;
-
-    state.tenants.forEach((tenant) => {
-      if (!tenant || tenant.isArchived || tenant.isVacant) return;
-      if (getPaidOverride(state, tenant.id, normalizedMonth) !== 0) {
-        setPaidOverride(state, tenant.id, normalizedMonth, 0);
-        changed = true;
-      }
-    });
-
-    ensureTenantOrderOverridesState(state);
-    buildingNames.forEach((buildingName) => {
-      if (clearBuildingMonthOldDueNotes(state, buildingName, normalizedMonth)) changed = true;
-      const buildingBucket = state.tenantOrderOverrides[buildingName];
-      if (!buildingBucket || typeof buildingBucket !== 'object') return;
-      if (!Object.prototype.hasOwnProperty.call(buildingBucket, normalizedMonth)) return;
-      delete buildingBucket[normalizedMonth];
-      if (!Object.keys(buildingBucket).length) delete state.tenantOrderOverrides[buildingName];
-      changed = true;
-    });
-
-    state.appliedFixes[appliedKey] = true;
-    if (changed) {
-      state.activity.unshift({
-        id: `activity-clear-month-${Date.now()}`,
-        when: new Date().toISOString(),
-        actor: 'system',
-        action: 'Month cleared',
-        detail: `${formatMonth(normalizedMonth)} data was cleared across all buildings.`
-      });
-      state.activity = state.activity.slice(0, 100);
-    }
-    return changed;
+    return false;
   }
 
   function pruneRemovedBuildingsFromState(state) {
-    const removedNames = new Set(Array.from(REMOVED_BUILDING_NAMES));
-    state.buildings.forEach((building) => {
-      if (isRemovedBuilding(building)) removedNames.add(String(building.name || '').trim());
-    });
-    state.tenants.forEach((tenant) => {
-      if (removedNames.has(String(tenant.building || '').trim())) removedNames.add(String(tenant.building || '').trim());
-    });
-    if (!removedNames.size) return false;
-
-    const removedTenantIds = new Set(
-      state.tenants
-        .filter((tenant) => removedNames.has(String(tenant.building || '').trim()))
-        .map((tenant) => tenant.id)
-    );
-    let changed = false;
-
-    const nextBuildings = state.buildings.filter((building) => !isRemovedBuilding(building));
-    if (nextBuildings.length !== state.buildings.length) {
-      state.buildings = nextBuildings;
-      changed = true;
-    }
-    const nextTenants = state.tenants.filter((tenant) => !removedNames.has(String(tenant.building || '').trim()));
-    if (nextTenants.length !== state.tenants.length) {
-      state.tenants = nextTenants;
-      changed = true;
-    }
-    const nextPayments = removeTenantLinkedPaymentsExceptAdvance(state.payments, removedTenantIds);
-    if (nextPayments.length !== state.payments.length) {
-      state.payments = nextPayments;
-      changed = true;
-    }
-
-    if (clearTenantMonthOverrideBucket(state.actualRentOverrides, removedTenantIds, '')) changed = true;
-    if (clearTenantMonthOverrideBucket(state.vacantAmountOverrides, removedTenantIds, '')) changed = true;
-    if (clearTenantMonthOverrideBucket(state.paidOverrides, removedTenantIds, '')) changed = true;
-    if (clearTenantMonthOverrideBucket(state.carryOverrides, removedTenantIds, '')) changed = true;
-    if (clearTenantMonthOverrideBucket(state.notesOverrides, removedTenantIds, '')) changed = true;
-    if (clearTenantIdentityMonthOverrideBucket(state.tenantIdentityOverrides, removedTenantIds, '')) changed = true;
-    ensureTenantOrderOverridesState(state);
-    removedNames.forEach((buildingName) => {
-      if (state.tenantOrderOverrides[buildingName]) {
-        delete state.tenantOrderOverrides[buildingName];
-        changed = true;
-      }
-      if (clearBuildingMonthOldDueNotes(state, buildingName, '')) changed = true;
-    });
-
-    if (changed) {
-      state.tenants.forEach((tenant, index) => {
-        tenant.seedOrder = index;
-      });
-      state.activity.unshift({
-        id: `activity-removed-building-${Date.now()}`,
-        when: new Date().toISOString(),
-        actor: 'system',
-        action: 'Building removed',
-        detail: `${Array.from(removedNames).join(', ')} was removed from the workspace.`
-      });
-      state.activity = state.activity.slice(0, 100);
-    }
-    return changed;
+    return false;
   }
 
   function forceUnit5FebruaryUnpaid(state) {
-    const targetMonth = '2026-02';
-    const targetBuildings = new Set(['حولي 06-161', 'حولي 161-06']);
-    let changed = false;
-    state.tenants.forEach((tenant) => {
-      if (!tenant || tenant.isVacant || tenant.isArchived) return;
-      if (!targetBuildings.has(String(tenant.building || '').trim())) return;
-      if (String(tenant.unit || '').trim() !== '5') return;
-      const moveInMonth = getMonthKeyFromDate(tenant.moveInDate || '');
-      const contractStartMonth = getMonthKeyFromDate(tenant.contractStart || '');
-      if (moveInMonth !== '2026-01' || contractStartMonth !== targetMonth) return;
-      const hasRealFebruaryPayment = state.payments.some((payment) => (
-        String(payment.tenantId || '').trim() === String(tenant.id || '').trim()
-        && String(payment.rentMonth || '').trim() === targetMonth
-        && String(payment.method || '').trim() !== 'Due payment'
-        && String(payment.method || '').trim() !== 'Advance'
-      ));
-      if (hasRealFebruaryPayment) return;
-      if (getPaidOverride(state, tenant.id, targetMonth) === 0) return;
-      setPaidOverride(state, tenant.id, targetMonth, 0);
-      tenant.lastPaidMonth = '2026-01';
-      changed = true;
-    });
-    return changed;
+    return false;
   }
 
   function renameBuildingAcrossState(state, previousName, nextName) {
@@ -970,14 +685,7 @@
   }
 
   function normalizeHawali16105Name(state) {
-    ensureAppliedFixesState(state);
-    const appliedKey = 'normalize-hawali-161-05-name';
-    if (state.appliedFixes[appliedKey]) return false;
-    let changed = false;
-    changed = renameBuildingAcrossState(state, 'حولي 05-161', 'حولي 161-05') || changed;
-    changed = renameBuildingAcrossState(state, '05-161 حولي', 'حولي 161-05') || changed;
-    state.appliedFixes[appliedKey] = true;
-    return changed;
+    return false;
   }
 
 
@@ -2442,6 +2150,7 @@
   }
 
   function removeDuplicateVacantUnits(state) {
+    return false;
     const bestVacantByKey = new Map();
     state.tenants
       .filter((tenant) => !tenant.isArchived && tenant.isVacant)

@@ -1,21 +1,18 @@
-  function logActivity(state, action, detail) {
-    const entry = {
-      id: `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      when: new Date().toISOString(),
-      actor: getCurrentUser(),
-      action,
-      detail
-    };
-    state.activity.unshift(entry);
-    state.activity = state.activity.slice(0, 100);
-    if (typeof syncActivityEntryToDb === 'function') {
-      syncActivityEntryToDb(entry).catch(() => {
-        // Keep the UI responsive even if activity logging is temporarily unavailable.
-      });
-      return;
-    }
-    saveState(state);
+function logActivity(state, action, detail) {
+  const entry = {
+    id: `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    when: new Date().toISOString(),
+    actor: getCurrentUser(),
+    action,
+    detail
+  };
+  if (typeof syncActivityEntryToDb === 'function') {
+    syncActivityEntryToDb(entry).catch(() => {
+      // Activity is DB-backed; ignore transient logging failures.
+    });
+    return;
   }
+}
 
   function getPaymentsForTenant(state, tenantId) {
     const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
@@ -121,41 +118,13 @@
     return null;
   }
 
-  function setPrepaidNextOverride(state, tenantId, monthKey, amountOrNull) {
-    ensurePrepaidNextOverridesState(state);
-    const normalizedTenantId = getCanonicalSourceTenantId(state, tenantId);
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedTenantId || !normalizedMonth) return;
-    if (amountOrNull == null) {
-      if (state.prepaidNextOverrides[normalizedTenantId]) {
-        delete state.prepaidNextOverrides[normalizedTenantId][normalizedMonth];
-        if (!Object.keys(state.prepaidNextOverrides[normalizedTenantId]).length) {
-          delete state.prepaidNextOverrides[normalizedTenantId];
-        }
-      }
-      return;
-    }
-    if (!state.prepaidNextOverrides[normalizedTenantId]) state.prepaidNextOverrides[normalizedTenantId] = {};
-    state.prepaidNextOverrides[normalizedTenantId][normalizedMonth] = normalizeAmount(amountOrNull);
-  }
+function setPrepaidNextOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
-  function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
-    ensureOpeningCreditOverridesState(state);
-    const normalizedTenantId = getCanonicalSourceTenantId(state, tenantId);
-    const normalizedMonth = String(monthKey || '').trim();
-    if (!normalizedTenantId || !normalizedMonth) return;
-    if (amountOrNull == null) {
-      if (state.openingCreditOverrides[normalizedTenantId]) {
-        delete state.openingCreditOverrides[normalizedTenantId][normalizedMonth];
-        if (!Object.keys(state.openingCreditOverrides[normalizedTenantId]).length) {
-          delete state.openingCreditOverrides[normalizedTenantId];
-        }
-      }
-      return;
-    }
-    if (!state.openingCreditOverrides[normalizedTenantId]) state.openingCreditOverrides[normalizedTenantId] = {};
-    state.openingCreditOverrides[normalizedTenantId][normalizedMonth] = normalizeAmount(amountOrNull);
-  }
+function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
   function getAdvancePaymentCandidateTenantIds(state, tenantId) {
     const normalizedTenantId = String(tenantId || '').trim();
@@ -323,13 +292,9 @@
     return null;
   }
 
-  function setTenantIdentityOverride(state, tenantId, field, monthKey, value) {
-    ensureTenantIdentityOverridesState(state);
-    const normalizedValue = String(value || '').trim();
-    if (!state.tenantIdentityOverrides[tenantId]) state.tenantIdentityOverrides[tenantId] = {};
-    if (!state.tenantIdentityOverrides[tenantId][field]) state.tenantIdentityOverrides[tenantId][field] = {};
-    state.tenantIdentityOverrides[tenantId][field][monthKey] = normalizedValue;
-  }
+function setTenantIdentityOverride(state, tenantId, field, monthKey, value) {
+  return false;
+}
 
   function getEffectiveTenantIdentityField(state, tenant, field, monthKey) {
     if (!tenant) return '';
@@ -398,18 +363,9 @@
     return null;
   }
 
-  function setPaidOverride(state, tenantId, monthKey, amountOrNull) {
-    ensurePaidOverridesState(state);
-    if (amountOrNull == null) {
-      if (state.paidOverrides[tenantId]) {
-        delete state.paidOverrides[tenantId][monthKey];
-        if (!Object.keys(state.paidOverrides[tenantId]).length) delete state.paidOverrides[tenantId];
-      }
-      return;
-    }
-    if (!state.paidOverrides[tenantId]) state.paidOverrides[tenantId] = {};
-    state.paidOverrides[tenantId][monthKey] = normalizeAmount(amountOrNull);
-  }
+function setPaidOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
   function getCarryOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
@@ -429,18 +385,9 @@
     return null;
   }
 
-  function setCarryOverride(state, tenantId, monthKey, amountOrNull) {
-    ensureCarryOverridesState(state);
-    if (amountOrNull == null) {
-      if (state.carryOverrides[tenantId]) {
-        delete state.carryOverrides[tenantId][monthKey];
-        if (!Object.keys(state.carryOverrides[tenantId]).length) delete state.carryOverrides[tenantId];
-      }
-      return;
-    }
-    if (!state.carryOverrides[tenantId]) state.carryOverrides[tenantId] = {};
-    state.carryOverrides[tenantId][monthKey] = normalizeAmount(amountOrNull);
-  }
+function setCarryOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
   function getActualRentOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
@@ -460,18 +407,9 @@
     return null;
   }
 
-  function setActualRentOverride(state, tenantId, monthKey, amountOrNull) {
-    ensureActualRentOverridesState(state);
-    if (amountOrNull == null) {
-      if (state.actualRentOverrides[tenantId]) {
-        delete state.actualRentOverrides[tenantId][monthKey];
-        if (!Object.keys(state.actualRentOverrides[tenantId]).length) delete state.actualRentOverrides[tenantId];
-      }
-      return;
-    }
-    if (!state.actualRentOverrides[tenantId]) state.actualRentOverrides[tenantId] = {};
-    state.actualRentOverrides[tenantId][monthKey] = normalizeAmount(amountOrNull);
-  }
+function setActualRentOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
   function getVacantAmountOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
@@ -491,18 +429,9 @@
     return null;
   }
 
-  function setVacantAmountOverride(state, tenantId, monthKey, amountOrNull) {
-    ensureVacantAmountOverridesState(state);
-    if (amountOrNull == null) {
-      if (state.vacantAmountOverrides[tenantId]) {
-        delete state.vacantAmountOverrides[tenantId][monthKey];
-        if (!Object.keys(state.vacantAmountOverrides[tenantId]).length) delete state.vacantAmountOverrides[tenantId];
-      }
-      return;
-    }
-    if (!state.vacantAmountOverrides[tenantId]) state.vacantAmountOverrides[tenantId] = {};
-    state.vacantAmountOverrides[tenantId][monthKey] = normalizeAmount(amountOrNull);
-  }
+function setVacantAmountOverride(state, tenantId, monthKey, amountOrNull) {
+  return false;
+}
 
   function getNotesOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
@@ -522,11 +451,9 @@
     return null;
   }
 
-  function setNotesOverride(state, tenantId, monthKey, noteText) {
-    ensureNotesOverridesState(state);
-    if (!state.notesOverrides[tenantId]) state.notesOverrides[tenantId] = {};
-    state.notesOverrides[tenantId][monthKey] = String(noteText || '').trim();
-  }
+function setNotesOverride(state, tenantId, monthKey, noteText) {
+  return false;
+}
 
   function getOldTenantDuePaidNote(state, buildingName, unit, monthKey) {
     ensureOldTenantDuePaidNotesState(state);

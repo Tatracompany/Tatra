@@ -436,7 +436,11 @@
     const actorTabs = document.getElementById('activityActorTabs');
     if (!container) return;
 
-    const items = (state.activity || []).slice().sort((a, b) => new Date(String(b.when || '')) - new Date(String(a.when || '')));
+    const items = (typeof getDbSnapshotActivity === 'function'
+      ? getDbSnapshotActivity()
+      : [])
+      .slice()
+      .sort((a, b) => new Date(String(b.when || '')) - new Date(String(a.when || '')));
     const userActors = Array.from(new Set(items
       .map((item) => String(item.actor || '').trim())
       .filter((actor) => actor && actor !== 'system')))
