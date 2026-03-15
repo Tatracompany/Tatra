@@ -782,6 +782,12 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const contractEnd = effectiveContractEnd ? new Date(`${effectiveContractEnd}T00:00:00`) : null;
     const daysToEnd = contractEnd ? Math.ceil((contractEnd - today()) / 86400000) : null;
 
+    const stableDisplayActualRent = normalizeAmount(
+      baseActualRent > 0
+        ? baseActualRent
+        : (handoverVacantBaseAmount || rentDue || defaultActualRent || 0)
+    );
+
     return Object.assign({}, tenant, {
       name: effectiveName,
       unit: effectiveUnit,
@@ -799,17 +805,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       prepaidNext,
       rentDue,
       baseActualRent,
-      displayActualRent: (isPreContractOccupancy || startsNextMonthVisible)
-        ? (
-          hasActualRentOverride
-            ? baseActualRent
-            : (
-              isPreContractOccupancy
-                ? (handoverVacantBaseAmount || defaultActualRent)
-                : defaultActualRent
-            )
-        )
-        : rentDue,
+      displayActualRent: stableDisplayActualRent,
       displayVacantAmount,
       previousDue,
       previousPaid: normalizeAmount(currentLedger.previousPaid || 0),
