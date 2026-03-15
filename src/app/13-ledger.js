@@ -580,6 +580,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
 
   function getBaselinePaidForMonth(state, tenant, monthKey, anchorMonth, rentDue) {
     if (compareMonthKeys(monthKey, anchorMonth) >= 0) return null;
+    if (compareMonthKeys(monthKey, getDefaultActiveMonthKey()) > 0) return null;
     const due = getMonthlyRentDue(tenant, monthKey, anchorMonth, rentDue);
     if (!(due > 0)) return null;
     const backlog = getHistoricalBacklogMap(tenant, anchorMonth, rentDue);
