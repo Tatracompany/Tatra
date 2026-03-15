@@ -432,6 +432,7 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
       tenancies.contract_rent AS contractRent,
       tenancies.discount,
       tenancies.actual_rent AS actualRent,
+      tenancies.prepaid_next_month AS prepaidNextMonth,
       tenancies.insurance_amount AS insuranceAmount,
       tenancies.insurance_paid_month AS insurancePaidMonth,
       tenancies.planned_vacate_date AS plannedVacateDate,
@@ -444,6 +445,22 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     LIMIT 1
   `).get(normalizedSourceTenantId);
   if (!tenancy) return;
+  const previousMonthKey = addMonths(normalizedMonthKey, -1);
+  const previousMonthPrepaidOverride = previousMonthKey
+    ? await database.prepare(`
+        SELECT value_text AS valueText
+        FROM tenant_month_overrides
+        WHERE source_tenant_id = ?
+          AND month_key = ?
+          AND override_kind = 'prepaid_next'
+        LIMIT 1
+      `).get(normalizedSourceTenantId, previousMonthKey)
+    : null;
+  const frozenOpeningCredit = Number(
+    previousMonthPrepaidOverride && previousMonthPrepaidOverride.valueText != null
+      ? previousMonthPrepaidOverride.valueText
+      : (tenancy.prepaidNextMonth || 0)
+  );
   const overrideEntries = [
     ['name', String(tenancy.name || '').trim()],
     ['unit', String(tenancy.unit || '').trim()],
@@ -457,6 +474,7 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     ['contract_rent', String(Number(tenancy.contractRent || 0))],
     ['discount', String(Number(tenancy.discount || 0))],
     ['actual_rent', String(Number(tenancy.actualRent || 0))],
+    ['opening_credit', String(frozenOpeningCredit)],
     ['insurance_amount', String(Number(tenancy.insuranceAmount || 0))],
     ['insurance_paid_month', String(tenancy.insurancePaidMonth || '').trim()],
     ['planned_vacate_date', String(tenancy.plannedVacateDate || '').trim()],
