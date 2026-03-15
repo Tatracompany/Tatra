@@ -19,11 +19,17 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableActualRent = normalizeAmount(
+        tenant.displayActualRent != null
+          ? tenant.displayActualRent
+          : (tenant.baseActualRent || tenant.rentDue || 0)
+      );
       if (typeof syncBuildingInlineEditToDb === 'function') {
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
-          paidOverride: tenant.rentDue
+          paidOverride: tenant.rentDue,
+          baseActualRent: stableActualRent
         });
       }
       tenantRecord.lastPaidMonth = currentMonth;
@@ -74,11 +80,17 @@
     const currentMonth = selectedMonth;
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableActualRent = normalizeAmount(
+        tenant.displayActualRent != null
+          ? tenant.displayActualRent
+          : (tenant.baseActualRent || tenant.rentDue || 0)
+      );
       if (typeof syncBuildingInlineEditToDb === 'function') {
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
-          paidOverride: appliedAmount
+          paidOverride: appliedAmount,
+          baseActualRent: stableActualRent
         });
       }
       tenantRecord.lastPaidMonth = currentMonth;
@@ -172,11 +184,17 @@
     }
     const sourceTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
     if (compareMonthKeys(currentMonth, getCurrentMonthKey()) < 0) {
+      const stableActualRent = normalizeAmount(
+        tenant.displayActualRent != null
+          ? tenant.displayActualRent
+          : (tenant.baseActualRent || tenant.rentDue || 0)
+      );
       if (typeof syncBuildingInlineEditToDb === 'function') {
         await syncBuildingInlineEditToDb({
           sourceTenantId,
           monthKey: currentMonth,
-          paidOverride: 0
+          paidOverride: 0,
+          baseActualRent: stableActualRent
         });
       }
       tenantRecord.lastPaidMonth = addMonths(currentMonth, -1);
