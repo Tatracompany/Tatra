@@ -142,6 +142,8 @@
         tenancyHistory: Array.isArray(snapshot.tenancyHistory) ? snapshot.tenancyHistory : (existingSnapshot.tenancyHistory || []),
         vacancyStates: Array.isArray(snapshot.vacancyStates) ? snapshot.vacancyStates : (existingSnapshot.vacancyStates || []),
         rowOrder: Array.isArray(snapshot.rowOrder) ? snapshot.rowOrder : (existingSnapshot.rowOrder || []),
+        tenantMonthOverrides: Array.isArray(snapshot.tenantMonthOverrides) ? snapshot.tenantMonthOverrides : (existingSnapshot.tenantMonthOverrides || []),
+        tenantMonthState: Array.isArray(snapshot.tenantMonthState) ? snapshot.tenantMonthState : (existingSnapshot.tenantMonthState || []),
         payments: Array.isArray(snapshot.payments) ? snapshot.payments : (existingSnapshot.payments || []),
         activity: Array.isArray(snapshot.activity) ? snapshot.activity : (existingSnapshot.activity || [])
       });
