@@ -465,7 +465,7 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     ['actual_rent', String(Number(tenancy.actualRent || 0))],
     ['opening_credit', String(frozenOpeningCredit)],
     ['paid', '0'],
-    ['carry', String(Number(tenancy.previousDue || 0))],
+    ['carry', '0'],
     ['prepaid_next', String(Number(tenancy.prepaidNextMonth || 0))],
     ['vacant_amount', '0'],
     ['old_tenant_due_paid', '0'],
@@ -533,6 +533,8 @@ async function cloneMonthForwardForAllTenants(database, fromMonthKey, toMonthKey
     if (!sourceTenantId || !overrideKind) continue;
     const valueText = overrideKind === 'paid'
       ? '0'
+      : overrideKind === 'carry'
+        ? '0'
       : String(row && row.valueText || '').trim();
     if (!copiedOverrideKindsByTenant.has(sourceTenantId)) copiedOverrideKindsByTenant.set(sourceTenantId, new Set());
     copiedOverrideKindsByTenant.get(sourceTenantId).add(overrideKind);

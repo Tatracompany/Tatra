@@ -600,7 +600,7 @@
         actualRentOverride: actualRentAmount,
         vacantAmount,
         openingCreditAmount: prepaidFromBeforeAmount,
-        carryOverride: previousDueAmount + paidPreviousAmount,
+        carryOverride: compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0 ? 0 : (previousDueAmount + paidPreviousAmount),
         paidOverride: currentMonthAmount,
         insuranceAmount,
         insurancePaidMonth,

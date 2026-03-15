@@ -657,7 +657,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const manualFutureMonth = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0;
     const startMonth = manualFutureMonth ? selectedMonth : getLedgerStartMonth(tenant, selectedMonth, anchorMonth, rentDue);
     const ledger = [];
-    let openingCarry = manualFutureMonth ? normalizeAmount(getCarryOverride(state, tenant.id, selectedMonth) || 0) : 0;
+    let openingCarry = 0;
     let openingCredit = manualFutureMonth ? normalizeAmount(getOpeningCreditOverride(state, tenant.id, selectedMonth) || 0) : 0;
     let monthPointer = startMonth;
     while (compareMonthKeys(monthPointer, selectedMonth) <= 0) {
@@ -671,7 +671,9 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, monthPointer);
       const effectiveOpeningCredit = normalizeAmount(Math.max(openingCredit + rowCreditCarry, manualPrepaidFromBefore || 0));
       const due = normalizeAmount(getMonthlyRentDue(tenant, monthPointer, anchorMonth, rentDue));
-      const previousPaid = normalizeAmount(Math.min(getTenantDuePaidAmount(state, tenant.id, monthPointer), openingCarry));
+      const previousPaid = manualFutureMonth
+        ? 0
+        : normalizeAmount(Math.min(getTenantDuePaidAmount(state, tenant.id, monthPointer), openingCarry));
       const paymentBreakdown = getMonthPaymentBreakdown(state, tenant, monthPointer, anchorMonth, rentDue);
       const directPaidRaw = normalizeAmount(paymentBreakdown.directPaid);
       const priorAdvancePaidRaw = normalizeAmount(paymentBreakdown.priorAdvancePaid);
@@ -681,7 +683,9 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, dueAfterPrepaid));
       const remainingCurrent = normalizeAmount(Math.max(dueAfterPrepaid - directPaidRaw, 0));
       const paid = normalizeAmount(prepaidFromBefore + directPaidApplied + occupancyPaidRaw);
-      const closingCarry = normalizeAmount(Math.max(openingCarry - previousPaid + remainingCurrent, 0));
+      const closingCarry = manualFutureMonth
+        ? 0
+        : normalizeAmount(Math.max(openingCarry - previousPaid + remainingCurrent, 0));
       const closingCredit = normalizeAmount(Math.max(effectiveOpeningCredit + priorAdvancePaidRaw + directPaidRaw - due, 0));
       ledger.push({
         monthKey: monthPointer,
