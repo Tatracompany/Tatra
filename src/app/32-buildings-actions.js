@@ -257,31 +257,44 @@
       alert('Enter a valid prepaid amount.');
       return;
     }
-    const result = setTenantPrepaidAmount(state, tenantId, prepaidAmount, tenantViewOverride);
-    if (!result) return;
+    const selectedMonth = getSelectedBuildingMonth();
+    const canonicalSourceTenantId = String(
+      tenantViewOverride && (tenantViewOverride.sourceTenantId || tenantViewOverride.id)
+      || tenantId
+      || ''
+    ).trim();
+    const nextMonth = addMonths(selectedMonth, 1);
+    if (typeof setPrepaidNextOverride === 'function' && canonicalSourceTenantId) {
+      setPrepaidNextOverride(state, canonicalSourceTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
+    }
+    if (typeof setOpeningCreditOverride === 'function' && canonicalSourceTenantId) {
+      setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonth, prepaidAmount > 0 ? prepaidAmount : null);
+    }
+    const tenantRecord = state.tenants.find((item) => (
+      String(item && item.id || '').trim() === canonicalSourceTenantId
+      || String(item && item.sourceTenantId || '').trim() === canonicalSourceTenantId
+    )) || null;
+    if (tenantRecord) {
+      tenantRecord.prepaidNextMonth = prepaidAmount > 0 ? prepaidAmount : 0;
+    }
+    if (tenantViewOverride) {
+      tenantViewOverride.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
+    }
     if (typeof syncBuildingInlineEditToDb === 'function') {
       syncBuildingInlineEditToDb({
-        sourceTenantId: result.sourceTenantId,
-        monthKey: getSelectedBuildingMonth(),
+        sourceTenantId: canonicalSourceTenantId,
+        monthKey: selectedMonth,
         prepaidAmount
       });
     }
-    logActivity(state, 'Prepaid saved', `${result.tenantRecord.building} ${result.tenantRecord.unit} prepaid set to ${formatCurrency(prepaidAmount)} for ${formatMonth(result.nextMonth)}.`);
-    renderAll(state, result.tenantRecord.building);
+    const tenantForDisplay = tenantViewOverride || tenantRecord;
+    if (!tenantForDisplay) return;
+    logActivity(state, 'Prepaid saved', `${tenantForDisplay.building} ${tenantForDisplay.unit} prepaid set to ${formatCurrency(prepaidAmount)} for ${formatMonth(nextMonth)}.`);
+    renderAll(state, tenantForDisplay.building);
   }
 
   function deleteTenantPrepaidAmount(state, tenantId, tenantViewOverride) {
-    const result = setTenantPrepaidAmount(state, tenantId, 0, tenantViewOverride);
-    if (!result) return;
-    if (typeof syncBuildingInlineEditToDb === 'function') {
-      syncBuildingInlineEditToDb({
-        sourceTenantId: result.sourceTenantId,
-        monthKey: getSelectedBuildingMonth(),
-        prepaidAmount: 0
-      });
-    }
-    logActivity(state, 'Prepaid deleted', `${result.tenantRecord.building} ${result.tenantRecord.unit} prepaid removed for ${formatMonth(result.nextMonth)}.`);
-    renderAll(state, result.tenantRecord.building);
+    saveTenantPrepaidAmount(state, tenantId, Object.assign({}, tenantViewOverride || {}, { prepaidNext: 0 }));
   }
 
   async function vacateTenantFromBuilding(state, tenantId) {
