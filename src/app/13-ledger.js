@@ -164,6 +164,7 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
           return normalizeAmount(snapshotState.openingCredit || 0);
         }
       }
+      return normalizeAmount(getOpeningCreditOverride(state, tenantId, normalizedMonth));
     }
     const openingCredit = normalizeAmount(getOpeningCreditOverride(state, tenantId, normalizedMonth));
     if (openingCredit > 0) return openingCredit;
@@ -653,17 +654,20 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
 
   function buildTenantLedger(state, tenant, selectedMonth, rentDue) {
     const anchorMonth = getCurrentMonthKey();
-    const startMonth = getLedgerStartMonth(tenant, selectedMonth, anchorMonth, rentDue);
+    const manualFutureMonth = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0;
+    const startMonth = manualFutureMonth ? selectedMonth : getLedgerStartMonth(tenant, selectedMonth, anchorMonth, rentDue);
     const ledger = [];
-    let openingCarry = 0;
-    let openingCredit = 0;
+    let openingCarry = manualFutureMonth ? normalizeAmount(getCarryOverride(state, tenant.id, selectedMonth) || 0) : 0;
+    let openingCredit = manualFutureMonth ? normalizeAmount(getOpeningCreditOverride(state, tenant.id, selectedMonth) || 0) : 0;
     let monthPointer = startMonth;
     while (compareMonthKeys(monthPointer, selectedMonth) <= 0) {
       const openingCarryOverride = getCarryOverride(state, tenant.id, monthPointer);
-      if (openingCarryOverride != null) {
+      if (!manualFutureMonth && openingCarryOverride != null) {
         openingCarry = openingCarryOverride;
       }
-      const rowCreditCarry = getRowCreditCarryIntoMonth(state, tenant.id, monthPointer);
+      const rowCreditCarry = manualFutureMonth
+        ? 0
+        : getRowCreditCarryIntoMonth(state, tenant.id, monthPointer);
       const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, monthPointer);
       const effectiveOpeningCredit = normalizeAmount(Math.max(openingCredit + rowCreditCarry, manualPrepaidFromBefore || 0));
       const due = normalizeAmount(getMonthlyRentDue(tenant, monthPointer, anchorMonth, rentDue));

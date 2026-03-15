@@ -445,22 +445,7 @@ async function freezeTenantMonthBaseline(database, sourceTenantId, monthKey) {
     LIMIT 1
   `).get(normalizedSourceTenantId);
   if (!tenancy) return;
-  const previousMonthKey = addMonths(normalizedMonthKey, -1);
-  const previousMonthPrepaidOverride = previousMonthKey
-    ? await database.prepare(`
-        SELECT value_text AS valueText
-        FROM tenant_month_overrides
-        WHERE source_tenant_id = ?
-          AND month_key = ?
-          AND override_kind = 'prepaid_next'
-        LIMIT 1
-      `).get(normalizedSourceTenantId, previousMonthKey)
-    : null;
-  const frozenOpeningCredit = Number(
-    previousMonthPrepaidOverride && previousMonthPrepaidOverride.valueText != null
-      ? previousMonthPrepaidOverride.valueText
-      : (tenancy.prepaidNextMonth || 0)
-  );
+  const frozenOpeningCredit = 0;
   const overrideEntries = [
     ['name', String(tenancy.name || '').trim()],
     ['unit', String(tenancy.unit || '').trim()],
@@ -748,11 +733,9 @@ async function saveBuildingInlineEditToDatabase(payload) {
     }
     if (hasPayloadField('prepaidAmount')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
-      const nextMonthKey = addMonths(monthKey, 1);
-      const nextMonthFrozen = await hasFrozenMonthSnapshot(database, sourceTenantId, nextMonthKey);
-      if (!nextMonthFrozen) {
-        await upsertTenantMonthOverride(database, sourceTenantId, nextMonthKey, 'opening_credit', String(Number(payload && payload.prepaidAmount || 0)));
-      }
+    }
+    if (!shouldUpdateBaseTenancy && hasPayloadField('openingCreditAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'opening_credit', String(Number(payload && payload.openingCreditAmount || 0)));
     }
     if (hasPayloadField('oldTenantDuePaid')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
