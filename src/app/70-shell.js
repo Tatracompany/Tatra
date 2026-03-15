@@ -254,8 +254,26 @@
     window.addEventListener('resize', sync);
   }
 
+  function syncSidebarBuildVersion() {
+    const sidebarBrand = document.querySelector('.sidebar-brand');
+    if (!sidebarBrand) return;
+    const userNode = document.getElementById('sidebarUser');
+    if (!userNode || !userNode.parentNode) return;
+    let versionNode = document.getElementById('sidebarBuildVersion');
+    if (!versionNode) {
+      versionNode = document.createElement('small');
+      versionNode.id = 'sidebarBuildVersion';
+      versionNode.className = 'sidebar-build-version';
+      userNode.insertAdjacentElement('afterend', versionNode);
+    }
+    const buildInfo = typeof getBuildInfo === 'function' ? getBuildInfo() : null;
+    const commit = String(buildInfo && buildInfo.commit || '').trim();
+    versionNode.textContent = commit ? `Deploy ${commit}` : 'Deploy unknown';
+  }
+
   function renderAll(state, selectedBuilding) {
     window.__appState = state;
+    syncSidebarBuildVersion();
     const currentPage = String((document.body && document.body.dataset.page) || '');
     resetRenderCache();
     renderSidebarUser();

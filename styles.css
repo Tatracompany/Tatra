@@ -40,6 +40,13 @@ body[data-page="buildings"] .compact-panel { padding: 18px; }
 .sidebar { border-radius: 24px; padding: 24px 18px; position: sticky; top: 20px; height: fit-content; }
 .sidebar-brand h2 { margin: 0; font-size: 1.5rem; }
 .sidebar-user, .muted { color: var(--muted); }
+.sidebar-build-version {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
 .sidebar-actions {
   position: fixed;
   top: 18px;

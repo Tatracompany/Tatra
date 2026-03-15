@@ -20,11 +20,16 @@
     { value: 'ثاني', label: 'Second' },
     { value: 'ملاحق', label: 'Annex' }
   ];
+  const BUILD_INFO = {
+    commit: '__BUILD_COMMIT__',
+    builtAt: '__BUILD_TIME__'
+  };
 
   window.__LANDLORD_APP_CONFIG__ = {
     FLOOR_ORDER,
     STATUS_META,
     NATIONALITY_OPTIONS,
-    FLOOR_OPTIONS
+    FLOOR_OPTIONS,
+    BUILD_INFO
   };
 })();

@@ -81,7 +81,7 @@
         .filter((item) => !isRemovedBuilding(item))
         .filter((item, index, array) => array.findIndex((candidate) => candidate.id === item.id) === index)
     );
-  const { FLOOR_ORDER, STATUS_META, NATIONALITY_OPTIONS, FLOOR_OPTIONS } = window.__LANDLORD_APP_CONFIG__ || {};
+  const { FLOOR_ORDER, STATUS_META, NATIONALITY_OPTIONS, FLOOR_OPTIONS, BUILD_INFO } = window.__LANDLORD_APP_CONFIG__ || {};
   if (!FLOOR_ORDER || !STATUS_META || !NATIONALITY_OPTIONS || !FLOOR_OPTIONS) {
     throw new Error('Missing app config module');
   }
@@ -183,6 +183,10 @@
     const buildingRecord = getDbSnapshotBuildingByName(buildingName);
     if (!snapshot || !buildingRecord || !Array.isArray(snapshot.units)) return [];
     return snapshot.units.filter((unit) => String(unit && unit.buildingId || '').trim() === buildingRecord.id);
+  }
+
+  function getBuildInfo() {
+    return BUILD_INFO && typeof BUILD_INFO === 'object' ? BUILD_INFO : null;
   }
 
   function getDbSnapshotActiveTenancyForUnit(unitId) {
