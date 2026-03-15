@@ -192,6 +192,23 @@
       if (!candidateTenantIds.has(tenantIdValue) && !candidateTenantIds.has(sourceTenantIdValue)) return;
       basePrepaidNextAmount = Math.max(basePrepaidNextAmount, Number(tenant.prepaidNextMonth || 0));
     });
+    if (basePrepaidNextAmount > 0) return normalizeAmount(basePrepaidNextAmount);
+    if (typeof getAllVisibleUnitRows === 'function') {
+      const previousMonthRows = getAllVisibleUnitRows(state, previousMonth) || [];
+      previousMonthRows.forEach((row) => {
+        if (!row || row.isVacant) return;
+        const rowCandidateIds = getAdvancePaymentCandidateTenantIds(state, row.sourceTenantId || row.id || '');
+        let matched = false;
+        candidateTenantIds.forEach((candidateId) => {
+          if (rowCandidateIds.has(candidateId)) matched = true;
+        });
+        if (!matched) return;
+        basePrepaidNextAmount = Math.max(
+          basePrepaidNextAmount,
+          Number(row.prepaidNext || row.prepaidNextMonth || 0)
+        );
+      });
+    }
     return normalizeAmount(basePrepaidNextAmount);
   }
 
