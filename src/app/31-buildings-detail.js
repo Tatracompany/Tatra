@@ -574,25 +574,26 @@
     setNotesOverride(state, canonicalSourceTenantId, selectedMonth, getDetailTextInputValue(notesInput, tenantForDisplay.notes || ''));
     setPaidOverride(state, canonicalSourceTenantId, selectedMonth, currentMonthAmount);
     setTenantDuePaidAmount(state, canonicalSourceTenantId, selectedMonth, paidPreviousAmount);
-      let prepaidSaveResult = setTenantPrepaidAmount(state, canonicalSourceTenantId, prepaidAmount, tenantForDisplay);
-      if (!prepaidSaveResult && canonicalSourceTenantId) {
-        const nextMonthForPrepaid = addMonths(selectedMonth, 1);
-        if (typeof setPrepaidNextOverride === 'function') {
-          setPrepaidNextOverride(state, canonicalSourceTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
-        }
-        if (typeof setOpeningCreditOverride === 'function') {
-          setOpeningCreditOverride(state, canonicalSourceTenantId, nextMonthForPrepaid, prepaidAmount > 0 ? prepaidAmount : null);
-        }
-        if (tenant) {
-          tenant.prepaidNextMonth = prepaidAmount > 0 ? prepaidAmount : 0;
-        }
-        tenantForDisplay.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
-        prepaidSaveResult = {
-          sourceTenantId: canonicalSourceTenantId,
-          nextMonth: nextMonthForPrepaid
-        };
-      }
-      const prepaidAccepted = prepaidSaveResult !== undefined && prepaidSaveResult !== null;
+    const prepaidTargetTenantId = String(
+      canonicalSourceTenantId
+      || tenantForDisplay.sourceTenantId
+      || tenantForDisplay.id
+      || tenant && (tenant.sourceTenantId || tenant.id)
+      || tenantId
+      || ''
+    ).trim();
+    const nextMonthForPrepaid = addMonths(selectedMonth, 1);
+    if (prepaidTargetTenantId && typeof setPrepaidNextOverride === 'function') {
+      setPrepaidNextOverride(state, prepaidTargetTenantId, selectedMonth, prepaidAmount > 0 ? prepaidAmount : null);
+    }
+    if (prepaidTargetTenantId && typeof setOpeningCreditOverride === 'function') {
+      setOpeningCreditOverride(state, prepaidTargetTenantId, nextMonthForPrepaid, prepaidAmount > 0 ? prepaidAmount : null);
+    }
+    if (tenant) {
+      tenant.prepaidNextMonth = prepaidAmount > 0 ? prepaidAmount : 0;
+    }
+    tenantForDisplay.prepaidNext = prepaidAmount > 0 ? prepaidAmount : 0;
+    const prepaidAccepted = true;
     saveState(state);
     if (typeof syncBuildingInlineEditToDb === 'function' && canonicalSourceTenantId) {
       await syncBuildingInlineEditToDb({
@@ -609,7 +610,7 @@
         insuranceAmount,
         insurancePaidMonth,
         oldTenantDuePaid: oldTenantDuePaidNote,
-        prepaidAmount: prepaidAccepted ? prepaidAmount : normalizeAmount(Number(tenantForDisplay.prepaidNext || 0)),
+        prepaidAmount,
         plannedVacateDate,
         notes: getDetailTextInputValue(notesInput, tenantForDisplay.notes || '')
       });
@@ -617,11 +618,7 @@
     logActivity(state, 'Tenant updated', `${tenantForDisplay.building} ${tenantForDisplay.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${insurancePaidMonth || 'not set'} / planned vacate ${plannedVacateDate || 'not set'} / notes updated`);
     renderAll(state, tenantForDisplay.building);
     restoreBuildingRowUiState(state, rowUiState);
-    showFlashMessage(
-      prepaidAccepted || !(prepaidAmount > 0)
-        ? `Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`
-        : `Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}. Prepaid was not applied.`
-    );
+    showFlashMessage(`Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`);
   }
 
   function savePlannedVacateDate(state, tenantId) {
