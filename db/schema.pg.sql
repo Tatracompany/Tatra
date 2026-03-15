@@ -27,6 +27,19 @@ CREATE TABLE IF NOT EXISTS units (
   UNIQUE (building_id, unit_key)
 );
 
+CREATE TABLE IF NOT EXISTS tenant_profiles (
+  id TEXT PRIMARY KEY,
+  full_name TEXT NOT NULL DEFAULT '',
+  civil_id TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  nationality TEXT NOT NULL DEFAULT 'Not set',
+  normalized_name TEXT NOT NULL DEFAULT '',
+  normalized_phone TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS tenancies (
   id TEXT PRIMARY KEY,
   profile_id TEXT REFERENCES tenant_profiles(id) ON DELETE SET NULL,
@@ -113,19 +126,6 @@ CREATE TABLE IF NOT EXISTS activity_log (
   action TEXT NOT NULL DEFAULT '',
   detail TEXT NOT NULL DEFAULT '',
   raw_json TEXT
-);
-
-CREATE TABLE IF NOT EXISTS tenant_profiles (
-  id TEXT PRIMARY KEY,
-  full_name TEXT NOT NULL DEFAULT '',
-  civil_id TEXT NOT NULL DEFAULT '',
-  phone TEXT NOT NULL DEFAULT '',
-  nationality TEXT NOT NULL DEFAULT 'Not set',
-  normalized_name TEXT NOT NULL DEFAULT '',
-  normalized_phone TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_units_building_position ON units(building_id, template_position, active_row_position);
