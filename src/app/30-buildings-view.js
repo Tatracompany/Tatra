@@ -162,13 +162,25 @@
     const selectedMonth = getSelectedBuildingMonth();
     window.__selectedBuildingMonth = selectedMonth;
     const year = monthStart(selectedMonth).getFullYear();
-    container.innerHTML = getVisibleYearMonthKeysForBuilding(year, window.__selectedBuildingName || '').map((monthKey) => {
+    const monthButtons = getVisibleYearMonthKeysForBuilding(year, window.__selectedBuildingName || '').map((monthKey) => {
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-building-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
+    const nextCreatableMonth = getNextCreatableMonthKey();
+    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-building-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}`;
     container.querySelectorAll('[data-building-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedBuildingMonth = button.getAttribute('data-building-month') || getActiveMonthKey();
+        saveBuildingViewPreference();
+        renderAll(window.__appState, window.__selectedBuildingName || '');
+      });
+    });
+    container.querySelectorAll('[data-create-building-month]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const nextMonth = button.getAttribute('data-create-building-month') || '';
+        if (!nextMonth || typeof createMonthTab !== 'function') return;
+        await createMonthTab(nextMonth);
+        window.__selectedBuildingMonth = nextMonth;
         saveBuildingViewPreference();
         renderAll(window.__appState, window.__selectedBuildingName || '');
       });

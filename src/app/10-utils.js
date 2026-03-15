@@ -10,6 +10,56 @@
     return '2026-02';
   }
 
+  function getCreatedMonthsStorageKey() {
+    return 'tatra-created-months';
+  }
+
+  function getCreatedMonthKeys() {
+    const minMonth = getDefaultActiveMonthKey();
+    const maxMonth = getPreviewMonthKey();
+    let stored = [];
+    try {
+      stored = JSON.parse(window.localStorage.getItem(getCreatedMonthsStorageKey()) || '[]');
+    } catch (_error) {
+      stored = [];
+    }
+    const monthKeys = new Set([minMonth]);
+    if (Array.isArray(stored)) {
+      stored.forEach((monthKey) => {
+        const normalizedMonth = String(monthKey || '').trim();
+        if (!normalizedMonth) return;
+        if (compareMonthKeys(normalizedMonth, minMonth) < 0) return;
+        if (compareMonthKeys(normalizedMonth, maxMonth) > 0) return;
+        monthKeys.add(normalizedMonth);
+      });
+    }
+    return Array.from(monthKeys).sort(compareMonthKeys);
+  }
+
+  function saveCreatedMonthKeys(monthKeys) {
+    const normalized = Array.from(new Set((monthKeys || []).map((monthKey) => String(monthKey || '').trim()).filter(Boolean))).sort(compareMonthKeys);
+    window.localStorage.setItem(getCreatedMonthsStorageKey(), JSON.stringify(normalized));
+  }
+
+  function markMonthAsCreated(monthKey) {
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedMonth) return;
+    const createdMonths = getCreatedMonthKeys();
+    if (createdMonths.includes(normalizedMonth)) return;
+    createdMonths.push(normalizedMonth);
+    saveCreatedMonthKeys(createdMonths);
+  }
+
+  function getLatestCreatedMonthKey() {
+    const createdMonths = getCreatedMonthKeys();
+    return createdMonths[createdMonths.length - 1] || getDefaultActiveMonthKey();
+  }
+
+  function getNextCreatableMonthKey() {
+    const nextMonth = addMonths(getLatestCreatedMonthKey(), 1);
+    return compareMonthKeys(nextMonth, getPreviewMonthKey()) <= 0 ? nextMonth : '';
+  }
+
   function normalizeMonthSelectionMode(monthKey, mode) {
     const normalizedMonth = String(monthKey || '').trim();
     if (normalizedMonth !== getPreviewMonthKey()) return 'saved';
@@ -38,7 +88,7 @@
   }
 
   function getVisibleUpperMonthKey() {
-    return getPreviewMonthKey();
+    return getLatestCreatedMonthKey();
   }
 
   function getBuildingPreviewUpperMonthKey(buildingName) {
@@ -46,7 +96,7 @@
   }
 
   function getEditableUpperMonthKey() {
-    return getPreviewMonthKey();
+    return getVisibleUpperMonthKey();
   }
 
   function pad(value) {
@@ -142,21 +192,11 @@
   }
 
   function getVisibleYearMonthKeys(year) {
-    const minMonth = getDefaultActiveMonthKey();
-    const maxMonth = getVisibleUpperMonthKey();
-    return getYearMonthKeys(year).filter((monthKey) => (
-      compareMonthKeys(monthKey, minMonth) >= 0
-      && compareMonthKeys(monthKey, maxMonth) <= 0
-    ));
+    return getCreatedMonthKeys().filter((monthKey) => monthStart(monthKey).getFullYear() === year);
   }
 
   function getVisibleYearMonthKeysForBuilding(year, buildingName) {
-    const minMonth = getDefaultActiveMonthKey();
-    const maxMonth = getBuildingPreviewUpperMonthKey(buildingName);
-    return getYearMonthKeys(year).filter((monthKey) => (
-      compareMonthKeys(monthKey, minMonth) >= 0
-      && compareMonthKeys(monthKey, maxMonth) <= 0
-    ));
+    return getVisibleYearMonthKeys(year);
   }
 
   function ensureCarriedMonthSnapshotsState(state) {
@@ -779,6 +819,14 @@
     return postToLocalDbApi('/api/db/reset-month-data', {
       monthKey: normalizedMonthKey
     });
+  }
+
+  async function createMonthTab(monthKey) {
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedMonthKey) return null;
+    await syncResetMonthDataToDb(normalizedMonthKey);
+    markMonthAsCreated(normalizedMonthKey);
+    return normalizedMonthKey;
   }
 
   function syncUnitIdentityToDb(payload) {

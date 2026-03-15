@@ -1540,13 +1540,26 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const buildingName = buildingFilter === 'all' ? '' : buildingFilter;
     window.__selectedTenantMonth = selectedMonth;
     const year = monthStart(selectedMonth).getFullYear();
-    container.innerHTML = getVisibleYearMonthKeysForBuilding(year, buildingName).map((monthKey) => {
+    const monthButtons = getVisibleYearMonthKeysForBuilding(year, buildingName).map((monthKey) => {
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-tenant-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
+    const nextCreatableMonth = getNextCreatableMonthKey();
+    container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-tenant-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}`;
     container.querySelectorAll('[data-tenant-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedTenantMonth = button.getAttribute('data-tenant-month') || getActiveMonthKey();
+        renderTenantMonthTabs();
+        populateTenantSelectors(window.__appState);
+        renderTenants(window.__appState);
+      });
+    });
+    container.querySelectorAll('[data-create-tenant-month]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const nextMonth = button.getAttribute('data-create-tenant-month') || '';
+        if (!nextMonth || typeof createMonthTab !== 'function') return;
+        await createMonthTab(nextMonth);
+        window.__selectedTenantMonth = nextMonth;
         renderTenantMonthTabs();
         populateTenantSelectors(window.__appState);
         renderTenants(window.__appState);
