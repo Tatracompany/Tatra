@@ -607,6 +607,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table col.screen-col-unit { width: 4.5%; }
 .building-table col.screen-col-tenant { width: 16%; }
 .building-table col.screen-col-status { width: 6%; }
+.building-table col.screen-col-contract { width: 5.8%; }
 .building-table col.screen-col-discount { width: 4.2%; }
 .building-table col.screen-col-vacant { width: 4.2%; }
 .building-table col.screen-col-actual { width: 6%; }
@@ -652,21 +653,15 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table th:nth-child(4),
 .building-table td:nth-child(4) { min-width: 74px; max-width: 84px; }
 .building-table th:nth-child(5),
-.building-table td:nth-child(5) { min-width: 30px; max-width: 36px; }
+.building-table td:nth-child(5) { min-width: 72px; max-width: 96px; }
 .building-table th:nth-child(6),
-.building-table td:nth-child(6) { min-width: 8px; max-width: 10px; }
+.building-table td:nth-child(6) { min-width: 52px; max-width: 64px; }
 .building-table th:nth-child(5),
 .building-table td:nth-child(5),
 .building-table th:nth-child(6),
 .building-table td:nth-child(6) {
-  width: 1%;
-  padding-left: 3px;
-  padding-right: 3px;
-}
-.building-table th:nth-child(6),
-.building-table td:nth-child(6) {
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: 5px;
+  padding-right: 5px;
 }
 .building-table td:nth-child(5),
 .building-table td:nth-child(6),
