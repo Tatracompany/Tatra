@@ -88,7 +88,7 @@
 
   function getBuildingTotalUnpaidAmount(tenant) {
     if (!tenant) return 0;
-    return Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0);
+    return normalizeAmount(Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0));
   }
 
   function statusRank(status) {
@@ -468,7 +468,7 @@
     const isLockedBaseline = typeof isBuildingMonthLocked === 'function' ? isBuildingMonthLocked(tenant.building, selectedMonth) : false;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
-    const hasPastDueToClearFirst = getBuildingTotalUnpaidAmount(tenant) > Number(getBuildingActualAmount(tenant) || 0);
+    const hasPastDueToClearFirst = normalizeAmount(Number(tenant.previousDue || 0)) > 0;
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
     const currentMonthValue = formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts);

@@ -130,9 +130,14 @@
     return '0.001';
   }
 
+  function formatAmountInputValue(value, allowDecimals) {
+    const normalized = normalizeAmountInputValue(value, !!allowDecimals);
+    return normalized.toFixed(3);
+  }
+
   function formatBlankAmountInputValue(value, allowDecimals) {
     const normalized = normalizeAmountInputValue(value, !!allowDecimals);
-    return normalized > 0 ? String(normalized) : '';
+    return normalized > 0 ? normalized.toFixed(3) : '';
   }
 
   function getDetailNumericInputValue(input, fallbackValue) {
@@ -283,7 +288,7 @@
     detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
       <div class="detail-grid">
         <div class="detail-item"><span class="label">Mark selected month</span><button type="button" class="secondary-action" data-mark-paid="${escapeHtml(tenant.id)}"${markPaidButtonDisabledAttr}>${isLockedBaseline ? 'Locked baseline' : markSelectedMonthLabel}</button></div>
-        <div class="detail-item"><span class="label">Unpaid total</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'unpaid_total'))}" value="${escapeHtml(formatBlankAmountInputValue(Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0), allowDecimalAmounts))}"${readOnlyAttr}${protectedFinancialReadOnlyAttr}></div>
+      <div class="detail-item"><span class="label">Unpaid total</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'unpaid_total'))}" value="${escapeHtml(formatAmountInputValue(normalizeAmount(Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0)), allowDecimalAmounts))}"${readOnlyAttr}${protectedFinancialReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'paid_previous'))}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Contract amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-contract="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'contract_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(stableContractAmount, allowDecimalAmounts))}"${readOnlyAttr}></div>
@@ -399,15 +404,15 @@
       if (syncing) return;
       const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
       const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
-      previousDueInput.value = formatBlankAmountInputValue(previousValue);
+      previousDueInput.value = formatAmountInputValue(previousValue, true);
       linkedTotal = previousValue + paidValue;
     });
     paidPreviousInput.addEventListener('input', () => {
       if (syncing) return;
       syncing = true;
       const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
-      paidPreviousInput.value = formatBlankAmountInputValue(paidValue);
-      previousDueInput.value = formatBlankAmountInputValue(Math.max(linkedTotal - paidValue, 0));
+      paidPreviousInput.value = formatBlankAmountInputValue(paidValue, true);
+      previousDueInput.value = formatAmountInputValue(Math.max(linkedTotal - paidValue, 0), true);
       syncing = false;
     });
   }
