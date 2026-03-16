@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tenant History</title>
+  <title>Expired Contracts</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css?v=39">
 </head>
-<body data-page="history">
+<body data-page="contracts">
   <div class="workspace-shell">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -19,38 +19,39 @@
         <a class="nav-link" href="dashboard.html">1. Dashboard</a>
         <a class="nav-link" href="buildings.html">2. Buildings</a>
         <a class="nav-link" href="tenants.html">3. Tenants</a>
-        <a class="nav-link active" href="history.html">4. History</a>
+        <a class="nav-link" href="history.html">4. History</a>
         <a class="nav-link" href="due.html">5. Due</a>
         <a class="nav-link" href="vacant.html">6. Vacant</a>
         <a class="nav-link" href="activity.html">7. Activity</a>
-        <a class="nav-link" href="expired-contracts.html">8. Expired contracts</a>
+        <a class="nav-link active" href="expired-contracts.html">8. Expired contracts</a>
         <a class="nav-link" data-admin-link href="admin.html">9. Admin</a>
       </nav>
     </aside>
     <div class="page-shell wide-page-shell">
       <header class="hero compact-hero">
         <div>
-          <p class="eyebrow">Tenant History</p>
-          <h1>Permanent tenant records</h1>
-          <p class="hero-copy">Keep every tenant’s details and every past stay, even after they vacate and move to another building later.</p>
+          <p class="eyebrow">Contracts</p>
+          <h1>Expired contracts</h1>
+          <p class="hero-copy">Review tenants whose contracts have already expired and filter them by building.</p>
         </div>
       </header>
       <main class="layout">
-        <section class="panel">
+        <section class="panel compact-panel">
           <div class="section-heading">
             <div>
-              <p class="section-label">Search</p>
-              <h2>Tenant archive</h2>
+              <p class="section-label">Contracts</p>
+              <h2>Expired contract list</h2>
             </div>
-            <div class="toolbar tenant-history-toolbar">
-              <select id="tenantHistoryBuildingFilter" aria-label="Filter history by building">
+            <div class="toolbar">
+              <input id="contractFilter" type="hidden" value="expired">
+              <select id="contractBuildingFilter">
                 <option value="all">All buildings</option>
               </select>
-              <input type="search" id="tenantHistorySearch" placeholder="Search name, Civil ID, phone, building">
+              <input id="contractSearch" type="search" placeholder="Search tenant, unit, building">
             </div>
           </div>
-          <div id="tenantHistorySummary" class="inline-metrics"></div>
-          <div id="tenantHistoryList" class="history-list"></div>
+          <div id="contractSummary" class="activity-summary-grid"></div>
+          <div id="contractList" class="building-details-list"></div>
         </section>
       </main>
     </div>
