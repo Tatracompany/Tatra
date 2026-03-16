@@ -527,6 +527,12 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       input.addEventListener('focus', () => {
         setActiveBuildingCurrentMonthRow(input);
       });
+      input.addEventListener('input', () => {
+        const tenantId = String(input.getAttribute('data-row-edit-current-month') || '').trim();
+        if (tenantId && typeof syncBuildingRowStatusPreview === 'function') {
+          syncBuildingRowStatusPreview(tenantId);
+        }
+      });
       input.addEventListener('keydown', async (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();

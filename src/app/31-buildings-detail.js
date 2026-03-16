@@ -409,6 +409,7 @@
         currentMonthInput.readOnly = true;
         currentMonthInput.setAttribute('aria-readonly', 'true');
       }
+      syncBuildingRowStatusPreview(tenantId);
     };
     previousDueInput.addEventListener('input', () => {
       const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
@@ -421,6 +422,40 @@
       syncCurrentMonthLock();
     });
     syncCurrentMonthLock();
+  }
+
+  function syncBuildingRowStatusPreview(tenantId) {
+    const selectedMonth = getSelectedBuildingMonth();
+    const row = findTenantRow(tenantId);
+    if (!row) return;
+    const badgeNode = row.querySelector('.badge');
+    if (!badgeNode) return;
+    const visibleTenant = findVisibleTenantByRowContext(window.__appState || {}, row, selectedMonth);
+    const fieldTenantId = String(
+      row.dataset.rowSourceTenantId || tenantId || ''
+    ).trim() || String(tenantId || '').trim();
+    const previousDueInput = findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_from_before');
+    const paidPreviousInput = findDetailInputByFieldId('data-edit-paid-previous', fieldTenantId, selectedMonth, 'paid_previous');
+    const actualRentInput = findDetailInputByFieldId('data-edit-actual-rent', fieldTenantId, selectedMonth, 'actual_rent');
+    const currentMonthFieldId = buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'current_month');
+    const currentMonthInput = currentMonthFieldId
+      ? document.querySelector(`[data-inline-field-id="${currentMonthFieldId}"][data-row-edit-current-month]`)
+      : null;
+    const previousDueValue = normalizeAmount(Math.max(0, Number(previousDueInput ? previousDueInput.value : visibleTenant && visibleTenant.previousDue || 0)));
+    const paidPreviousValue = normalizeAmount(Math.max(0, Number(paidPreviousInput ? paidPreviousInput.value : visibleTenant && visibleTenant.previousPaid || 0)));
+    const actualRentValue = normalizeAmount(Math.max(0, Number(actualRentInput ? actualRentInput.value : visibleTenant && visibleTenant.displayActualRent || visibleTenant && visibleTenant.rentDue || 0)));
+    const currentMonthValue = normalizeAmount(Math.max(0, Number(currentMonthInput ? currentMonthInput.value : visibleTenant && visibleTenant.paidCurrent || 0)));
+    const remainingPreviousDue = normalizeAmount(Math.max(previousDueValue - paidPreviousValue, 0));
+    const remainingCurrent = normalizeAmount(Math.max(actualRentValue - currentMonthValue, 0));
+    let nextStatus = 'upcoming';
+    if (remainingPreviousDue > 0) nextStatus = 'overdue';
+    else if (actualRentValue <= 0 || remainingCurrent <= 0) nextStatus = 'paid';
+    else if (currentMonthValue > 0) nextStatus = 'partial';
+    const badgeMeta = STATUS_META[nextStatus] || STATUS_META.upcoming;
+    badgeNode.className = `badge ${badgeMeta.className}`;
+    badgeNode.textContent = badgeMeta.label;
+    row.classList.toggle('is-late', nextStatus === 'overdue');
+    row.classList.toggle('is-dim', nextStatus === 'overdue' || remainingPreviousDue > 0);
   }
 
   function bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts) {
