@@ -463,10 +463,11 @@
     const isLockedBaseline = typeof isBuildingMonthLocked === 'function' ? isBuildingMonthLocked(tenant.building, selectedMonth) : false;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
+    const hasPastDueToClearFirst = Number(tenant.totalDue || 0) > Number(getBuildingActualAmount(tenant) || 0);
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
     const currentMonthValue = formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts);
-    const currentMonthInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(currentMonthValue)}" data-row-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(currentMonthFieldId)}" data-initial-value="${escapeHtml(currentMonthValue)}"${isLockedBaseline || isProtectedBaselinePrepaid ? ' readonly aria-readonly="true"' : ''}>`;
+    const currentMonthInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(currentMonthValue)}" data-row-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(currentMonthFieldId)}" data-initial-value="${escapeHtml(currentMonthValue)}"${isLockedBaseline || isProtectedBaselinePrepaid || hasPastDueToClearFirst ? ' readonly aria-readonly="true"' : ''}>`;
     const rowAttr = canOpenDetail
       ? ` data-tenant-row="${escapeHtml(tenant.id)}" data-building-row-order="${escapeHtml(rowOrderKey)}" data-row-building="${escapeHtml(tenant.building || '')}" data-row-unit="${escapeHtml(tenant.unit || '')}" data-row-floor="${escapeHtml(tenant.floor || '')}" data-row-unit-id="${escapeHtml(tenant.unitId || '')}" data-row-source-tenant-id="${escapeHtml(tenant.sourceTenantId || '')}"`
       : '';
