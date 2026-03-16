@@ -2095,6 +2095,17 @@
     ));
     const createdVacantTenant = {
       id: `vacant-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      sourceTenantId: String(
+        tenantLike.sourceTenantId
+        || tenantLike.id
+        || sourceTenant && (sourceTenant.sourceTenantId || sourceTenant.id)
+        || ''
+      ).trim(),
+      unitId: String(
+        tenantLike.unitId
+        || sourceTenant && sourceTenant.unitId
+        || ''
+      ).trim(),
       building: tenantLike.building,
       unit: tenantLike.unit,
       floor: normalizeFloorLabel((tenantLike.floor || (sourceTenant && sourceTenant.floor) || '')),

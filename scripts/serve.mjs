@@ -1077,23 +1077,34 @@ async function appendActivityEntryToDatabase(payload) {
 
 async function saveVacantUnitMetaToDatabase(payload) {
   const unitId = String(payload && payload.unitId || '').trim();
+  const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const buildingName = String(payload && payload.buildingName || '').trim();
   const unitLabel = String(payload && payload.unit || '').trim();
   const floorLabel = String(payload && payload.floor || '').trim();
   const monthKey = String(payload && payload.monthKey || '').trim();
-  if ((!unitId && (!buildingName || !unitLabel)) || !monthKey) {
-    throw new Error('unitId or building/unit, and monthKey are required.');
+  if ((!unitId && !sourceTenantId && (!buildingName || !unitLabel)) || !monthKey) {
+    throw new Error('unitId or sourceTenantId or building/unit, and monthKey are required.');
   }
   const database = openDatabase(databasePath);
   try {
-    const resolvedUnit = unitId
+    let resolvedUnit = unitId
       ? await database.prepare(`
           SELECT id
           FROM units
           WHERE id = ?
           LIMIT 1
         `).get(unitId)
-      : await database.prepare(`
+      : null;
+    if (!resolvedUnit && sourceTenantId) {
+      resolvedUnit = await database.prepare(`
+          SELECT unit_id AS id
+          FROM tenancies
+          WHERE source_tenant_id = ?
+          LIMIT 1
+        `).get(sourceTenantId);
+    }
+    if (!resolvedUnit) {
+      resolvedUnit = await database.prepare(`
           SELECT units.id AS id
           FROM units
           INNER JOIN buildings ON buildings.id = units.building_id
@@ -1102,6 +1113,7 @@ async function saveVacantUnitMetaToDatabase(payload) {
             AND COALESCE(units.floor_label, '') = ?
           LIMIT 1
         `).get(buildingName, unitLabel, floorLabel);
+    }
     const resolvedUnitId = String(resolvedUnit && resolvedUnit.id || '').trim();
     if (!resolvedUnitId) {
       throw new Error('No unit found for vacant row.');

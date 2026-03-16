@@ -1094,12 +1094,14 @@
 
   function syncVacantUnitMetaToDb(payload) {
     const unitId = String(payload && payload.unitId || '').trim();
+    const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
     const buildingName = String(payload && payload.buildingName || '').trim();
     const unit = String(payload && payload.unit || '').trim();
     const monthKey = String(payload && payload.monthKey || '').trim();
-    if ((!unitId && (!buildingName || !unit)) || !monthKey) return Promise.resolve(null);
+    if ((!unitId && !sourceTenantId && (!buildingName || !unit)) || !monthKey) return Promise.resolve(null);
     return postToLocalDbApi('/api/db/vacant-unit-meta', {
       unitId,
+      sourceTenantId,
       buildingName,
       unit,
       floor: String(payload && payload.floor || '').trim(),

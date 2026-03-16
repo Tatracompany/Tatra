@@ -372,6 +372,8 @@
     ));
     const vacantTenant = {
       id: `vacant-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      sourceTenantId: String(tenantRecord.sourceTenantId || tenantRecord.id || '').trim(),
+      unitId: String(tenantRecord.unitId || '').trim(),
       building: tenantRecord.building,
       unit: tenantRecord.unit,
       floor: tenantRecord.floor,

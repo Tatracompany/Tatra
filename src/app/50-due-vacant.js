@@ -273,6 +273,11 @@
       if (typeof syncVacantUnitMetaToDb === 'function') {
         await syncVacantUnitMetaToDb({
           unitId: String(vacantTenant.unitId || '').trim(),
+          sourceTenantId: String(
+            vacantTenant.sourceTenantId
+            || archivedTenant && (archivedTenant.sourceTenantId || archivedTenant.id)
+            || ''
+          ).trim(),
           buildingName: vacantTenant.building,
           unit: vacantTenant.unit,
           floor: vacantTenant.floor,
