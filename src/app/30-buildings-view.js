@@ -625,17 +625,8 @@
     return Number(tenant && tenant.rentDue || 0);
   }
 
-  function shouldExcludeTenantFromCurrentMonthFooter(tenant, selectedMonth) {
-    const monthKey = String(selectedMonth || '').trim();
-    const buildingName = String(tenant && tenant.building || '').trim().toLowerCase();
-    const unit = String(tenant && tenant.unit || '').trim();
-    const name = String(tenant && tenant.name || '').trim();
-    const sourceTenantId = String(tenant && (tenant.sourceTenantId || tenant.id) || '').trim();
-    const matchesProtectedRow = buildingName === 'fahaheel'
-      && (unit === '\u0633\u0637\u062D' || name === '\u0634\u0628\u0643\u0629' || sourceTenantId === 'fahaheel-\u0633\u0637\u062D');
-    return (monthKey === '2026-01' || monthKey === '2026-02')
-      && buildingName === 'fahaheel'
-      && matchesProtectedRow;
+  function shouldExcludeTenantFromCurrentMonthFooter() {
+    return false;
   }
 
   function getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth) {
@@ -661,9 +652,7 @@
       + prepaidTotal
       + insuranceCurrentTotal
       + oldTenantDuePaidTotal;
-    const januaryBaselineAdjustment = tenants.reduce((sum, tenant) => (
-      sum + getJanuaryBaselineBankAdjustment(tenant, selectedMonth)
-    ), 0);
+    const januaryBaselineAdjustment = 0;
     const totalInBank = totalCurrentMonth - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
     const countRows = summary
