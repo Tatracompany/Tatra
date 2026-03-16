@@ -454,7 +454,8 @@
       && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
-    const currentMonthInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts))}" data-row-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(currentMonthFieldId)}"${isLockedBaseline || isProtectedBaselinePrepaid ? ' readonly aria-readonly="true"' : ''}>`;
+    const currentMonthValue = formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts);
+    const currentMonthInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(currentMonthValue)}" data-row-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(currentMonthFieldId)}" data-initial-value="${escapeHtml(currentMonthValue)}"${isLockedBaseline || isProtectedBaselinePrepaid ? ' readonly aria-readonly="true"' : ''}>`;
     const rowAttr = canOpenDetail
       ? ` data-tenant-row="${escapeHtml(tenant.id)}" data-building-row-order="${escapeHtml(rowOrderKey)}" data-row-building="${escapeHtml(tenant.building || '')}" data-row-unit="${escapeHtml(tenant.unit || '')}" data-row-floor="${escapeHtml(tenant.floor || '')}" data-row-unit-id="${escapeHtml(tenant.unitId || '')}" data-row-source-tenant-id="${escapeHtml(tenant.sourceTenantId || '')}"`
       : '';
@@ -522,10 +523,13 @@
   async function saveBuildingCurrentMonthFromTable(state, input) {
     if (!input) return;
     const tenantId = String(input.getAttribute('data-row-edit-current-month') || '').trim();
-    if (!tenantId || input.dataset.currentMonthSaving === 'true' || input.readOnly || input.disabled) return;
+    const currentValue = String(input.value || '').trim();
+    const initialValue = String(input.dataset.initialValue || '').trim();
+    if (!tenantId || input.dataset.currentMonthSaving === 'true' || input.readOnly || input.disabled || currentValue === initialValue) return;
     input.dataset.currentMonthSaving = 'true';
     try {
       await saveTenantInlineEdit(state, tenantId, { reopenDetail: false });
+      input.dataset.initialValue = String(input.value || '').trim();
     } catch (error) {
       if (typeof showFlashMessage === 'function') {
         showFlashMessage(String(error && error.message || error || 'Failed to save current month.'));
