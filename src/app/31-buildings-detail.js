@@ -395,7 +395,10 @@
   function bindPreviousDueLockInputs(previousDueInput, paidPreviousInput, tenantId) {
     if (!previousDueInput || !paidPreviousInput) return;
     const syncCurrentMonthLock = () => {
-      const currentMonthInput = findDetailInputByFieldId('data-edit-current-month', tenantId, getSelectedBuildingMonth(), 'current_month');
+      const currentMonthFieldId = buildTenantMonthFieldId(tenantId, getSelectedBuildingMonth(), 'current_month');
+      const currentMonthInput = currentMonthFieldId
+        ? document.querySelector(`[data-inline-field-id="${currentMonthFieldId}"][data-row-edit-current-month]`)
+        : null;
       const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
       const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
       if (!currentMonthInput) return;

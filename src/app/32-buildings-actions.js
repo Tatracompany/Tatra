@@ -1,3 +1,30 @@
+  function getBuildingPreviousDueClearance(state, tenantRecord, selectedMonth, tenantId) {
+    const tenant = getTenantView(state, tenantRecord, selectedMonth);
+    if (!tenant) {
+      return {
+        tenant: null,
+        previousDueAmount: 0,
+        paidPreviousAmount: 0,
+        remainingPreviousDue: 0
+      };
+    }
+    const fieldTenantId = String(tenant.sourceTenantId || tenantRecord.sourceTenantId || tenantRecord.id || tenantId || '').trim();
+    const previousDueInput = typeof findDetailInputByFieldId === 'function'
+      ? findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_from_before')
+      : null;
+    const paidPreviousInput = typeof findDetailInputByFieldId === 'function'
+      ? findDetailInputByFieldId('data-edit-paid-previous', fieldTenantId, selectedMonth, 'paid_previous')
+      : null;
+    const previousDueAmount = normalizeAmount(Math.max(0, Number(previousDueInput ? previousDueInput.value : tenant.previousDue || 0)));
+    const paidPreviousAmount = normalizeAmount(Math.max(0, Number(paidPreviousInput ? paidPreviousInput.value : getTenantDuePaidAmount(state, tenant.id, selectedMonth) || 0)));
+    return {
+      tenant,
+      previousDueAmount,
+      paidPreviousAmount,
+      remainingPreviousDue: normalizeAmount(Math.max(previousDueAmount - paidPreviousAmount, 0))
+    };
+  }
+
   async function markTenantPaidForCurrentMonth(state, tenantId) {
     const tenantRecord = state.tenants.find((item) => item.id === tenantId);
     if (!tenantRecord) return;
@@ -5,9 +32,9 @@
     if (!canEditBuildingMonth(tenantRecord.building, selectedMonth)) {
       return;
     }
-    const tenant = getTenantView(state, tenantRecord, selectedMonth);
+    const { tenant, remainingPreviousDue } = getBuildingPreviousDueClearance(state, tenantRecord, selectedMonth, tenantId);
     if (!tenant) return;
-    if (tenant.previousDue > 0) {
+    if (remainingPreviousDue > 0) {
       alert('This tenant still has previous due. Clear old due first.');
       logActivity(state, 'Mark paid blocked', `${tenant.building} ${tenant.unit} blocked because previous due exists.`);
       return;
@@ -65,7 +92,7 @@
     if (!canEditBuildingMonth(tenantRecord.building, selectedMonth)) {
       return;
     }
-    const tenant = getTenantView(state, tenantRecord, selectedMonth);
+    const { tenant, remainingPreviousDue } = getBuildingPreviousDueClearance(state, tenantRecord, selectedMonth, tenantId);
     if (!tenant) return;
     const partialInput = findDetailInput('data-edit-partial-paid', tenantId);
     const enteredAmount = Number(partialInput && partialInput.value || 0);
@@ -73,7 +100,7 @@
       alert('Enter a partial payment amount greater than zero.');
       return;
     }
-    if (tenant.previousDue > 0) {
+    if (remainingPreviousDue > 0) {
       alert('This tenant still has previous due. Clear old due first.');
       logActivity(state, 'Partial payment blocked', `${tenant.building} ${tenant.unit} blocked because previous due exists.`);
       return;
