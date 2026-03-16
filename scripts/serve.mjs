@@ -158,13 +158,42 @@ async function removeGhostRow55Tenancy() {
       WHERE source_tenant_id = ?
     `).run(ROW_55_SOURCE_TENANT_ID);
     await database.prepare(`
-      DELETE FROM unit_vacancy_state
-      WHERE unit_id = ?
-    `).run(ROW_55_UNIT_ID);
-    await database.prepare(`
       DELETE FROM tenancies
       WHERE source_tenant_id = ? OR unit_id = ?
     `).run(ROW_55_SOURCE_TENANT_ID, ROW_55_UNIT_ID);
+    await database.prepare(`
+      INSERT INTO unit_vacancy_state (
+        unit_id,
+        is_vacant,
+        vacant_since,
+        last_tenant_name,
+        last_contract_rent,
+        last_actual_rent,
+        last_discount,
+        old_tenant_due_paid,
+        notes,
+        raw_json,
+        updated_at
+      ) VALUES (?, 1, '', '', 0, 0, 0, 0, '', ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(unit_id) DO UPDATE SET
+        is_vacant = 1,
+        vacant_since = '',
+        last_tenant_name = '',
+        last_contract_rent = 0,
+        last_actual_rent = 0,
+        last_discount = 0,
+        old_tenant_due_paid = 0,
+        notes = '',
+        raw_json = excluded.raw_json,
+        updated_at = CURRENT_TIMESTAMP
+    `).run(
+      ROW_55_UNIT_ID,
+      JSON.stringify({
+        unitId: ROW_55_UNIT_ID,
+        source: 'row-55-cleanup',
+        clearedAt: new Date().toISOString()
+      })
+    );
     await database.exec('COMMIT');
   } catch (error) {
     try {
