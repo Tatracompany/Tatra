@@ -159,7 +159,8 @@
           lastTenantName: lastTenant ? lastTenant.name : '-',
           lastActualRent: Number(lastTenant && lastTenant.actualRent || tenant.lastActualRent || 0),
           lastContractRent: Number(lastTenant && lastTenant.contractRent || tenant.lastContractRent || 0),
-          vacantSince
+          vacantSince,
+          plannedVacateDate: String(tenant.plannedVacateDate || '').trim()
         });
       });
     if (summary) {
@@ -171,7 +172,7 @@
         `<span class="metric-pill">Last contract rent ${formatCurrency(totalContractRent)}</span>`
       ].join('');
     }
-    container.innerHTML = vacantUnits.length ? `<div class="table-scroll"><table class="building-table vacant-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Last tenant</th><th class="amount"><span class="header-stack"><span>Last actual</span><span>rent</span></span></th><th class="amount"><span class="header-stack"><span>Last contract</span><span>rent</span></span></th><th>Vacant since</th><th>Notes</th></tr></thead><tbody>${vacantUnits.map((tenant) => `
+    container.innerHTML = vacantUnits.length ? `<div class="table-scroll"><table class="building-table vacant-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Last tenant</th><th class="amount"><span class="header-stack"><span>Last actual</span><span>rent</span></span></th><th class="amount"><span class="header-stack"><span>Last contract</span><span>rent</span></span></th><th>Vacant since</th><th>Planned vacate</th><th>Notes</th></tr></thead><tbody>${vacantUnits.map((tenant) => `
       <tr class="is-vacant">
         <td>${escapeHtml(tenant.building)}</td>
         <td>${escapeHtml(tenant.unit)}</td>
@@ -180,8 +181,9 @@
         <td class="amount">${formatCurrency(tenant.lastActualRent || 0)}</td>
         <td class="amount">${formatCurrency(tenant.lastContractRent || 0)}</td>
         <td>${escapeHtml(tenant.vacantSince ? formatDate(tenant.vacantSince) : '-')}</td>
+        <td>${escapeHtml(tenant.plannedVacateDate ? formatDate(tenant.plannedVacateDate) : '-')}</td>
         <td class="notes-cell">${escapeHtml(tenant.notes || 'Vacant unit')}</td>
-      </tr>`).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastActualRent || 0), 0))}</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastContractRent || 0), 0))}</strong></td><td colspan="2"><strong>${vacantUnits.length} vacant units</strong></td></tr></tfoot></table></div>` : '<div class="empty-state">No vacant units found for the selected month.</div>';
+      </tr>`).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastActualRent || 0), 0))}</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastContractRent || 0), 0))}</strong></td><td colspan="3"><strong>${vacantUnits.length} vacant units</strong></td></tr></tfoot></table></div>` : '<div class="empty-state">No vacant units found for the selected month.</div>';
   }
 
   function toggleVacantRowDetail(state, tenantId) {
@@ -201,11 +203,12 @@
     const disabledAttr = isLockedBaseline ? ' disabled aria-disabled="true"' : '';
     const detailRow = document.createElement('tr');
     detailRow.setAttribute('data-vacant-detail', tenantId);
-    detailRow.innerHTML = `<td colspan="8" class="building-row-detail">
+    detailRow.innerHTML = `<td colspan="9" class="building-row-detail">
       <div class="detail-grid">
         <div class="detail-item"><span class="label">Last actual rent</span><input type="number" step="1" min="0" data-vacant-last-actual="${escapeHtml(tenant.id)}" value="${escapeHtml(Math.round(tenant.lastActualRent || 0))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Last contract rent</span><input type="number" step="1" min="0" data-vacant-last-contract="${escapeHtml(tenant.id)}" value="${escapeHtml(Math.round(tenant.lastContractRent || 0))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Vacant since</span><input type="date" data-vacant-since="${escapeHtml(tenant.id)}" value="${escapeHtml(tenant.vacantSince || '')}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Planned vacate</span><strong>${escapeHtml(tenant.plannedVacateDate ? formatDate(tenant.plannedVacateDate) : '-')}</strong></div>
         <div class="detail-item"><span class="label">Save</span><button type="button" class="secondary-action" data-save-vacant-meta="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save changes'}</button></div>
         ${isLockedBaseline ? `<div class="detail-item detail-item-wide"><span class="label">Baseline lock</span><strong>${escapeHtml(getBuildingMonthLockMessage(tenant.building, selectedMonth))}</strong></div>` : ''}
       </div>
