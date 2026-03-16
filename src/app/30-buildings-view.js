@@ -86,9 +86,15 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     );
   }
 
-  function getBuildingTotalUnpaidAmount(tenant) {
+  function getBuildingTotalUnpaidAmount(state, tenant, monthKey) {
     if (!tenant) return 0;
-    return normalizeAmount(Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0));
+    const previousPaid = Number(
+      typeof getTenantDuePaidAmount === 'function'
+        ? getTenantDuePaidAmount(state, tenant.id, monthKey || getSelectedBuildingMonth())
+        : 0
+    );
+    const unpaidFromBefore = Math.max(Number(tenant.previousDue || 0) - previousPaid, 0);
+    return normalizeAmount(unpaidFromBefore + Number(tenant.remainingCurrent || 0));
   }
 
   function statusRank(status) {
@@ -373,7 +379,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.remainingCurrent)}</td>
-        <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(tenant))}</td>
+        <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(state, tenant, selectedMonth))}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.insuranceCurrentAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.insurancePreviousAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(oldTenantDuePaid)}</td>
@@ -504,7 +510,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.remainingCurrent)}</td>
-      <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(tenant))}</td>
+      <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(state, tenant, selectedMonth))}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.insuranceCurrentAmount)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.insurancePreviousAmount)}</td>
       <td class="amount">${formatBuildingAmountCell(oldTenantDuePaidNote)}</td>
@@ -683,7 +689,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
     const prepaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidNext || 0), 0);
     const unpaidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.remainingCurrent || 0), 0);
-    const unpaidTotal = tenants.reduce((sum, tenant) => sum + getBuildingTotalUnpaidAmount(tenant), 0);
+    const unpaidTotal = tenants.reduce((sum, tenant) => sum + getBuildingTotalUnpaidAmount(state, tenant, selectedMonth), 0);
     const insurancePreviousTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insurancePreviousAmount || 0), 0);
     const insuranceCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insuranceCurrentAmount || 0), 0);
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
