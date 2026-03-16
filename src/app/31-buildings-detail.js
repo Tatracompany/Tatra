@@ -559,7 +559,7 @@
       allowDecimalAmounts
     );
     const currentMonthAmount = requestedCurrentMonthAmount;
-    const remainingCurrentAmount = Math.max(effectiveRentDue - prepaidFromBeforeAmount - currentMonthAmount, 0);
+    const remainingCurrentAmount = Math.max(effectiveRentDue - currentMonthAmount, 0);
     const unpaidTotalAmount = isProtectedBaselinePrepaid
       ? remainingCurrentAmount
       : requestedUnpaidTotalAmount;

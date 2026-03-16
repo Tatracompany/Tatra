@@ -652,9 +652,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const priorAdvancePaidRaw = normalizeAmount(paymentBreakdown.priorAdvancePaid);
       const occupancyPaidRaw = normalizeAmount(paymentBreakdown.occupancyPaid);
       const prepaidFromBefore = normalizeAmount(Math.min(due, effectiveOpeningCredit + priorAdvancePaidRaw));
-      const dueAfterPrepaid = normalizeAmount(Math.max(due - prepaidFromBefore, 0));
-      const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, dueAfterPrepaid));
-      const remainingCurrent = normalizeAmount(Math.max(dueAfterPrepaid - directPaidRaw, 0));
+      const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, due));
+      const remainingCurrent = normalizeAmount(Math.max(due - directPaidRaw, 0));
       const paid = normalizeAmount(prepaidFromBefore + directPaidApplied + occupancyPaidRaw);
       const closingCarry = manualFutureMonth
         ? 0
