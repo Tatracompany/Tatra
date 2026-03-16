@@ -978,6 +978,9 @@ async function saveBuildingInlineEditToDatabase(payload) {
     if (hasPayloadField('oldTenantDuePaid')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'old_tenant_due_paid', String(Number(payload && payload.oldTenantDuePaid || 0)));
     }
+    if (hasPayloadField('prepaidLastMonthAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_last_month', String(Number(payload && payload.prepaidLastMonthAmount || 0)));
+    }
     await database.exec(`
       INSERT INTO app_meta(key, value)
       VALUES ('last_building_inline_sync_at', CURRENT_TIMESTAMP)

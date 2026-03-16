@@ -1053,6 +1053,7 @@
     if (hasPayloadField('insuranceAmount')) requestBody.insuranceAmount = Number(payload && payload.insuranceAmount || 0);
     if (hasPayloadField('insurancePaidMonth')) requestBody.insurancePaidMonth = String(payload && payload.insurancePaidMonth || '').trim();
     if (hasPayloadField('oldTenantDuePaid')) requestBody.oldTenantDuePaid = Number(payload && payload.oldTenantDuePaid || 0);
+    if (hasPayloadField('prepaidLastMonthAmount')) requestBody.prepaidLastMonthAmount = Number(payload && payload.prepaidLastMonthAmount || 0);
     if (hasPayloadField('prepaidAmount')) requestBody.prepaidAmount = Number(payload && payload.prepaidAmount || 0);
     if (hasPayloadField('plannedVacateDate')) requestBody.plannedVacateDate = String(payload && payload.plannedVacateDate || '').trim();
     if (hasPayloadField('notes')) requestBody.notes = String(payload && payload.notes || '').trim();
