@@ -500,6 +500,10 @@
         await moveBuildingCurrentMonthFocus(state, input, direction);
       });
       input.addEventListener('blur', async () => {
+        if (input.dataset.skipBlurSaveOnce === 'true') {
+          delete input.dataset.skipBlurSaveOnce;
+          return;
+        }
         await saveBuildingCurrentMonthFromTable(state, input);
       });
     });
@@ -507,7 +511,6 @@
 
   async function moveBuildingCurrentMonthFocus(state, input, direction) {
     if (!input) return;
-    await saveBuildingCurrentMonthFromTable(state, input);
     const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month]'))
       .filter((node) => !node.readOnly && !node.disabled);
     const currentIndex = inputs.indexOf(input);
@@ -516,6 +519,7 @@
     if (nextIndex < 0 || nextIndex >= inputs.length) return;
     const target = inputs[nextIndex];
     if (!target) return;
+    input.dataset.skipBlurSaveOnce = 'true';
     target.focus();
     target.select();
   }
