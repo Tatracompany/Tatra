@@ -481,6 +481,12 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
       if (!sourceTenantId) return null;
       const totalUnpaidAmount = normalizeAmount(getBuildingTotalUnpaidAmount(state, tenant, selectedMonth));
+      const paymentMethods = Array.from(new Set(
+        (typeof getPaymentsForTenant === 'function' ? getPaymentsForTenant(state, tenant.id) : [])
+          .filter((payment) => String(payment && payment.rentMonth || '').trim() === selectedMonth)
+          .map((payment) => String(payment && payment.method || '').trim())
+          .filter(Boolean)
+      ));
       return {
         sourceTenantId,
         unitId: String(tenant.unitId || '').trim(),
@@ -488,7 +494,8 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         carryOverride: Math.max(totalUnpaidAmount, 0),
         paidOverride: normalizeAmount(Number(tenant.prepaidNext || 0)),
         oldTenantDuePaid: 0,
-        prepaidAmount: 0
+        prepaidAmount: 0,
+        paymentMethods
       };
     }).filter(Boolean);
     if (!updates.length) {
@@ -498,6 +505,15 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       return;
     }
     for (const payload of updates) {
+      if (typeof deleteTenantPaymentFromDb === 'function' && Array.isArray(payload.paymentMethods)) {
+        for (const method of payload.paymentMethods) {
+          await deleteTenantPaymentFromDb({
+            sourceTenantId: payload.sourceTenantId,
+            rentMonth: payload.monthKey,
+            method
+          });
+        }
+      }
       if (typeof syncBuildingInlineEditToDb === 'function') {
         await syncBuildingInlineEditToDb(payload);
       }
