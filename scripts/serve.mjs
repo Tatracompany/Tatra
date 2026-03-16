@@ -136,11 +136,46 @@ function compareMonthKeys(left, right) {
 }
 
 const BASELINE_MONTH_KEY = '2026-01';
+const ROW_55_SOURCE_TENANT_ID = 'tenant-unit-fahaheel-fresh-20260314105252-55';
+const ROW_55_UNIT_ID = 'unit-fahaheel-fresh-20260314105252-55';
 
 async function exportSnapshotToBrowserFile() {
   const snapshot = await readDatabaseSnapshot(databasePath);
   fs.writeFileSync(browserSnapshotPath, buildBrowserSnapshotScript(snapshot), 'utf8');
   return snapshot;
+}
+
+async function removeGhostRow55Tenancy() {
+  const database = openDatabase(databasePath);
+  try {
+    await database.exec('BEGIN');
+    await database.prepare(`
+      DELETE FROM tenant_month_overrides
+      WHERE source_tenant_id = ?
+    `).run(ROW_55_SOURCE_TENANT_ID);
+    await database.prepare(`
+      DELETE FROM payments
+      WHERE source_tenant_id = ?
+    `).run(ROW_55_SOURCE_TENANT_ID);
+    await database.prepare(`
+      DELETE FROM unit_vacancy_state
+      WHERE unit_id = ?
+    `).run(ROW_55_UNIT_ID);
+    await database.prepare(`
+      DELETE FROM tenancies
+      WHERE source_tenant_id = ? OR unit_id = ?
+    `).run(ROW_55_SOURCE_TENANT_ID, ROW_55_UNIT_ID);
+    await database.exec('COMMIT');
+  } catch (error) {
+    try {
+      await database.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await database.close();
+  }
 }
 
 async function restoreDatabaseFromUpload(databaseBuffer) {
@@ -1905,6 +1940,8 @@ async function handleApiRequest(request, response, requestUrl) {
 
 ensureDatabaseFileExists(root, databasePath);
 await prepareDatabase(databasePath, schemaPath);
+await removeGhostRow55Tenancy();
+await exportSnapshotToBrowserFile();
 
 const server = http.createServer(async (request, response) => {
   if (!isAuthorizedRequest(request)) {
