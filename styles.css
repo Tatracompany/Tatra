@@ -590,7 +590,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .table-subheading { margin: 4px 0 10px; }
 .building-table-shell { border-radius: 18px; }
 .table-scroll { position: relative; overflow-x: auto; overflow-y: visible; border: 1px solid #d8ccbc; border-radius: 12px; background: #fff; box-shadow: 0 6px 18px rgba(85, 68, 48, 0.05); }
-.building-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1320px; background: #fff; table-layout: fixed; }
+.building-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1400px; background: #fff; table-layout: fixed; }
 .building-table th, .building-table td { padding: 7px 7px; border-bottom: 1px solid #e3d9cb; text-align: left; vertical-align: middle; }
 .building-table th { position: sticky; top: 0; background: #f7f0e4; z-index: 6; white-space: normal; font-size: 0.74rem; font-weight: 700; line-height: 1.08; letter-spacing: 0; padding-top: 7px; padding-bottom: 7px; min-height: 38px; color: #5d5245; box-shadow: inset 0 -1px 0 #d8ccbc, 0 2px 0 rgba(216, 204, 188, 0.65); }
 .building-table thead { position: sticky; top: 0; z-index: 5; }
@@ -632,10 +632,11 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table col.screen-col-paid-previous { width: 5.3%; }
 .building-table col.screen-col-prepaid { width: 4.7%; }
 .building-table col.screen-col-unpaid { width: 4.7%; }
+.building-table col.screen-col-total-unpaid { width: 4.7%; }
 .building-table col.screen-col-ins-current { width: 5.2%; }
 .building-table col.screen-col-ins-previous { width: 5.2%; }
 .building-table col.screen-col-old-due { width: 5.8%; }
-.building-table col.screen-col-notes { width: 7.2%; }
+.building-table col.screen-col-notes { width: 6.2%; }
 .building-table tbody tr:nth-child(even):not(.is-late):not(.is-planned-vacate):not(.is-archived-snapshot):not(.is-vacant) { background: #fffdfa; }
 .building-table tr.is-late { background: #fff3f1; }
 .building-table tr.is-planned-vacate { background: #fff9dd; }
