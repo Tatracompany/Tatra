@@ -1151,6 +1151,25 @@
     });
   }
 
+  async function refreshSnapshotAndDerivedState(state) {
+    if (typeof refreshDbSnapshotFromServer === 'function') {
+      await refreshDbSnapshotFromServer();
+    }
+    if (typeof loadState !== 'function') return state || window.__appState || null;
+    const refreshedState = loadState();
+    if (!refreshedState) return state || window.__appState || null;
+    if (state && typeof state === 'object') {
+      Object.keys(state).forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(refreshedState, key)) delete state[key];
+      });
+      Object.assign(state, refreshedState);
+      window.__appState = state;
+      return state;
+    }
+    window.__appState = refreshedState;
+    return refreshedState;
+  }
+
   function syncStateExtrasNow(state) {
     if (!state || typeof refreshDbSnapshotFromServer !== 'function') return Promise.resolve(null);
     return refreshDbSnapshotFromServer();

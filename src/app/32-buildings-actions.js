@@ -415,10 +415,11 @@
     replaceBuildingTenantOrderOverrideId(state, tenantRecord.building, tenantRecord.id, vacantTenant.id);
     refreshBuildingTenantOrder(state, tenantRecord.building);
     saveState(state);
+    const canonicalSourceTenantId = String(tenantRecord.sourceTenantId || tenantRecord.id || '').trim();
     try {
       if (typeof syncVacateTenantToDb === 'function') {
         await syncVacateTenantToDb({
-          sourceTenantId: tenantRecord.id,
+          sourceTenantId: canonicalSourceTenantId,
           vacateDate,
           lastTenantName: tenantRecord.name,
           lastContractRent: Number(tenantRecord.contractRent || 0),
@@ -427,6 +428,9 @@
           archivedNotes: tenantRecord.notes,
           vacancyNotes: vacantTenant.notes
         });
+      }
+      if (typeof refreshSnapshotAndDerivedState === 'function') {
+        await refreshSnapshotAndDerivedState(state);
       }
       logActivity(state, 'Tenant vacated', `${tenantRecord.building} ${tenantRecord.unit} vacated on ${vacateDate}.`);
       renderAll(state, tenantRecord.building);
@@ -470,6 +474,9 @@
           sourceTenantId: archivedTenant.id,
           notes: archivedTenant.notes
         });
+      }
+      if (typeof refreshSnapshotAndDerivedState === 'function') {
+        await refreshSnapshotAndDerivedState(state);
       }
       logActivity(state, 'Vacate undone', `${archivedTenant.building} ${archivedTenant.unit} restored for ${archivedTenant.name}.`);
       renderAll(state, archivedTenant.building);
