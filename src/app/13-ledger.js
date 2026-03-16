@@ -468,7 +468,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     if (!buildingBucket) return 0;
     const unitBucket = buildingBucket[String(unit || '').trim()];
     if (!unitBucket) return 0;
-    return Math.max(0, Math.round(Number(unitBucket[String(monthKey || '').trim()] || 0)));
+    return normalizeAmount(Math.max(0, Number(unitBucket[String(monthKey || '').trim()] || 0)));
   }
 
   function setOldTenantDuePaidNote(state, buildingName, unit, monthKey, noteText) {
@@ -476,7 +476,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const buildingKey = String(buildingName || '').trim();
     const unitKey = String(unit || '').trim();
     const month = String(monthKey || '').trim();
-    const value = Math.max(0, Math.round(Number(noteText || 0)));
+    const value = normalizeAmount(Math.max(0, Number(noteText || 0)));
 
     if (!buildingKey || !unitKey || !month) return;
 
