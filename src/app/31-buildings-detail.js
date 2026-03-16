@@ -382,43 +382,12 @@
         savePlannedVacateDate(state, tenantId);
       });
     }
-    const previousDueInput = findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_total');
-    const previousDueDisplayInput = findDetailInput('data-display-previous-due', fieldTenantId);
     const paidPreviousInput = findDetailInputByFieldId('data-edit-paid-previous', fieldTenantId, selectedMonth, 'paid_previous');
     const contractInput = findDetailInputByFieldId('data-edit-contract', fieldTenantId, selectedMonth, 'contract_amount');
     const discountInput = findDetailInputByFieldId('data-edit-discount', fieldTenantId, selectedMonth, 'discount');
     const vacantAmountInput = findDetailInputByFieldId('data-edit-vacant-amount', fieldTenantId, selectedMonth, 'vacant_amount');
     const actualRentInput = findDetailInputByFieldId('data-edit-actual-rent', fieldTenantId, selectedMonth, 'actual_rent');
-    bindPreviousDuePanelInputs(previousDueInput || previousDueDisplayInput, paidPreviousInput, fieldTenantId);
     bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts);
-  }
-
-  function bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput, tenantId) {
-    if (!previousDueInput || !paidPreviousInput) return;
-    const syncCurrentMonthLock = () => {
-      const currentMonthInput = findDetailInputByFieldId('data-edit-current-month', tenantId, getSelectedBuildingMonth(), 'current_month');
-      const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
-      const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
-      if (!currentMonthInput) return;
-      if (paidValue >= previousValue) {
-        currentMonthInput.readOnly = false;
-        currentMonthInput.removeAttribute('aria-readonly');
-      } else {
-        currentMonthInput.readOnly = true;
-        currentMonthInput.setAttribute('aria-readonly', 'true');
-      }
-    };
-    previousDueInput.addEventListener('input', () => {
-      const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
-      previousDueInput.value = formatAmountInputValue(previousValue, true);
-      syncCurrentMonthLock();
-    });
-    paidPreviousInput.addEventListener('input', () => {
-      const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
-      paidPreviousInput.value = formatBlankAmountInputValue(paidValue, true);
-      syncCurrentMonthLock();
-    });
-    syncCurrentMonthLock();
   }
 
   function bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts) {
