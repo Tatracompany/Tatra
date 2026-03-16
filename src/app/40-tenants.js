@@ -148,7 +148,16 @@
 
   function renderTenantTotalsRow(state, tenants, buildingName) {
     const totalUnits = tenants.length;
-    return `<tr class="totals-row totals-row-muted"><td colspan="12"><strong>Total units</strong></td><td class="center"><strong>${escapeHtml(String(totalUnits))}</strong></td></tr>`;
+    const occupiedUnits = tenants.filter((tenant) => !tenant.isVacant).length;
+    const vacantUnits = tenants.filter((tenant) => tenant.isVacant).length;
+    const totalDue = tenants.reduce((sum, tenant) => sum + Number(tenant.totalDue || 0), 0);
+    return `<tr class="totals-row totals-row-muted">
+      <td colspan="5"><strong>Totals</strong></td>
+      <td class="center"><strong>${escapeHtml(String(occupiedUnits))} occupied</strong></td>
+      <td class="amount"><strong>${formatCurrency(totalDue)}</strong></td>
+      <td colspan="6"><strong>${escapeHtml(String(vacantUnits))} vacant</strong></td>
+      <td class="center"><strong>${escapeHtml(String(totalUnits))} units</strong></td>
+    </tr>`;
   }
 
   function getTenantReorderBuilding(buildingFilter, tenants) {

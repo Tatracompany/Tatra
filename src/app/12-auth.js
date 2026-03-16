@@ -89,7 +89,7 @@
     const currentPage = String((document.body && document.body.dataset.page) || '');
     if (currentPage !== 'admin') return true;
     if (getCurrentRole() === 'admin') return true;
-    window.location.href = 'buildings.html';
+    window.location.href = 'dashboard.html';
     return false;
   }
 
@@ -97,7 +97,7 @@
     const form = document.getElementById('loginForm');
     if (!form) return;
     if (isAuthenticated()) {
-      window.location.href = 'buildings.html';
+      window.location.href = 'dashboard.html';
       return;
     }
     const message = document.getElementById('loginMessage');
@@ -123,11 +123,11 @@
       if (account) {
         setAuthenticatedUser(account.username, account.role);
         if (message) {
-          message.textContent = 'Login successful. Opening buildings...';
+          message.textContent = 'Login successful. Opening dashboard...';
           message.classList.remove('is-error');
         }
         window.setTimeout(() => {
-          window.location.href = 'buildings.html';
+          window.location.href = 'dashboard.html';
         }, 150);
         return;
       }

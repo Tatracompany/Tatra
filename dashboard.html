@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css?v=39">
+</head>
+<body data-page="dashboard">
+  <div class="workspace-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <p class="eyebrow">Landlord Panel</p>
+        <h2>Property Manager</h2>
+        <span id="sidebarUser" class="sidebar-user">owner@local</span><div class="sidebar-actions"><button type="button" class="sidebar-logout" data-logout-button>Log out</button></div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-link active" href="dashboard.html">1. Dashboard</a>
+        <a class="nav-link" href="buildings.html">2. Buildings</a>
+        <a class="nav-link" href="tenants.html">3. Tenants</a>
+        <a class="nav-link" href="history.html">4. History</a>
+        <a class="nav-link" href="due.html">5. Due</a>
+        <a class="nav-link" href="vacant.html">6. Vacant</a>
+        <a class="nav-link" href="activity.html">7. Activity</a>
+        <a class="nav-link" data-admin-link href="admin.html">8. Admin</a>
+      </nav>
+    </aside>
+    <div class="page-shell wide-page-shell">
+      <header class="hero compact-hero">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h1>Monthly overview</h1>
+          <p class="hero-copy">A quick view of collected money, open due, building pressure points, and contract alerts for the active month.</p>
+        </div>
+        <div class="hero-month-chip">
+          <span class="section-label">Working month</span>
+          <strong id="currentMonthLabel">January 2026</strong>
+        </div>
+      </header>
+      <main class="layout dashboard-layout">
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Overview</p>
+              <h2>Monthly headline</h2>
+            </div>
+          </div>
+          <div id="statsGrid" class="stats-grid"></div>
+        </section>
+        <section class="panel dashboard-panel-split">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Status</p>
+              <h2>Tenant status mix</h2>
+            </div>
+          </div>
+          <div id="dashboardStatusGraph" class="graph-panel"></div>
+        </section>
+        <section class="panel dashboard-panel-split">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Areas</p>
+              <h2>Area collection vs due</h2>
+            </div>
+          </div>
+          <div id="dashboardAreaGraph" class="area-graph-grid"></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Buildings</p>
+              <h2>Highest pressure buildings</h2>
+            </div>
+          </div>
+          <div id="buildingMiniGrid" class="mini-building-grid"></div>
+        </section>
+        <section class="panel">
+          <div class="section-heading">
+            <div>
+              <p class="section-label">Contracts</p>
+              <h2>Renewal alerts</h2>
+            </div>
+          </div>
+          <div id="contractAlert" class="contract-alert-grid"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="hawali-seeds.generated.js?v=5"></script>
+  <script src="extra-seeds.generated.js?v=3"></script>
+  <script src="db-state.generated.js?v=5"></script>
+  <script src="app-config.js?v=3"></script>
+  <script src="app-seed-data.js?v=3"></script>
+  <script src="app.js?v=185"></script>
+</body>
+</html>

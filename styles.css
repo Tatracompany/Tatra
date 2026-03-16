@@ -131,6 +131,23 @@ body[data-page="buildings"] .compact-panel { padding: 18px; }
 .stat-card, .mini-building-card { background: var(--surface-strong); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
 .stat-card strong { font-size: 1.6rem; display: block; margin: 8px 0; }
 .stat-label, .stat-note { color: var(--muted); }
+.dashboard-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+.dashboard-layout > .panel { grid-column: span 12; }
+.dashboard-panel-split { grid-column: span 6; }
+.hero-month-chip {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+.hero-month-chip strong { font-size: 1.15rem; }
+.graph-panel,
+.area-graph-grid,
+.contract-alert-grid { display: grid; gap: 12px; }
+.area-graph-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .dashboard-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .dashboard-graph { display: grid; gap: 12px; }
 .graph-row, .area-graph-card { display: grid; gap: 8px; }
@@ -589,17 +606,17 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .contract-page-grid strong { display: block; font-size: 0.96rem; }
 .table-subheading { margin: 4px 0 10px; }
 .building-table-shell { border-radius: 18px; }
-.table-scroll { position: relative; overflow-x: auto; overflow-y: visible; border: 1px solid #d8ccbc; border-radius: 12px; background: #fff; box-shadow: 0 6px 18px rgba(85, 68, 48, 0.05); }
-.building-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1400px; background: #fff; table-layout: fixed; }
-.building-table th, .building-table td { padding: 7px 7px; border-bottom: 1px solid #e3d9cb; text-align: left; vertical-align: middle; }
-.building-table th { position: sticky; top: 0; background: #f7f0e4; z-index: 6; white-space: normal; font-size: 0.74rem; font-weight: 700; line-height: 1.08; letter-spacing: 0; padding-top: 7px; padding-bottom: 7px; min-height: 38px; color: #5d5245; box-shadow: inset 0 -1px 0 #d8ccbc, 0 2px 0 rgba(216, 204, 188, 0.65); }
+.table-scroll { position: relative; overflow-x: auto; overflow-y: visible; border: 1px solid #d8ccbc; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgba(85, 68, 48, 0.06); }
+.building-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1400px; background: linear-gradient(180deg, #fffdfb 0%, #ffffff 100%); table-layout: fixed; }
+.building-table th, .building-table td { padding: 9px 8px; border-bottom: 1px solid #e3d9cb; text-align: left; vertical-align: middle; line-height: 1.28; }
+.building-table th { position: sticky; top: 0; background: #f7f0e4; z-index: 6; white-space: normal; font-size: 0.74rem; font-weight: 700; line-height: 1.08; letter-spacing: 0; padding-top: 8px; padding-bottom: 8px; min-height: 40px; color: #5d5245; box-shadow: inset 0 -1px 0 #d8ccbc, 0 2px 0 rgba(216, 204, 188, 0.65); }
 .building-table thead { position: sticky; top: 0; z-index: 5; }
 .tenant-table thead th { position: sticky; top: 0; z-index: 7; }
 .building-table th .header-stack { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; gap: 1px; }
-.building-table td { font-size: 0.81rem; }
+.building-table td { font-size: 0.82rem; }
 .building-table thead th { border-right: 1px solid #eadfce; }
 .building-table thead th:last-child { border-right: 0; }
-.building-table tfoot td { background: #faf4e9; border-top: 1px solid #d8ccbc; }
+.building-table tfoot td { background: #faf4e9; border-top: 1px solid #d8ccbc; box-shadow: inset 0 1px 0 #e7dac6; }
 .building-table td.center, .building-table th.center { text-align: center; }
 .building-table td.amount, .building-table th.amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .building-table .table-amount-input {
@@ -645,6 +662,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table tr.is-dim { opacity: 0.78; }
 .building-table tr.clickable { cursor: pointer; }
 .building-table tr.clickable:hover { background: #fbf6ee; }
+.building-table tbody tr:hover td { background: rgba(248, 239, 226, 0.66); }
 .building-table tr.is-current-month-active td {
   background: #f4ead8;
   box-shadow: inset 0 1px 0 #dcc8a8, inset 0 -1px 0 #dcc8a8;
@@ -662,12 +680,12 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table tr.totals-row-muted td {
   background: #fbf6ed;
   color: #6d6559;
-  font-size: 1rem;
+  font-size: 0.92rem;
   padding-top: 12px;
   padding-bottom: 12px;
 }
 .building-table tr.totals-row-muted strong {
-  font-size: 1.08rem;
+  font-size: 0.98rem;
   font-weight: 700;
 }
 .building-table tbody tr:last-child td { border-bottom: 0; }
@@ -736,6 +754,14 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .input-page-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
 .input-card-form { background: #fbf7ef; border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
 .input-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+.due-table,
+.vacant-table { min-width: 1100px; }
+.due-table th,
+.vacant-table th { font-size: 0.78rem; }
+.due-table td,
+.vacant-table td { font-size: 0.84rem; }
+.due-table tfoot td,
+.vacant-table tfoot td { background: #f8f1e4; }
 .input-span-2 { grid-column: span 2; }
 .input-form-grid select#tenantVacantUnit { background: #fffdf8; }
 .input-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
@@ -941,6 +967,8 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
   .sidebar { position: static; }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-item-wide { grid-column: span 2; }
+  .dashboard-layout { grid-template-columns: 1fr; }
+  .dashboard-panel-split { grid-column: span 12; }
   .dashboard-chart-grid { grid-template-columns: 1fr; }
   .activity-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .payments-summary-grid, .contracts-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -969,6 +997,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
   .payment-row-head { flex-direction: column; align-items: flex-start; }
   .contract-page-grid { grid-template-columns: 1fr; }
   .section-heading { flex-direction: column; }
+  .hero-month-chip { width: 100%; }
   .input-form-grid { grid-template-columns: 1fr; }
   .account-form, .account-grid { grid-template-columns: 1fr; }
   .input-span-2 { grid-column: span 1; }
