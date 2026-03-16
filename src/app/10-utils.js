@@ -863,24 +863,72 @@
       .filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
   }
 
-  async function snapshotMonthFinancialsFromVisibleMonth(state, fromMonthKey, toMonthKey) {
-    const rows = buildMonthSnapshotRowsFromVisibleMonth(state, fromMonthKey).map((tenant) => ({
-        sourceTenantId: String(tenant.sourceTenantId || tenant.id || '').trim(),
-        contractRent: Number(tenant.contractRent || 0),
-        discount: Number(tenant.discount || 0),
-        actualRent: Number(tenant.displayActualRent || tenant.baseActualRent || tenant.rentDue || 0),
-        vacantAmount: Number(tenant.displayVacantAmount || 0),
-        prepaidFromBefore: Number(tenant.prepaidFromBefore || 0),
-        paidCurrent: Number(tenant.paidCurrent || 0),
-        previousDue: Number(tenant.previousDue || 0),
-        paidPrevious: Number(typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenant.id, fromMonthKey) : 0),
-        insuranceAmount: Number(tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0),
-        insurancePaidMonth: String(tenant.insurancePaidMonth || '').trim(),
-        prepaidAmount: Number(tenant.prepaidNext || 0),
-        plannedVacateDate: String(tenant.plannedVacateDate || '').trim(),
-        oldTenantDuePaid: Number(typeof getOldTenantDuePaidNote === 'function' ? getOldTenantDuePaidNote(state, tenant.building, tenant.unit, fromMonthKey) : 0),
-        notes: String(tenant.notes || '').trim()
+  function getVisibleBuildingMonthSnapshotOverrides() {
+    const overrides = new Map();
+    document.querySelectorAll('[data-tenant-row]').forEach((row) => {
+      const sourceTenantId = String(row.dataset.rowSourceTenantId || row.dataset.tenantRow || '').trim();
+      if (!sourceTenantId) return;
+      const contractInput = row.querySelector('[data-row-edit-contract]');
+      const discountInput = row.querySelector('[data-row-edit-discount]');
+      const currentMonthInput = row.querySelector('[data-row-edit-current-month]');
+      overrides.set(sourceTenantId, {
+        contractRent: contractInput ? Number(contractInput.value || 0) : undefined,
+        discount: discountInput ? Number(discountInput.value || 0) : undefined,
+        paidCurrent: currentMonthInput ? Number(currentMonthInput.value || 0) : undefined
+      });
+    });
+    document.querySelectorAll('[data-tenant-detail]').forEach((detail) => {
+      const row = detail.previousElementSibling;
+      const sourceTenantId = String(row && row.dataset && (row.dataset.rowSourceTenantId || row.dataset.tenantRow) || '').trim();
+      if (!sourceTenantId) return;
+      const current = overrides.get(sourceTenantId) || {};
+      const readNumber = (selector) => {
+        const input = detail.querySelector(selector);
+        return input ? Number(input.value || 0) : undefined;
+      };
+      const readText = (selector) => {
+        const input = detail.querySelector(selector);
+        return input ? String(input.value || '').trim() : undefined;
+      };
+      overrides.set(sourceTenantId, Object.assign({}, current, {
+        paidPrevious: readNumber('[data-edit-paid-previous]'),
+        prepaidFromBefore: readNumber('[data-edit-prepaid-from-before]'),
+        actualRent: readNumber('[data-edit-actual-rent]'),
+        vacantAmount: readNumber('[data-edit-vacant-amount]'),
+        insuranceAmount: readNumber('[data-edit-insurance-current]'),
+        insurancePaidMonth: readText('[data-edit-insurance-paid-month]'),
+        prepaidAmount: readNumber('[data-edit-prepaid]'),
+        oldTenantDuePaid: readNumber('[data-old-tenant-due-note]'),
+        plannedVacateDate: readText('[data-vacate-date]'),
+        notes: readText('[data-edit-notes]')
       }));
+    });
+    return overrides;
+  }
+
+  async function snapshotMonthFinancialsFromVisibleMonth(state, fromMonthKey, toMonthKey) {
+    const visibleOverrides = getVisibleBuildingMonthSnapshotOverrides();
+    const rows = buildMonthSnapshotRowsFromVisibleMonth(state, fromMonthKey).map((tenant) => {
+      const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
+      const override = visibleOverrides.get(sourceTenantId) || {};
+      return {
+        sourceTenantId,
+        contractRent: Number((override.contractRent ?? tenant.contractRent) || 0),
+        discount: Number((override.discount ?? tenant.discount) || 0),
+        actualRent: Number((override.actualRent ?? tenant.displayActualRent ?? tenant.baseActualRent ?? tenant.rentDue) || 0),
+        vacantAmount: Number((override.vacantAmount ?? tenant.displayVacantAmount) || 0),
+        prepaidFromBefore: Number((override.prepaidFromBefore ?? tenant.prepaidFromBefore) || 0),
+        paidCurrent: Number((override.paidCurrent ?? tenant.paidCurrent) || 0),
+        previousDue: Number(tenant.previousDue || 0),
+        paidPrevious: Number(override.paidPrevious ?? (typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenant.id, fromMonthKey) : 0)),
+        insuranceAmount: Number((override.insuranceAmount ?? tenant.insuranceAmount ?? tenant.insuranceCurrentAmount ?? tenant.insurancePreviousAmount) || 0),
+        insurancePaidMonth: String((override.insurancePaidMonth ?? tenant.insurancePaidMonth) || '').trim(),
+        prepaidAmount: Number((override.prepaidAmount ?? tenant.prepaidNext) || 0),
+        plannedVacateDate: String((override.plannedVacateDate ?? tenant.plannedVacateDate) || '').trim(),
+        oldTenantDuePaid: Number(override.oldTenantDuePaid ?? (typeof getOldTenantDuePaidNote === 'function' ? getOldTenantDuePaidNote(state, tenant.building, tenant.unit, fromMonthKey) : 0)),
+        notes: String((override.notes ?? tenant.notes) || '').trim()
+      };
+    });
     await syncCreateMonthTabToDb(toMonthKey, rows);
   }
 
