@@ -635,7 +635,17 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
   background: transparent;
   cursor: default;
 }
-.building-table td.notes-cell { max-width: 210px; color: var(--muted); font-size: 0.75rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.building-table td.notes-cell {
+  max-width: 320px;
+  min-width: 220px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: unset;
+  word-break: break-word;
+}
 .building-table col.screen-col-floor { width: 5%; }
 .building-table col.screen-col-unit { width: 4%; }
 .building-table col.screen-col-tenant { width: 15%; }
@@ -654,7 +664,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table col.screen-col-ins-current { width: 5.2%; }
 .building-table col.screen-col-ins-previous { width: 5.2%; }
 .building-table col.screen-col-old-due { width: 5.8%; }
-.building-table col.screen-col-notes { width: 6.2%; }
+.building-table col.screen-col-notes { width: 12%; }
 .building-table tbody tr:nth-child(even):not(.is-late):not(.is-planned-vacate):not(.is-archived-snapshot):not(.is-vacant) { background: #fffdfa; }
 .building-table tr.is-late { background: #fff3f1; }
 .building-table tr.is-planned-vacate { background: #fff9dd; }

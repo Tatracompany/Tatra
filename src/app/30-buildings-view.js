@@ -392,7 +392,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         <td class="amount">${formatBuildingAmountCell(tenant.insuranceCurrentAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.insurancePreviousAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(oldTenantDuePaid)}</td>
-        <td>${escapeHtml(getTenantNotesDisplay(tenant))}</td>
+        <td class="notes-cell">${escapeHtml(getTenantNotesDisplay(tenant))}</td>
       </tr>`;
     }).join('');
 
