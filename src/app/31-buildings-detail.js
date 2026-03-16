@@ -537,8 +537,15 @@
     const requestedCurrentMonthAmount = normalizeAmountInputValue(getDetailNumericInputValue(currentMonthInput, tenantForDisplay.paidCurrent || 0), allowDecimalAmounts);
     const contractRent = normalizeAmountInputValue(getDetailNumericInputValue(contractInput, tenantForDisplay.contractRent || 0), allowDecimalAmounts);
     const discount = normalizeAmountInputValue(getDetailNumericInputValue(discountInput, tenantForDisplay.discount || 0), allowDecimalAmounts);
-    const actualRentAmount = normalizeAmountInputValue(getDetailNumericInputValue(actualRentInput, tenantForDisplay.displayActualRent || tenantForDisplay.baseActualRent || tenantForDisplay.actualRent || 0), allowDecimalAmounts);
     const vacantAmount = normalizeAmountInputValue(getDetailNumericInputValue(vacantAmountInput, tenantForDisplay.displayVacantAmount || 0), allowDecimalAmounts);
+    const derivedActualRentAmount = Math.max(contractRent - discount - vacantAmount, 0);
+    const actualRentAmount = normalizeAmountInputValue(
+      getDetailNumericInputValue(
+        actualRentInput,
+        derivedActualRentAmount || tenantForDisplay.displayActualRent || tenantForDisplay.baseActualRent || tenantForDisplay.actualRent || 0
+      ),
+      allowDecimalAmounts
+    );
     const insuranceAmount = Math.max(0, getDetailNumericInputValue(insuranceCurrentInput, tenantForDisplay.insuranceAmount || tenantForDisplay.insuranceCurrentAmount || tenantForDisplay.insurancePreviousAmount || 0));
     const insurancePaidMonth = getDetailTextInputValue(insurancePaidMonthInput, tenantForDisplay.insurancePaidMonth || '');
     if (insurancePaidMonth && compareMonthKeys(insurancePaidMonth, selectedMonth) > 0) {
