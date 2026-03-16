@@ -32,6 +32,18 @@
     if (printButton) {
       printButton.addEventListener('click', () => printCurrentBuilding(state));
     }
+    const resetButton = document.getElementById('resetBuildingMonthButton');
+    if (resetButton) {
+      resetButton.addEventListener('click', async () => {
+        try {
+          await resetCurrentBuildingMonth(state);
+        } catch (error) {
+          if (typeof showFlashMessage === 'function') {
+            showFlashMessage(String(error && error.message || error || 'Reset failed.'));
+          }
+        }
+      });
+    }
   }
 
   async function runOneTimeMonthResetsBeforeLoad() {

@@ -459,6 +459,57 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     window.print();
   }
 
+  async function resetCurrentBuildingMonth(state) {
+    const buildingName = window.__selectedBuildingName || getDefaultBuildingName(state);
+    const selectedMonth = getSelectedBuildingMonth();
+    if (!buildingName || !canEditBuildingMonth(buildingName, selectedMonth)) return;
+    if (typeof flushVisibleCurrentMonthTableEditsBeforeMonthCreate === 'function') {
+      await flushVisibleCurrentMonthTableEditsBeforeMonthCreate(state);
+    }
+    if (typeof flushOpenInlineTenantEditsBeforeMonthCreate === 'function') {
+      await flushOpenInlineTenantEditsBeforeMonthCreate(state);
+    }
+    if (typeof refreshSnapshotAndDerivedState === 'function') {
+      await refreshSnapshotAndDerivedState(state);
+    }
+    const rowNodes = Array.from(document.querySelectorAll('[data-tenant-row]'));
+    const updates = rowNodes.map((row) => {
+      const tenant = typeof findVisibleTenantByRowContext === 'function'
+        ? findVisibleTenantByRowContext(state, row, selectedMonth)
+        : null;
+      if (!tenant || tenant.isVacant || tenant.isArchivedSnapshot) return null;
+      const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
+      if (!sourceTenantId) return null;
+      const totalUnpaidAmount = normalizeAmount(getBuildingTotalUnpaidAmount(state, tenant, selectedMonth));
+      return {
+        sourceTenantId,
+        unitId: String(tenant.unitId || '').trim(),
+        monthKey: selectedMonth,
+        carryOverride: Math.max(totalUnpaidAmount, 0),
+        paidOverride: normalizeAmount(Number(tenant.prepaidNext || 0)),
+        prepaidAmount: 0
+      };
+    }).filter(Boolean);
+    if (!updates.length) {
+      if (typeof showFlashMessage === 'function') {
+        showFlashMessage('No visible tenant rows to reset.');
+      }
+      return;
+    }
+    for (const payload of updates) {
+      if (typeof syncBuildingInlineEditToDb === 'function') {
+        await syncBuildingInlineEditToDb(payload);
+      }
+    }
+    if (typeof refreshSnapshotAndDerivedState === 'function') {
+      await refreshSnapshotAndDerivedState(state);
+    }
+    renderAll(state, buildingName);
+    if (typeof showFlashMessage === 'function') {
+      showFlashMessage(`${formatMonth(selectedMonth)} reset from visible rows.`);
+    }
+  }
+
   function renderBuildingRow(state, tenant, selectedMonth) {
     const badge = STATUS_META[tenant.status] || STATUS_META.upcoming;
     const previousPaid = getTenantDuePaidAmount(state, tenant.id, selectedMonth);
@@ -701,13 +752,13 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const insurancePreviousTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insurancePreviousAmount || 0), 0);
     const insuranceCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insuranceCurrentAmount || 0), 0);
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
-    const totalCurrentMonth = previousPaidTotal
+    const bankReceiptsTotal = previousPaidTotal
       + tenants.reduce((sum, tenant) => sum + getBuildingCurrentMonthSummaryAmount(tenant, selectedMonth), 0)
-      + prepaidTotal
       + insuranceCurrentTotal
       + oldTenantDuePaidTotal;
+    const totalCurrentMonth = bankReceiptsTotal + prepaidTotal;
     const januaryBaselineAdjustment = 0;
-    const totalInBank = totalCurrentMonth - januaryBaselineAdjustment;
+    const totalInBank = bankReceiptsTotal - prepaidTotal - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
     const countRows = summary
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Empty units</strong></td><td colspan="${summaryValueColspan}"><strong>${Math.max(Number(summary.totalUnits || 0) - Number(summary.occupied || 0), 0)}</strong></td></tr>
