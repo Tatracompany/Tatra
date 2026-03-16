@@ -912,7 +912,7 @@
   async function createMonthTab(monthKey) {
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedMonthKey) return null;
-    const sourceMonthKey = getLatestCreatedMonthKey();
+    const sourceMonthKey = addMonths(normalizedMonthKey, -1) || getLatestCreatedMonthKey();
     await flushVisibleCurrentMonthTableEditsBeforeMonthCreate(window.__appState);
     await flushOpenInlineTenantEditsBeforeMonthCreate(window.__appState);
     await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
