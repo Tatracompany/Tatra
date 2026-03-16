@@ -389,32 +389,36 @@
     const discountInput = findDetailInputByFieldId('data-edit-discount', fieldTenantId, selectedMonth, 'discount');
     const vacantAmountInput = findDetailInputByFieldId('data-edit-vacant-amount', fieldTenantId, selectedMonth, 'vacant_amount');
     const actualRentInput = findDetailInputByFieldId('data-edit-actual-rent', fieldTenantId, selectedMonth, 'actual_rent');
-    bindPreviousDuePanelInputs(previousDueInput || previousDueDisplayInput, paidPreviousInput);
+    bindPreviousDuePanelInputs(previousDueInput || previousDueDisplayInput, paidPreviousInput, fieldTenantId);
     bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts);
   }
 
-  function bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput) {
+  function bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput, tenantId) {
     if (!previousDueInput || !paidPreviousInput) return;
-    let linkedTotal = Math.max(
-      0,
-      normalizeAmount(Number(previousDueInput.value || 0)) + normalizeAmount(Number(paidPreviousInput.value || 0))
-    );
-    let syncing = false;
-    previousDueInput.addEventListener('input', () => {
-      if (syncing) return;
+    const syncCurrentMonthLock = () => {
+      const currentMonthInput = findDetailInputByFieldId('data-edit-current-month', tenantId, getSelectedBuildingMonth(), 'current_month');
       const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
       const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
+      if (!currentMonthInput) return;
+      if (paidValue >= previousValue) {
+        currentMonthInput.readOnly = false;
+        currentMonthInput.removeAttribute('aria-readonly');
+      } else {
+        currentMonthInput.readOnly = true;
+        currentMonthInput.setAttribute('aria-readonly', 'true');
+      }
+    };
+    previousDueInput.addEventListener('input', () => {
+      const previousValue = normalizeAmount(Math.max(0, Number(previousDueInput.value || 0)));
       previousDueInput.value = formatAmountInputValue(previousValue, true);
-      linkedTotal = previousValue + paidValue;
+      syncCurrentMonthLock();
     });
     paidPreviousInput.addEventListener('input', () => {
-      if (syncing) return;
-      syncing = true;
       const paidValue = normalizeAmount(Math.max(0, Number(paidPreviousInput.value || 0)));
       paidPreviousInput.value = formatBlankAmountInputValue(paidValue, true);
-      previousDueInput.value = formatAmountInputValue(Math.max(linkedTotal - paidValue, 0), true);
-      syncing = false;
+      syncCurrentMonthLock();
     });
+    syncCurrentMonthLock();
   }
 
   function bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts) {

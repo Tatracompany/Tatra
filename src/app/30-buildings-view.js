@@ -477,7 +477,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const isLockedBaseline = typeof isBuildingMonthLocked === 'function' ? isBuildingMonthLocked(tenant.building, selectedMonth) : false;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
-    const hasPastDueToClearFirst = normalizeAmount(Number(tenant.previousDue || 0)) > 0;
+    const hasPastDueToClearFirst = normalizeAmount(Number(tenant.previousDue || 0)) > normalizeAmount(Number(previousPaid || 0));
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
     const contractAmountValue = formatBlankAmountInputValue(getBuildingContractAmount(tenant), allowDecimalAmounts);
