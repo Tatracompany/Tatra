@@ -487,6 +487,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         monthKey: selectedMonth,
         carryOverride: Math.max(totalUnpaidAmount, 0),
         paidOverride: normalizeAmount(Number(tenant.prepaidNext || 0)),
+        oldTenantDuePaid: 0,
         prepaidAmount: 0
       };
     }).filter(Boolean);
