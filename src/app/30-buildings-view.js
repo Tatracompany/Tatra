@@ -81,6 +81,13 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
 
   function getBuildingContractAmount(tenant) {
     if (!tenant) return 0;
+    if (tenant.isVacant) {
+      return Number(
+        tenant.lastContractRent > 0
+          ? tenant.lastContractRent
+          : (tenant.contractRent || tenant.displayVacantAmount || tenant.lastActualRent || 0)
+      );
+    }
     return Number(
       tenant.contractRent > 0
         ? tenant.contractRent
