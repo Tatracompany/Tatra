@@ -776,7 +776,7 @@ async function createMonthTabInDatabase(payload) {
         ['opening_credit', String(Number(row && row.prepaidFromBefore || 0))],
         ['carry', String(Number((row && row.previousDue || 0) + (row && row.paidPrevious || 0) || 0))],
         ['paid', String(Number(row && row.paidCurrent || 0))],
-        ['prepaid_next', String(Number(row && row.prepaidNext || 0))],
+        ['prepaid_next', String(Number((row && (row.prepaidNext ?? row.prepaidAmount)) || 0))],
         ['insurance_amount', String(Number(row && row.insuranceAmount || 0))],
         ['insurance_paid_month', String(row && row.insurancePaidMonth || '').trim()],
         ['planned_vacate_date', String(row && row.plannedVacateDate || '').trim()],
