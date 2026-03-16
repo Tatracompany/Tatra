@@ -661,11 +661,9 @@
       return null;
     }
     const duplicateHistoryMatch = findExistingTenantHistoryMatch(payload.nextTenantData);
-    if (duplicateHistoryMatch) {
-      const reasonText = duplicateHistoryMatch.reasons.length ? duplicateHistoryMatch.reasons.join(', ') : 'saved history';
-      showFlashMessage(`Tenant already exists in history by ${reasonText}.`);
-      return null;
-    }
+    const duplicateHistoryWarning = duplicateHistoryMatch
+      ? `There is saved data about this tenant by ${duplicateHistoryMatch.reasons.length ? duplicateHistoryMatch.reasons.join(', ') : 'saved history'}.`
+      : '';
     if (!payload.nextTenantData.contractEnd) {
       alert('Enter contract end date.');
       return null;
@@ -698,8 +696,9 @@
     restoreBuildingFinancialSnapshot(state, buildingFinancialSnapshot, buildingName, tenant.unit, tenant.floor);
     saveState(state);
     try {
+      let serverWarning = '';
       if (typeof syncCreateTenantToDb === 'function') {
-        await syncCreateTenantToDb({
+        const createResult = await syncCreateTenantToDb({
           buildingName: tenant.building,
           unit: tenant.unit,
           floor: tenant.floor,
@@ -720,14 +719,16 @@
           insurancePaidMonth: tenant.insurancePaidMonth,
           notes: tenant.notes
         });
+        serverWarning = String(createResult && createResult.warning || '').trim();
       }
       logActivity(state, 'Tenant created', `${tenant.building} ${tenant.unit} ${tenant.name}`);
       renderAll(state, tenant.building);
+      const warningMessage = serverWarning || duplicateHistoryWarning;
       const visibleFromMonth = getMonthKeyFromDate(tenant.moveInDate || tenant.contractStart || '');
       if (visibleFromMonth && compareMonthKeys(selectedMonth, visibleFromMonth) < 0) {
-        showFlashMessage(`Tenant saved for ${tenant.building} ${tenant.unit}. It will appear starting ${formatMonth(visibleFromMonth)}.`);
+        showFlashMessage(`Tenant saved for ${tenant.building} ${tenant.unit}. It will appear starting ${formatMonth(visibleFromMonth)}.${warningMessage ? ` ${warningMessage}` : ''}`);
       } else {
-        showFlashMessage(`Tenant saved for ${tenant.building} ${tenant.unit}.`);
+        showFlashMessage(`Tenant saved for ${tenant.building} ${tenant.unit}.${warningMessage ? ` ${warningMessage}` : ''}`);
       }
       return tenant;
     } catch (error) {

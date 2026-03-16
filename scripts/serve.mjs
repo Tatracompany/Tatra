@@ -1363,6 +1363,7 @@ async function createTenantInDatabase(payload) {
   const civilId = String(payload && payload.civilId || '').trim();
   const contractStart = String(payload && payload.contractStart || '').trim();
   const contractEnd = String(payload && payload.contractEnd || '').trim();
+  let duplicateWarning = '';
   if (!buildingName || !unit || !tenantName || !contractStart || !contractEnd) {
     throw new Error('buildingName, unit, name, contractStart, and contractEnd are required.');
   }
@@ -1393,12 +1394,10 @@ async function createTenantInDatabase(payload) {
       civilId
     });
     if (duplicateMatches.length) {
-      const allowedReturn = existingProfileId
-        && duplicateMatches.every((item) => String(item && item.profile && item.profile.id || '').trim() === existingProfileId);
-      if (!allowedReturn) {
-      const duplicateReasons = duplicateMatches.map((item) => String(item && item.matchedBy || '').trim()).filter(Boolean).join(', ');
-      throw new Error(`Tenant already exists in history. Match found by ${duplicateReasons}.`);
-      }
+      const duplicateReasons = duplicateMatches
+        .map((item) => String(item && item.matchedBy || '').trim())
+        .filter(Boolean);
+      duplicateWarning = `There is saved data about this tenant by ${duplicateReasons.join(', ')}.`;
     }
     if (existingProfileId) {
       const existingProfile = await database.prepare(`
@@ -1494,7 +1493,10 @@ async function createTenantInDatabase(payload) {
   } finally {
     await database.close();
   }
-  return await exportSnapshotToBrowserFile();
+  return {
+    snapshot: await exportSnapshotToBrowserFile(),
+    warning: duplicateWarning
+  };
 }
 
 async function repairTenantProfilesInDatabase() {
@@ -1943,11 +1945,12 @@ async function handleApiRequest(request, response, requestUrl) {
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/create-tenant') {
     try {
       const body = await readJsonBody(request);
-      const snapshot = await createTenantInDatabase(body);
+      const result = await createTenantInDatabase(body);
       sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
-        counts: snapshot.counts
+        counts: result && result.snapshot ? result.snapshot.counts : null,
+        warning: result && result.warning ? result.warning : ''
       });
     } catch (error) {
       sendJson(response, 500, {
