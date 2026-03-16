@@ -289,7 +289,7 @@
     detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
       <div class="detail-grid">
         <div class="detail-item"><span class="label">Mark selected month</span><button type="button" class="secondary-action" data-mark-paid="${escapeHtml(tenant.id)}"${markPaidButtonDisabledAttr}>${isLockedBaseline ? 'Locked baseline' : markSelectedMonthLabel}</button></div>
-        <div class="detail-item"><span class="label">Unpaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(formatBlankAmountInputValue(tenant.previousDue || 0, allowDecimalAmounts))}" readonly aria-readonly="true"></div>
+        <div class="detail-item"><span class="label">Unpaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-display-previous-due="${escapeHtml(tenant.id)}" value="${escapeHtml(formatBlankAmountInputValue(tenant.previousDue || 0, allowDecimalAmounts))}" readonly aria-readonly="true"></div>
         <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'paid_previous'))}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Vacant amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-vacant-amount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'vacant_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayVacantAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
@@ -383,12 +383,13 @@
       });
     }
     const previousDueInput = findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_total');
+    const previousDueDisplayInput = findDetailInput('data-display-previous-due', fieldTenantId);
     const paidPreviousInput = findDetailInputByFieldId('data-edit-paid-previous', fieldTenantId, selectedMonth, 'paid_previous');
     const contractInput = findDetailInputByFieldId('data-edit-contract', fieldTenantId, selectedMonth, 'contract_amount');
     const discountInput = findDetailInputByFieldId('data-edit-discount', fieldTenantId, selectedMonth, 'discount');
     const vacantAmountInput = findDetailInputByFieldId('data-edit-vacant-amount', fieldTenantId, selectedMonth, 'vacant_amount');
     const actualRentInput = findDetailInputByFieldId('data-edit-actual-rent', fieldTenantId, selectedMonth, 'actual_rent');
-    bindPreviousDuePanelInputs(previousDueInput, paidPreviousInput);
+    bindPreviousDuePanelInputs(previousDueInput || previousDueDisplayInput, paidPreviousInput);
     bindActualRentPanelInputs(contractInput, discountInput, vacantAmountInput, actualRentInput, allowDecimalAmounts);
   }
 
