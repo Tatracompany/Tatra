@@ -884,10 +884,26 @@
     await syncCreateMonthTabToDb(toMonthKey, rows);
   }
 
+  async function flushVisibleCurrentMonthTableEditsBeforeMonthCreate(state) {
+    if (typeof saveBuildingCurrentMonthFromTable !== 'function') return;
+    const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month]'))
+      .filter((input) => {
+        if (!input) return false;
+        if (input.readOnly || input.disabled) return false;
+        const currentValue = String(input.value || '').trim();
+        const initialValue = String(input.dataset.initialValue || '').trim();
+        return currentValue !== initialValue;
+      });
+    for (const input of inputs) {
+      await saveBuildingCurrentMonthFromTable(state, input);
+    }
+  }
+
   async function createMonthTab(monthKey) {
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedMonthKey) return null;
     const sourceMonthKey = getLatestCreatedMonthKey();
+    await flushVisibleCurrentMonthTableEditsBeforeMonthCreate(window.__appState);
     await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
