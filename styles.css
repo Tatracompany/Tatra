@@ -602,6 +602,22 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table tfoot td { background: #faf4e9; border-top: 1px solid #d8ccbc; }
 .building-table td.center, .building-table th.center { text-align: center; }
 .building-table td.amount, .building-table th.amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.building-table .table-amount-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d9ccb9;
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 4px 6px;
+  text-align: right;
+  font: inherit;
+  color: inherit;
+}
+.building-table .table-amount-input[readonly] {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+}
 .building-table td.notes-cell { max-width: 210px; color: var(--muted); font-size: 0.75rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .building-table col.screen-col-floor { width: 5%; }
 .building-table col.screen-col-unit { width: 4%; }

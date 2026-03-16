@@ -288,7 +288,6 @@
         <div class="detail-item"><span class="label">Unpaid total</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'unpaid_total'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.totalDue, allowDecimalAmounts))}"${readOnlyAttr}${protectedFinancialReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'paid_previous'))}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Current month</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'current_month'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts))}"${readOnlyAttr}${protectedFinancialReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Contract amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-contract="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'contract_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(stableContractAmount, allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Discount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-discount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'discount'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.discount, allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Vacant amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-vacant-amount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'vacant_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayVacantAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
@@ -477,7 +476,7 @@
     return archivedTenant ? String(archivedTenant.archivedOn || archivedTenant.contractEnd || '') : '';
   }
 
-  async function saveTenantInlineEdit(state, tenantId) {
+  async function saveTenantInlineEdit(state, tenantId, options = {}) {
     const rowUiState = captureBuildingRowUiState(tenantId);
     const row = findTenantRow(tenantId);
     const selectedMonth = getSelectedBuildingMonth();
@@ -612,7 +611,14 @@
     }
     logActivity(state, 'Tenant updated', `${tenantForDisplay.building} ${tenantForDisplay.unit} ${formatMonth(selectedMonth)} current month ${currentMonthAmount} / unpaid total ${unpaidTotalAmount} / paid previous ${paidPreviousAmount} / prepaid ${formatCurrency(prepaidAmount)} / vacant ${formatCurrency(vacantAmount)} / old tenant due paid ${formatCurrency(oldTenantDuePaidNote)} / contract ${contractRent} / discount ${discount} / actual ${actualRentAmount} / insurance ${insuranceAmount} in ${insurancePaidMonth || 'not set'} / planned vacate ${plannedVacateDate || 'not set'} / notes updated`);
     renderAll(state, tenantForDisplay.building);
-    restoreBuildingRowUiState(state, rowUiState);
+    if (options && options.reopenDetail === false) {
+      const rowAfterRender = findBuildingRowByUiState(rowUiState);
+      if (rowAfterRender && Math.abs((rowAfterRender.getBoundingClientRect().top || 0) - Number(rowUiState && rowUiState.top || 0)) > 1) {
+        window.scrollBy(0, rowAfterRender.getBoundingClientRect().top - Number(rowUiState.top || 0));
+      }
+    } else {
+      restoreBuildingRowUiState(state, rowUiState);
+    }
     showFlashMessage(`Saved ${tenantForDisplay.building} ${tenantForDisplay.unit}.`);
   }
 
