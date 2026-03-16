@@ -132,7 +132,7 @@
 
   function formatAmountInputValue(value, allowDecimals) {
     const normalized = normalizeAmountInputValue(value, !!allowDecimals);
-    return normalized.toFixed(3);
+    return normalized > 0 ? normalized.toFixed(3) : '';
   }
 
   function formatBlankAmountInputValue(value, allowDecimals) {
