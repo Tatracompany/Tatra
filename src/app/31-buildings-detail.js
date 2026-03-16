@@ -550,9 +550,10 @@
     }
     const baseActualRent = tenant && shouldUpdateBaseTenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
     const effectiveRentDue = Math.max(actualRentAmount, 0);
-    const prepaidFromBeforeAmount = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0
-      ? normalizeAmountInputValue(getDetailNumericInputValue(prepaidFromBeforeInput, tenantForDisplay.prepaidFromBefore || 0), allowDecimalAmounts)
-      : normalizeAmountInputValue(tenantForDisplay.prepaidFromBefore || 0, allowDecimalAmounts);
+    const prepaidFromBeforeAmount = normalizeAmountInputValue(
+      getDetailNumericInputValue(prepaidFromBeforeInput, tenantForDisplay.prepaidFromBefore || 0),
+      allowDecimalAmounts
+    );
     const currentMonthAmount = requestedCurrentMonthAmount;
     const remainingCurrentAmount = Math.max(effectiveRentDue - prepaidFromBeforeAmount - currentMonthAmount, 0);
     const unpaidTotalAmount = isProtectedBaselinePrepaid

@@ -908,7 +908,7 @@ async function saveBuildingInlineEditToDatabase(payload) {
     if (hasPayloadField('prepaidAmount')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'prepaid_next', String(Number(payload && payload.prepaidAmount || 0)));
     }
-    if (!shouldUpdateBaseTenancy && hasPayloadField('openingCreditAmount')) {
+    if (hasPayloadField('openingCreditAmount')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'opening_credit', String(Number(payload && payload.openingCreditAmount || 0)));
     }
     if (hasPayloadField('oldTenantDuePaid')) {
