@@ -289,7 +289,6 @@
     detailRow.innerHTML = `<td colspan="${getCurrentBuildingDetailColspan()}" class="building-row-detail">
       <div class="detail-grid">
         <div class="detail-item"><span class="label">Mark selected month</span><button type="button" class="secondary-action" data-mark-paid="${escapeHtml(tenant.id)}"${markPaidButtonDisabledAttr}>${isLockedBaseline ? 'Locked baseline' : markSelectedMonthLabel}</button></div>
-      <div class="detail-item"><span class="label">Unpaid total</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'unpaid_total'))}" value="${escapeHtml(formatAmountInputValue(normalizeAmount(Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0)), allowDecimalAmounts))}"${readOnlyAttr}${protectedFinancialReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'paid_previous'))}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Vacant amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-vacant-amount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'vacant_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayVacantAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
@@ -532,7 +531,6 @@
     const shouldUpdateBaseTenant = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenantForDisplay, selectedMonth);
-    const requestedUnpaidTotalAmount = normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenantForDisplay.totalDue || tenantForDisplay.previousDue || 0), allowDecimalAmounts);
     const paidPreviousAmount = normalizeAmountInputValue(getDetailNumericInputValue(paidPreviousInput, 0), allowDecimalAmounts);
     const requestedCurrentMonthAmount = normalizeAmountInputValue(getDetailNumericInputValue(currentMonthInput, tenantForDisplay.paidCurrent || 0), allowDecimalAmounts);
     const contractRent = normalizeAmountInputValue(getDetailNumericInputValue(contractInput, tenantForDisplay.contractRent || 0), allowDecimalAmounts);
@@ -560,10 +558,19 @@
     );
     const currentMonthAmount = requestedCurrentMonthAmount;
     const remainingCurrentAmount = Math.max(effectiveRentDue - currentMonthAmount, 0);
+    const existingPaidPreviousAmount = normalizeAmount(
+      typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenantForDisplay.id, selectedMonth) : 0
+    );
+    const existingPreviousBucketAmount = normalizeAmount(Number(tenantForDisplay.previousDue || 0) + existingPaidPreviousAmount);
+    const requestedUnpaidTotalAmount = previousDueInput
+      ? normalizeAmountInputValue(getDetailNumericInputValue(previousDueInput, tenantForDisplay.totalDue || tenantForDisplay.previousDue || 0), allowDecimalAmounts)
+      : normalizeAmount(remainingCurrentAmount + Math.max(existingPreviousBucketAmount - paidPreviousAmount, 0));
     const unpaidTotalAmount = isProtectedBaselinePrepaid
       ? remainingCurrentAmount
       : requestedUnpaidTotalAmount;
-    const previousDueAmount = Math.max(unpaidTotalAmount - remainingCurrentAmount, 0);
+    const previousDueAmount = previousDueInput
+      ? Math.max(unpaidTotalAmount - remainingCurrentAmount, 0)
+      : Math.max(existingPreviousBucketAmount - paidPreviousAmount, 0);
     if (tenant && shouldUpdateBaseTenant && insuranceAmount > 0 && insurancePaidMonth) {
       tenant.insuranceAmount = insuranceAmount;
       tenant.insurancePaidMonth = insurancePaidMonth;

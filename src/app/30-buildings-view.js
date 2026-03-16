@@ -1,4 +1,4 @@
-  const BUILDING_TABLE_COLUMN_COUNT = 18;
+const BUILDING_TABLE_COLUMN_COUNT = 19;
 
   function getDefaultBuildingName(state) {
     return (state.buildings[0] && state.buildings[0].name) || '';
@@ -302,7 +302,7 @@
 
     const rows = tenants.map((tenant) => renderBuildingRow(state, tenant, selectedMonth)).join('');
     const totals = renderBuildingTotalsRow(state, tenants, selectedMonth, summary);
-    container.innerHTML = `<div class="table-scroll"><table class="building-table"><colgroup><col class="screen-col-floor"><col class="screen-col-unit"><col class="screen-col-tenant"><col class="screen-col-status"><col class="screen-col-contract"><col class="screen-col-discount"><col class="screen-col-vacant"><col class="screen-col-actual"><col class="screen-col-prepaid-before"><col class="screen-col-current"><col class="screen-col-paid-previous"><col class="screen-col-prepaid"><col class="screen-col-unpaid"><col class="screen-col-total-unpaid"><col class="screen-col-ins-current"><col class="screen-col-ins-previous"><col class="screen-col-old-due"><col class="screen-col-notes"></colgroup><thead><tr><th>Floor</th><th>Unit</th><th>Tenant</th><th>Status</th><th class="amount"><span class="header-stack"><span>Contract</span><span>amount</span></span></th><th class="amount">Discount</th><th class="amount">Vacant</th><th class="amount"><span class="header-stack"><span>Actual</span><span>rent</span></span></th><th class="amount"><span class="header-stack"><span>Prepaid</span><span>from before</span></span></th><th class="center"><span class="header-stack"><span>Current</span><span>month</span></span></th><th class="amount"><span class="header-stack"><span>Paid</span><span>previous</span></span></th><th class="amount">Prepaid</th><th class="amount">Unpaid</th><th class="amount"><span class="header-stack"><span>Total</span><span>unpaid</span></span></th><th class="amount"><span class="header-stack"><span>Insurance</span><span>current</span></span></th><th class="amount"><span class="header-stack"><span>Insurance</span><span>previous</span></span></th><th class="amount"><span class="header-stack"><span>Old tenant</span><span>due paid</span></span></th><th>Notes</th></tr></thead><tbody>${rows}</tbody><tfoot>${totals}</tfoot></table></div>`;
+    container.innerHTML = `<div class="table-scroll"><table class="building-table"><colgroup><col class="screen-col-floor"><col class="screen-col-unit"><col class="screen-col-tenant"><col class="screen-col-status"><col class="screen-col-contract"><col class="screen-col-discount"><col class="screen-col-vacant"><col class="screen-col-actual"><col class="screen-col-unpaid-before"><col class="screen-col-prepaid-before"><col class="screen-col-current"><col class="screen-col-paid-previous"><col class="screen-col-prepaid"><col class="screen-col-unpaid"><col class="screen-col-total-unpaid"><col class="screen-col-ins-current"><col class="screen-col-ins-previous"><col class="screen-col-old-due"><col class="screen-col-notes"></colgroup><thead><tr><th>Floor</th><th>Unit</th><th>Tenant</th><th>Status</th><th class="amount"><span class="header-stack"><span>Contract</span><span>amount</span></span></th><th class="amount">Discount</th><th class="amount">Vacant</th><th class="amount"><span class="header-stack"><span>Actual</span><span>rent</span></span></th><th class="amount"><span class="header-stack"><span>Unpaid</span><span>from before</span></span></th><th class="amount"><span class="header-stack"><span>Prepaid</span><span>from before</span></span></th><th class="center"><span class="header-stack"><span>Current</span><span>month</span></span></th><th class="amount"><span class="header-stack"><span>Paid</span><span>previous</span></span></th><th class="amount">Prepaid</th><th class="amount">Unpaid</th><th class="amount"><span class="header-stack"><span>Total</span><span>unpaid</span></span></th><th class="amount"><span class="header-stack"><span>Insurance</span><span>current</span></span></th><th class="amount"><span class="header-stack"><span>Insurance</span><span>previous</span></span></th><th class="amount"><span class="header-stack"><span>Old tenant</span><span>due paid</span></span></th><th>Notes</th></tr></thead><tbody>${rows}</tbody><tfoot>${totals}</tfoot></table></div>`;
 
     container.querySelectorAll('[data-tenant-row]').forEach((row) => {
       row.addEventListener('click', () => toggleTenantRowDetail(state, row.dataset.tenantRow, row));
@@ -367,6 +367,7 @@
         <td class="amount">${formatBuildingAmountCell(Number(tenant.discount || 0))}</td>
         <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
+        <td class="amount">${formatBuildingAmountCell(tenant.previousDue)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.prepaidFromBefore)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.paidCurrent)}</td>
         <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
@@ -402,6 +403,7 @@
         <col class="print-col-money">
         <col class="print-col-money">
         <col class="print-col-money">
+        <col class="print-col-money">
         <col class="print-col-notes">
       </colgroup>
       <thead><tr>
@@ -413,6 +415,7 @@
         <th class="amount">Discount</th>
         <th class="amount">Vacant</th>
         <th class="amount"><span class="print-header-stack"><span>Actual</span><span>rent</span></span></th>
+        <th class="amount"><span class="print-header-stack"><span>Unpaid</span><span>before</span></span></th>
         <th class="amount"><span class="print-header-stack"><span>Prepaid</span><span>before</span></span></th>
         <th class="amount"><span class="print-header-stack"><span>Current</span><span>month</span></span></th>
         <th class="amount"><span class="print-header-stack"><span>Paid</span><span>previous</span></span></th>
@@ -495,6 +498,7 @@
       <td class="center">${discountInput}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
+      <td class="amount">${formatBuildingAmountCell(tenant.previousDue)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.prepaidFromBefore)}</td>
       <td class="center">${currentMonthInput}</td>
       <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
@@ -673,6 +677,7 @@
     const actualRentTotal = tenants.reduce((sum, tenant) => sum + getBuildingActualAmount(tenant), 0);
     const discountTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.discount || 0), 0);
     const vacantTotal = tenants.reduce((sum, tenant) => sum + getBuildingVacantAmount(tenant), 0);
+    const unpaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.previousDue || 0), 0);
     const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant && tenant.paidCurrent || 0), 0);
     const previousPaidTotal = tenants.reduce((sum, tenant) => sum + Number(getTenantDuePaidAmount(state, tenant.id, selectedMonth) || 0), 0);
     const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
@@ -697,7 +702,7 @@
     const baselineAdjustmentRow = januaryBaselineAdjustment > 0
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Baseline December prepaid</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(januaryBaselineAdjustment)}</strong></td></tr>`
       : '';
-    return `<tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(contractRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(discountTotal)}</strong></td><td class="amount"><strong>${formatCurrency(vacantTotal)}</strong></td><td class="amount"><strong>${formatCurrency(actualRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidFromBeforeTotal)}</strong></td><td class="center"><strong>${formatCurrency(paidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(previousPaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insuranceCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insurancePreviousTotal)}</strong></td><td class="amount"><strong>${formatCurrency(oldTenantDuePaidTotal)}</strong></td><td></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total current month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalCurrentMonth)}</strong></td></tr>${baselineAdjustmentRow}<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total in bank</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalInBank)}</strong></td></tr>${countRows}`;
+    return `<tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(contractRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(discountTotal)}</strong></td><td class="amount"><strong>${formatCurrency(vacantTotal)}</strong></td><td class="amount"><strong>${formatCurrency(actualRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidFromBeforeTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidFromBeforeTotal)}</strong></td><td class="center"><strong>${formatCurrency(paidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(previousPaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insuranceCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insurancePreviousTotal)}</strong></td><td class="amount"><strong>${formatCurrency(oldTenantDuePaidTotal)}</strong></td><td></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total current month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalCurrentMonth)}</strong></td></tr>${baselineAdjustmentRow}<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total in bank</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalInBank)}</strong></td></tr>${countRows}`;
   }
 
   function renderBuildingsPage(state, selectedBuilding) {

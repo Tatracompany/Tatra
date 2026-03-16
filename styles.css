@@ -627,6 +627,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table col.screen-col-discount { width: 4.5%; }
 .building-table col.screen-col-vacant { width: 4.5%; }
 .building-table col.screen-col-actual { width: 5.8%; }
+.building-table col.screen-col-unpaid-before { width: 5.8%; }
 .building-table col.screen-col-prepaid-before { width: 5.8%; }
 .building-table col.screen-col-current { width: 5.3%; }
 .building-table col.screen-col-paid-previous { width: 5.3%; }
