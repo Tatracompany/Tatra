@@ -493,10 +493,10 @@
           await saveBuildingCurrentMonthFromTable(state, input);
           return;
         }
-        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
         event.preventDefault();
         event.stopPropagation();
-        const direction = (event.key === 'ArrowUp' || event.key === 'ArrowLeft') ? -1 : 1;
+        const direction = event.key === 'ArrowUp' ? -1 : 1;
         await moveBuildingCurrentMonthFocus(state, input, direction);
       });
       input.addEventListener('blur', async () => {
