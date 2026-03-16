@@ -899,11 +899,22 @@
     }
   }
 
+  async function flushOpenInlineTenantEditsBeforeMonthCreate(state) {
+    if (typeof saveTenantInlineEdit !== 'function') return;
+    const openDetails = Array.from(document.querySelectorAll('[data-tenant-detail]'));
+    for (const detail of openDetails) {
+      const tenantId = String(detail && detail.getAttribute('data-tenant-detail') || '').trim();
+      if (!tenantId) continue;
+      await saveTenantInlineEdit(state, tenantId, { reopenDetail: true });
+    }
+  }
+
   async function createMonthTab(monthKey) {
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedMonthKey) return null;
     const sourceMonthKey = getLatestCreatedMonthKey();
     await flushVisibleCurrentMonthTableEditsBeforeMonthCreate(window.__appState);
+    await flushOpenInlineTenantEditsBeforeMonthCreate(window.__appState);
     await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
