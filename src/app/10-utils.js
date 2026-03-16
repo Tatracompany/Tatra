@@ -366,6 +366,23 @@
     }
   }
 
+  function runOneTimeClientCleanup() {
+    const cleanupKey = 'tatra-client-cleanup-v1';
+    try {
+      if (localStorage.getItem(cleanupKey) === 'done') return;
+      localStorage.removeItem('tatra-created-months');
+      localStorage.removeItem('tatra-created-months-v1');
+      localStorage.removeItem(BUILDING_VIEW_KEY);
+      localStorage.removeItem(TENANT_VIEW_KEY);
+      localStorage.removeItem(ACTIVE_MONTH_KEY);
+      localStorage.setItem(cleanupKey, 'done');
+    } catch (_error) {
+      // Ignore storage cleanup failures.
+    }
+  }
+
+  runOneTimeClientCleanup();
+
   function getTabSessionId() {
     if (window.__tatraTabSessionId) return window.__tatraTabSessionId;
     let sessionId = '';
