@@ -58,7 +58,9 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
 
   function formatBuildingAmountCell(value) {
     const numericValue = Number(value || 0);
-    return Math.abs(numericValue) < 0.0005 ? '-' : formatCurrency(numericValue);
+    if (Math.abs(numericValue) < 0.0005) return '-';
+    if (numericValue < 0) return `(${formatCurrency(Math.abs(numericValue))})`;
+    return formatCurrency(numericValue);
   }
 
   function getBuildingVacantAmount(tenant) {

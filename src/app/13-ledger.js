@@ -651,7 +651,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const occupancyPaidRaw = normalizeAmount(paymentBreakdown.occupancyPaid);
       const prepaidFromBefore = normalizeAmount(Math.min(due, effectiveOpeningCredit + priorAdvancePaidRaw));
       const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, due));
-      const remainingCurrent = normalizeAmount(Math.max(due - directPaidRaw, 0));
+      const remainingCurrent = normalizeAmount(due - directPaidRaw);
       const paid = normalizeAmount(prepaidFromBefore + directPaidApplied + occupancyPaidRaw);
       const closingCarry = normalizeAmount(Math.max(openingCarry - previousPaid + remainingCurrent, 0));
       const closingCredit = normalizeAmount(Math.max(effectiveOpeningCredit + priorAdvancePaidRaw + directPaidRaw - due, 0));
@@ -727,10 +727,10 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const occupancyPaidCurrent = normalizeAmount(currentLedger.occupancyPaidRaw || 0);
     const priorAdvanceAppliedCurrent = normalizeAmount(currentLedger.priorAdvancePaid || 0);
     const paidCurrentRaw = normalizeAmount((currentLedger.directPaidRaw || 0) + occupancyPaidCurrent);
-    const paidCurrent = normalizeAmount(currentLedger.directPaidApplied || 0);
+    const paidCurrent = normalizeAmount(currentLedger.directPaidRaw || 0);
     const previousDue = normalizeAmount(Math.max(Number(currentLedger.openingCarry || 0) - Number(currentLedger.previousPaid || 0), 0));
     const remainingCurrent = normalizeAmount(currentLedger.remainingCurrent);
-    const totalDue = normalizeAmount(currentLedger.closingCarry);
+    const totalDue = normalizeAmount(previousDue + remainingCurrent);
     const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, selectedMonth);
     const rowCreditAppliedCurrent = getRowCreditCarryIntoMonth(state, tenant.id, selectedMonth);
     const prepaidFromBefore = normalizeAmount(

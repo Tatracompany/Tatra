@@ -446,7 +446,7 @@
     const actualRentValue = normalizeAmount(Math.max(0, Number(actualRentInput ? actualRentInput.value : visibleTenant && visibleTenant.displayActualRent || visibleTenant && visibleTenant.rentDue || 0)));
     const currentMonthValue = normalizeAmount(Math.max(0, Number(currentMonthInput ? currentMonthInput.value : visibleTenant && visibleTenant.paidCurrent || 0)));
     const remainingPreviousDue = normalizeAmount(Math.max(previousDueValue - paidPreviousValue, 0));
-    const remainingCurrent = normalizeAmount(Math.max(actualRentValue - currentMonthValue, 0));
+    const remainingCurrent = normalizeAmount(actualRentValue - currentMonthValue);
     let nextStatus = 'upcoming';
     if (remainingPreviousDue > 0) nextStatus = 'overdue';
     else if (actualRentValue <= 0 || remainingCurrent <= 0) nextStatus = 'paid';
@@ -607,7 +607,7 @@
       allowDecimalAmounts
     );
     const currentMonthAmount = requestedCurrentMonthAmount;
-    const remainingCurrentAmount = Math.max(effectiveRentDue - currentMonthAmount, 0);
+    const remainingCurrentAmount = normalizeAmount(effectiveRentDue - currentMonthAmount);
     const previousDueAmount = normalizeAmountInputValue(
       getDetailNumericInputValue(previousDueInput, tenantForDisplay.previousDue || 0),
       allowDecimalAmounts
