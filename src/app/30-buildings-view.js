@@ -77,6 +77,15 @@
     return Number(tenant.displayActualRent != null ? tenant.displayActualRent : (tenant.rentDue || 0));
   }
 
+  function getBuildingContractAmount(tenant) {
+    if (!tenant) return 0;
+    return Number(
+      tenant.contractRent > 0
+        ? tenant.contractRent
+        : (tenant.displayActualRent || tenant.rentDue || 0)
+    );
+  }
+
   function statusRank(status) {
     return { overdue: 0, upcoming: 1, partial: 2, paid: 3 }[status] ?? 4;
   }
@@ -349,7 +358,7 @@
         <td>${escapeHtml(tenant.unit)}</td>
         <td>${escapeHtml(tenant.name)}</td>
         <td>${escapeHtml((STATUS_META[tenant.status] || STATUS_META.upcoming).label)}</td>
-        <td class="amount">${formatBuildingAmountCell(Number(tenant.contractRent || 0))}</td>
+        <td class="amount">${formatBuildingAmountCell(getBuildingContractAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(Number(tenant.discount || 0))}</td>
         <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
@@ -464,7 +473,7 @@
       <td>${escapeHtml(tenant.unit)}</td>
       <td>${escapeHtml(tenant.name)}</td>
       <td><span class="badge ${badge.className}">${badge.label}</span></td>
-      <td class="amount">${formatBuildingAmountCell(Number(tenant.contractRent || 0))}</td>
+      <td class="amount">${formatBuildingAmountCell(getBuildingContractAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(Number(tenant.discount || 0))}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
@@ -635,7 +644,7 @@
   }
 
   function renderBuildingTotalsRow(state, tenants, selectedMonth, summary) {
-    const contractRentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.contractRent || 0), 0);
+    const contractRentTotal = tenants.reduce((sum, tenant) => sum + getBuildingContractAmount(tenant), 0);
     const actualRentTotal = tenants.reduce((sum, tenant) => sum + getBuildingActualAmount(tenant), 0);
     const discountTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.discount || 0), 0);
     const vacantTotal = tenants.reduce((sum, tenant) => sum + getBuildingVacantAmount(tenant), 0);
