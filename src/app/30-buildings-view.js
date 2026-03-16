@@ -486,15 +486,37 @@
       const stopRowToggle = (event) => event.stopPropagation();
       ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, stopRowToggle));
       input.addEventListener('keydown', async (event) => {
-        if (event.key !== 'Enter') return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.stopPropagation();
+          await saveBuildingCurrentMonthFromTable(state, input);
+          return;
+        }
+        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
         event.preventDefault();
         event.stopPropagation();
-        await saveBuildingCurrentMonthFromTable(state, input);
+        const direction = (event.key === 'ArrowUp' || event.key === 'ArrowLeft') ? -1 : 1;
+        await moveBuildingCurrentMonthFocus(state, input, direction);
       });
       input.addEventListener('blur', async () => {
         await saveBuildingCurrentMonthFromTable(state, input);
       });
     });
+  }
+
+  async function moveBuildingCurrentMonthFocus(state, input, direction) {
+    if (!input) return;
+    await saveBuildingCurrentMonthFromTable(state, input);
+    const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month]'))
+      .filter((node) => !node.readOnly && !node.disabled);
+    const currentIndex = inputs.indexOf(input);
+    if (currentIndex < 0) return;
+    const nextIndex = currentIndex + Number(direction || 0);
+    if (nextIndex < 0 || nextIndex >= inputs.length) return;
+    const target = inputs[nextIndex];
+    if (!target) return;
+    target.focus();
+    target.select();
   }
 
   async function saveBuildingCurrentMonthFromTable(state, input) {
