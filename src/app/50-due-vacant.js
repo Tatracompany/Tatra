@@ -160,7 +160,11 @@
           lastActualRent: Number(lastTenant && lastTenant.actualRent || tenant.lastActualRent || 0),
           lastContractRent: Number(lastTenant && lastTenant.contractRent || tenant.lastContractRent || 0),
           vacantSince,
-          plannedVacateDate: String(tenant.plannedVacateDate || '').trim()
+          plannedVacateDate: String(
+            tenant.plannedVacateDate
+            || lastTenant && lastTenant.plannedVacateDate
+            || ''
+          ).trim()
         });
       });
     if (summary) {
