@@ -743,8 +743,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         ? manualPrepaidFromBefore
         : Math.max(
           Number(currentLedger.prepaidFromBefore || 0)
-          - Number(currentLedger.priorAdvancePaid || 0)
-          - rowCreditAppliedCurrent,
+          - Number(currentLedger.priorAdvancePaid || 0),
           0
         )
     );
