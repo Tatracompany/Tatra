@@ -1010,10 +1010,18 @@
 
   function syncVacateTenantToDb(payload) {
     const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+    const unitId = String(payload && payload.unitId || '').trim();
+    const buildingName = String(payload && payload.buildingName || '').trim();
+    const unit = String(payload && payload.unit || '').trim();
+    const floor = String(payload && payload.floor || '').trim();
     const vacateDate = String(payload && payload.vacateDate || '').trim();
     if (!sourceTenantId || !vacateDate) return Promise.resolve(null);
     return postToLocalDbApi('/api/db/vacate-tenant', {
       sourceTenantId,
+      unitId,
+      buildingName,
+      unit,
+      floor,
       vacateDate,
       lastTenantName: String(payload && payload.lastTenantName || '').trim(),
       lastContractRent: Number(payload && payload.lastContractRent || 0),

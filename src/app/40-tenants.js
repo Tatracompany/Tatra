@@ -697,6 +697,10 @@
       if (typeof syncVacateTenantToDb === 'function') {
         await syncVacateTenantToDb({
           sourceTenantId,
+          unitId: String(tenant.unitId || '').trim(),
+          buildingName: tenant.building,
+          unit: String(tenant.unit || '').trim(),
+          floor: String(tenant.floor || '').trim(),
           vacateDate,
           lastTenantName: tenant.name,
           lastContractRent: Number(tenant.contractRent || 0),

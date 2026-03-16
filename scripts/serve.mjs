@@ -1165,6 +1165,10 @@ async function saveVacantUnitMetaToDatabase(payload) {
 
 async function vacateTenantInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
+  const payloadUnitId = String(payload && payload.unitId || '').trim();
+  const buildingName = String(payload && payload.buildingName || '').trim();
+  const unitLabel = String(payload && payload.unit || '').trim();
+  const floorLabel = String(payload && payload.floor || '').trim();
   const vacateDate = String(payload && payload.vacateDate || '').trim();
   if (!sourceTenantId || !vacateDate) {
     throw new Error('sourceTenantId and vacateDate are required.');
@@ -1180,7 +1184,40 @@ async function vacateTenantInDatabase(payload) {
     if (!tenancy) {
       throw new Error(`No tenancy found for sourceTenantId ${sourceTenantId}`);
     }
+    let resolvedUnitId = String(tenancy && tenancy.unitId || '').trim();
+    if (!resolvedUnitId && payloadUnitId) {
+      const matchedUnit = await database.prepare(`
+        SELECT id
+        FROM units
+        WHERE id = ?
+        LIMIT 1
+      `).get(payloadUnitId);
+      resolvedUnitId = String(matchedUnit && matchedUnit.id || '').trim();
+    }
+    if (!resolvedUnitId && buildingName && unitLabel) {
+      const matchedUnit = await database.prepare(`
+        SELECT units.id AS id
+        FROM units
+        INNER JOIN buildings ON buildings.id = units.building_id
+        WHERE LOWER(buildings.name) = LOWER(?)
+          AND units.unit_label = ?
+          AND COALESCE(units.floor_label, '') = ?
+        LIMIT 1
+      `).get(buildingName, unitLabel, floorLabel);
+      resolvedUnitId = String(matchedUnit && matchedUnit.id || '').trim();
+    }
+    if (!resolvedUnitId) {
+      throw new Error('No unit found for vacate action.');
+    }
     await database.exec('BEGIN');
+    await database.prepare(`
+      UPDATE tenancies
+      SET unit_id = COALESCE(NULLIF(unit_id, ''), ?)
+      WHERE source_tenant_id = ?
+    `).run(
+      resolvedUnitId,
+      sourceTenantId
+    );
     await database.prepare(`
       UPDATE tenancies
       SET
@@ -1212,7 +1249,7 @@ async function vacateTenantInDatabase(payload) {
         raw_json = excluded.raw_json,
         updated_at = CURRENT_TIMESTAMP
     `).run(
-      tenancy.unitId,
+      resolvedUnitId,
       vacateDate,
       String(payload && payload.lastTenantName || tenancy.tenantName || '').trim(),
       Number(payload && payload.lastContractRent || 0),

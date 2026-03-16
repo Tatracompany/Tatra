@@ -420,6 +420,10 @@
       if (typeof syncVacateTenantToDb === 'function') {
         await syncVacateTenantToDb({
           sourceTenantId: canonicalSourceTenantId,
+          unitId: String(tenantRecord.unitId || '').trim(),
+          buildingName: tenantRecord.building,
+          unit: String(tenantRecord.unit || '').trim(),
+          floor: String(tenantRecord.floor || '').trim(),
           vacateDate,
           lastTenantName: tenantRecord.name,
           lastContractRent: Number(tenantRecord.contractRent || 0),
