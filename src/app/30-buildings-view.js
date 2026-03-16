@@ -486,6 +486,9 @@
       input.dataset.currentMonthBound = 'true';
       const stopRowToggle = (event) => event.stopPropagation();
       ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, stopRowToggle));
+      input.addEventListener('focus', () => {
+        setActiveBuildingCurrentMonthRow(input);
+      });
       input.addEventListener('keydown', async (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
@@ -500,6 +503,11 @@
         await moveBuildingCurrentMonthFocus(state, input, direction);
       });
       input.addEventListener('blur', async () => {
+        window.setTimeout(() => {
+          if (document.activeElement !== input) {
+            clearActiveBuildingCurrentMonthRow(input);
+          }
+        }, 0);
         if (input.dataset.skipBlurSaveOnce === 'true') {
           delete input.dataset.skipBlurSaveOnce;
           return;
@@ -522,6 +530,19 @@
     input.dataset.skipBlurSaveOnce = 'true';
     target.focus();
     target.select();
+  }
+
+  function setActiveBuildingCurrentMonthRow(input) {
+    document.querySelectorAll('.building-table tr.is-current-month-active').forEach((row) => {
+      row.classList.remove('is-current-month-active');
+    });
+    const row = input && typeof input.closest === 'function' ? input.closest('tr') : null;
+    if (row) row.classList.add('is-current-month-active');
+  }
+
+  function clearActiveBuildingCurrentMonthRow(input) {
+    const row = input && typeof input.closest === 'function' ? input.closest('tr') : null;
+    if (row) row.classList.remove('is-current-month-active');
   }
 
   async function saveBuildingCurrentMonthFromTable(state, input) {

@@ -643,6 +643,19 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .building-table tr.is-dim { opacity: 0.78; }
 .building-table tr.clickable { cursor: pointer; }
 .building-table tr.clickable:hover { background: #fbf6ee; }
+.building-table tr.is-current-month-active td {
+  background: #f4ead8;
+  box-shadow: inset 0 1px 0 #dcc8a8, inset 0 -1px 0 #dcc8a8;
+}
+.building-table tr.is-current-month-active.is-late td { background: #fde7e1; }
+.building-table tr.is-current-month-active.is-planned-vacate td { background: #fff1bf; }
+.building-table tr.is-current-month-active.is-vacant td { background: #e9f4f8; }
+.building-table .table-amount-input:focus {
+  outline: 2px solid #b98a3d;
+  outline-offset: 0;
+  border-color: #b98a3d;
+  background: #fffaf0;
+}
 .building-table tr.totals-row td { font-weight: 700; }
 .building-table tr.totals-row-muted td {
   background: #fbf6ed;
