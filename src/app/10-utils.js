@@ -969,6 +969,13 @@
     const sourceMonthKey = addMonths(normalizedMonthKey, -1) || getLatestCreatedMonthKey();
     await flushVisibleCurrentMonthTableEditsBeforeMonthCreate(window.__appState);
     await flushOpenInlineTenantEditsBeforeMonthCreate(window.__appState);
+    if (typeof refreshDbSnapshotFromServer === 'function') {
+      await refreshDbSnapshotFromServer();
+    }
+    const snapshotState = typeof loadState === 'function' ? loadState() : window.__appState;
+    if (snapshotState) {
+      window.__appState = snapshotState;
+    }
     await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
