@@ -774,15 +774,15 @@ async function createMonthTabInDatabase(payload) {
         ['discount', String(Number(row && row.discount || 0))],
         ['actual_rent', String(Number(row && row.actualRent || 0))],
         ['opening_credit', String(Number(row && row.prepaidFromBefore || 0))],
-        ['carry', '0'],
-        ['paid', '0'],
+        ['carry', String(Number((row && row.previousDue || 0) + (row && row.paidPrevious || 0) || 0))],
+        ['paid', String(Number(row && row.paidCurrent || 0))],
         ['prepaid_next', String(Number(row && row.prepaidNext || 0))],
         ['insurance_amount', String(Number(row && row.insuranceAmount || 0))],
         ['insurance_paid_month', String(row && row.insurancePaidMonth || '').trim()],
         ['planned_vacate_date', String(row && row.plannedVacateDate || '').trim()],
         ['notes', String(row && row.notes || '').trim()],
         ['vacant_amount', String(Number(row && row.vacantAmount || 0))],
-        ['old_tenant_due_paid', '0']
+        ['old_tenant_due_paid', String(Number(row && row.oldTenantDuePaid || 0))]
       ];
       for (const [overrideKind, valueText] of entries) {
         await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);

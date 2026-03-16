@@ -871,10 +871,14 @@
         actualRent: Number(tenant.displayActualRent || tenant.baseActualRent || tenant.rentDue || 0),
         vacantAmount: Number(tenant.displayVacantAmount || 0),
         prepaidFromBefore: Number(tenant.prepaidFromBefore || 0),
+        paidCurrent: Number(tenant.paidCurrent || 0),
+        previousDue: Number(tenant.previousDue || 0),
+        paidPrevious: Number(typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenant.id, fromMonthKey) : 0),
         insuranceAmount: Number(tenant.insuranceAmount || tenant.insuranceCurrentAmount || tenant.insurancePreviousAmount || 0),
         insurancePaidMonth: String(tenant.insurancePaidMonth || '').trim(),
         prepaidAmount: Number(tenant.prepaidNext || 0),
         plannedVacateDate: String(tenant.plannedVacateDate || '').trim(),
+        oldTenantDuePaid: Number(typeof getOldTenantDuePaidNote === 'function' ? getOldTenantDuePaidNote(state, tenant.building, tenant.unit, fromMonthKey) : 0),
         notes: String(tenant.notes || '').trim()
       }));
     await syncCreateMonthTabToDb(toMonthKey, rows);
@@ -884,7 +888,6 @@
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedMonthKey) return null;
     const sourceMonthKey = getLatestCreatedMonthKey();
-    await syncResetMonthDataToDb(normalizedMonthKey);
     await snapshotMonthFinancialsFromVisibleMonth(window.__appState, sourceMonthKey, normalizedMonthKey);
     markMonthAsCreated(normalizedMonthKey);
     return normalizedMonthKey;
