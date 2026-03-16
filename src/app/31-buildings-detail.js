@@ -283,6 +283,9 @@
         ? tenant.displayActualRent
         : (tenant.baseActualRent || tenant.rentDue || stableContractAmount || 0)
     );
+    const storedPrepaidFromBefore = typeof getOpeningCreditOverride === 'function'
+      ? normalizeAmount(getOpeningCreditOverride(state, tenant.id, selectedMonth) || 0)
+      : normalizeAmount(tenant.prepaidFromBefore || 0);
     const markPaidButtonDisabledAttr = (isLockedBaseline || isProtectedBaselinePrepaid) ? ' disabled aria-disabled="true"' : '';
     const protectedFinancialReadOnlyAttr = isProtectedBaselinePrepaid ? ' readonly aria-readonly="true"' : '';
     const prepaidFromBeforeReadOnlyAttr = protectedFinancialReadOnlyAttr;
@@ -291,7 +294,7 @@
         <div class="detail-item"><span class="label">Mark selected month</span><button type="button" class="secondary-action" data-mark-paid="${escapeHtml(tenant.id)}"${markPaidButtonDisabledAttr}>${isLockedBaseline ? 'Locked baseline' : markSelectedMonthLabel}</button></div>
         <div class="detail-item"><span class="label">Unpaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-previous-due="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'unpaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.previousDue || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Paid previous</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-paid-previous="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'paid_previous'))}" value="${escapeHtml(formatBlankAmountInputValue(getTenantDuePaidAmount(state, tenant.id, getSelectedBuildingMonth()), allowDecimalAmounts))}"${readOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.prepaidFromBefore || 0, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Prepaid from before</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-prepaid-from-before="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'prepaid_from_before'))}" value="${escapeHtml(formatBlankAmountInputValue(storedPrepaidFromBefore, allowDecimalAmounts))}"${prepaidFromBeforeReadOnlyAttr}></div>
         <div class="detail-item"><span class="label">Vacant amount</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-vacant-amount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'vacant_amount'))}" value="${escapeHtml(formatBlankAmountInputValue(tenant.displayVacantAmount || 0, allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Actual rent</span><input type="number" step="${escapeHtml(amountInputStep)}" min="0" data-edit-actual-rent="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'actual_rent'))}" value="${escapeHtml(formatBlankAmountInputValue(stableActualRent, allowDecimalAmounts))}"${readOnlyAttr}></div>
         <div class="detail-item"><span class="label">Last paid month</span><strong>${escapeHtml(tenant.lastPaidMonthLabel)}${tenant.lateMonths ? ` · Late ${tenant.lateMonths} months` : ''}</strong></div>
@@ -603,7 +606,12 @@
     const baseActualRent = tenant && shouldUpdateBaseTenant ? tenant.actualRent : Math.max(contractRent - discount, 0);
     const effectiveRentDue = Math.max(actualRentAmount, 0);
     const prepaidFromBeforeAmount = normalizeAmountInputValue(
-      getDetailNumericInputValue(prepaidFromBeforeInput, tenantForDisplay.prepaidFromBefore || 0),
+      getDetailNumericInputValue(
+        prepaidFromBeforeInput,
+        (typeof getOpeningCreditOverride === 'function'
+          ? getOpeningCreditOverride(state, tenantForDisplay.id, selectedMonth)
+          : tenantForDisplay.prepaidFromBefore) || 0
+      ),
       allowDecimalAmounts
     );
     const currentMonthAmount = requestedCurrentMonthAmount;
