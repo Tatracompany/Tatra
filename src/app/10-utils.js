@@ -856,9 +856,15 @@
   }
 
   function buildMonthSnapshotRowsFromVisibleMonth(state, fromMonthKey) {
-    if (!state || typeof getTenantViews !== 'function') return [];
+    if (!state) return [];
     const sourceMonth = String(fromMonthKey || '').trim();
     if (!sourceMonth) return [];
+    if (typeof getBuildingDisplayTenants === 'function' && Array.isArray(state.buildings)) {
+      return state.buildings.flatMap((building) => (
+        getBuildingDisplayTenants(state, String(building && building.name || '').trim(), sourceMonth)
+      )).filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
+    }
+    if (typeof getTenantViews !== 'function') return [];
     return getTenantViews(state, sourceMonth)
       .filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
   }
