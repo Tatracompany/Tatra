@@ -926,12 +926,20 @@
         prepaidFromBefore: Number((override.prepaidFromBefore ?? tenant.prepaidFromBefore) || 0),
         paidCurrent: Number((override.paidCurrent ?? tenant.paidCurrent) || 0),
         previousDue: Number(tenant.previousDue || 0),
-        paidPrevious: Number(override.paidPrevious ?? (typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenant.id, fromMonthKey) : 0)),
+        paidPrevious: Number(
+          override.paidPrevious
+          ?? tenant.previousPaid
+          ?? (typeof getTenantDuePaidAmount === 'function' ? getTenantDuePaidAmount(state, tenant.id, fromMonthKey) : 0)
+        ),
         insuranceAmount: Number((override.insuranceAmount ?? tenant.insuranceAmount ?? tenant.insuranceCurrentAmount ?? tenant.insurancePreviousAmount) || 0),
         insurancePaidMonth: String((override.insurancePaidMonth ?? tenant.insurancePaidMonth) || '').trim(),
         prepaidAmount: Number((override.prepaidAmount ?? tenant.prepaidNext) || 0),
         plannedVacateDate: String((override.plannedVacateDate ?? tenant.plannedVacateDate) || '').trim(),
-        oldTenantDuePaid: Number(override.oldTenantDuePaid ?? (typeof getOldTenantDuePaidNote === 'function' ? getOldTenantDuePaidNote(state, tenant.building, tenant.unit, fromMonthKey) : 0)),
+        oldTenantDuePaid: Number(
+          override.oldTenantDuePaid
+          ?? tenant.previousPaid
+          ?? (typeof getOldTenantDuePaidNote === 'function' ? getOldTenantDuePaidNote(state, tenant.building, tenant.unit, fromMonthKey) : 0)
+        ),
         notes: String((override.notes ?? tenant.notes) || '').trim()
       };
     });
