@@ -575,6 +575,9 @@
     if (tenant && shouldUpdateBaseTenant) {
       tenant.plannedVacateDate = plannedVacateDate;
     }
+    if (typeof setOldTenantDuePaidNote === 'function') {
+      setOldTenantDuePaidNote(state, tenantForDisplay.building, tenantForDisplay.unit, selectedMonth, oldTenantDuePaidNote);
+    }
     const prepaidTargetTenantId = String(
       canonicalSourceTenantId
       || tenantForDisplay.sourceTenantId
@@ -602,7 +605,7 @@
         paidOverride: currentMonthAmount,
         insuranceAmount,
         insurancePaidMonth,
-        oldTenantDuePaid: oldTenantDuePaidNote,
+        oldTenantDuePaid: paidPreviousAmount,
         prepaidAmount,
         plannedVacateDate,
         notes: getDetailTextInputValue(notesInput, tenantForDisplay.notes || '')
