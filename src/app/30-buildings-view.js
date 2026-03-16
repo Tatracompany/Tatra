@@ -775,7 +775,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       + oldTenantDuePaidTotal;
     const totalCurrentMonth = bankReceiptsTotal + prepaidTotal;
     const januaryBaselineAdjustment = 0;
-    const totalInBank = bankReceiptsTotal - prepaidTotal - januaryBaselineAdjustment;
+    const totalInBank = bankReceiptsTotal - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
     const countRows = summary
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Empty units</strong></td><td colspan="${summaryValueColspan}"><strong>${Math.max(Number(summary.totalUnits || 0) - Number(summary.occupied || 0), 0)}</strong></td></tr>
