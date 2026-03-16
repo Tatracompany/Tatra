@@ -462,6 +462,12 @@
     if (tenant.isVacant) rowClasses.push('is-vacant');
     const rowOrderKey = typeof getTenantOrderKey === 'function' ? getTenantOrderKey(tenant) : String(tenant.id || '').trim();
     const fieldTenantId = String(tenant.sourceTenantId || tenant.id || '').trim() || String(tenant.id || '').trim();
+    const contractAmountFieldId = typeof buildTenantMonthFieldId === 'function'
+      ? buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'contract_amount')
+      : '';
+    const discountFieldId = typeof buildTenantMonthFieldId === 'function'
+      ? buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'discount')
+      : '';
     const currentMonthFieldId = typeof buildTenantMonthFieldId === 'function'
       ? buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'current_month')
       : '';
@@ -471,7 +477,11 @@
     const hasPastDueToClearFirst = normalizeAmount(Number(tenant.previousDue || 0)) > 0;
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
+    const contractAmountValue = formatBlankAmountInputValue(getBuildingContractAmount(tenant), allowDecimalAmounts);
+    const discountValue = formatBlankAmountInputValue(Number(tenant.discount || 0), allowDecimalAmounts);
     const currentMonthValue = formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts);
+    const contractAmountInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(contractAmountValue)}" data-row-edit-contract="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(contractAmountFieldId)}" data-initial-value="${escapeHtml(contractAmountValue)}"${isLockedBaseline ? ' readonly aria-readonly="true"' : ''}>`;
+    const discountInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(discountValue)}" data-row-edit-discount="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(discountFieldId)}" data-initial-value="${escapeHtml(discountValue)}"${isLockedBaseline ? ' readonly aria-readonly="true"' : ''}>`;
     const currentMonthInput = `<input type="number" class="table-amount-input" step="${escapeHtml(amountInputStep)}" min="0" value="${escapeHtml(currentMonthValue)}" data-row-edit-current-month="${escapeHtml(tenant.id)}" data-inline-field-id="${escapeHtml(currentMonthFieldId)}" data-initial-value="${escapeHtml(currentMonthValue)}"${isLockedBaseline || isProtectedBaselinePrepaid || hasPastDueToClearFirst ? ' readonly aria-readonly="true"' : ''}>`;
     const rowAttr = canOpenDetail
       ? ` data-tenant-row="${escapeHtml(tenant.id)}" data-building-row-order="${escapeHtml(rowOrderKey)}" data-row-building="${escapeHtml(tenant.building || '')}" data-row-unit="${escapeHtml(tenant.unit || '')}" data-row-floor="${escapeHtml(tenant.floor || '')}" data-row-unit-id="${escapeHtml(tenant.unitId || '')}" data-row-source-tenant-id="${escapeHtml(tenant.sourceTenantId || '')}"`
@@ -481,8 +491,8 @@
       <td>${escapeHtml(tenant.unit)}</td>
       <td>${escapeHtml(tenant.name)}</td>
       <td><span class="badge ${badge.className}">${badge.label}</span></td>
-      <td class="amount">${formatBuildingAmountCell(getBuildingContractAmount(tenant))}</td>
-      <td class="amount">${formatBuildingAmountCell(Number(tenant.discount || 0))}</td>
+      <td class="center">${contractAmountInput}</td>
+      <td class="center">${discountInput}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.prepaidFromBefore)}</td>
@@ -499,9 +509,9 @@
   }
 
   function bindBuildingCurrentMonthInputs(state) {
-    document.querySelectorAll('[data-row-edit-current-month]').forEach((input) => {
-      if (input.dataset.currentMonthBound === 'true') return;
-      input.dataset.currentMonthBound = 'true';
+    document.querySelectorAll('[data-row-edit-current-month], [data-row-edit-contract], [data-row-edit-discount]').forEach((input) => {
+      if (input.dataset.tableAmountBound === 'true') return;
+      input.dataset.tableAmountBound = 'true';
       const stopRowToggle = (event) => event.stopPropagation();
       ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, stopRowToggle));
       input.addEventListener('focus', () => {
@@ -511,9 +521,10 @@
         if (event.key === 'Enter') {
           event.preventDefault();
           event.stopPropagation();
-          await saveBuildingCurrentMonthFromTable(state, input);
+          await saveBuildingRowFieldFromTable(state, input);
           return;
         }
+        if (!input.hasAttribute('data-row-edit-current-month')) return;
         if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
         event.preventDefault();
         event.stopPropagation();
@@ -530,7 +541,7 @@
           delete input.dataset.skipBlurSaveOnce;
           return;
         }
-        await saveBuildingCurrentMonthFromTable(state, input);
+        await saveBuildingRowFieldFromTable(state, input);
       });
     });
   }
@@ -563,13 +574,18 @@
     if (row) row.classList.remove('is-current-month-active');
   }
 
-  async function saveBuildingCurrentMonthFromTable(state, input) {
+  async function saveBuildingRowFieldFromTable(state, input) {
     if (!input) return;
-    const tenantId = String(input.getAttribute('data-row-edit-current-month') || '').trim();
+    const tenantId = String(
+      input.getAttribute('data-row-edit-current-month')
+      || input.getAttribute('data-row-edit-contract')
+      || input.getAttribute('data-row-edit-discount')
+      || ''
+    ).trim();
     const currentValue = String(input.value || '').trim();
     const initialValue = String(input.dataset.initialValue || '').trim();
-    if (!tenantId || input.dataset.currentMonthSaving === 'true' || input.readOnly || input.disabled || currentValue === initialValue) return;
-    input.dataset.currentMonthSaving = 'true';
+    if (!tenantId || input.dataset.tableAmountSaving === 'true' || input.readOnly || input.disabled || currentValue === initialValue) return;
+    input.dataset.tableAmountSaving = 'true';
     try {
       await saveTenantInlineEdit(state, tenantId, { reopenDetail: false });
       input.dataset.initialValue = String(input.value || '').trim();
@@ -578,7 +594,7 @@
         showFlashMessage(String(error && error.message || error || 'Failed to save current month.'));
       }
     } finally {
-      delete input.dataset.currentMonthSaving;
+      delete input.dataset.tableAmountSaving;
     }
   }
 

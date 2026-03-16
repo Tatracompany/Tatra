@@ -885,8 +885,8 @@
   }
 
   async function flushVisibleCurrentMonthTableEditsBeforeMonthCreate(state) {
-    if (typeof saveBuildingCurrentMonthFromTable !== 'function') return;
-    const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month]'))
+    if (typeof saveBuildingRowFieldFromTable !== 'function') return;
+    const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month], [data-row-edit-contract], [data-row-edit-discount]'))
       .filter((input) => {
         if (!input) return false;
         if (input.readOnly || input.disabled) return false;
@@ -895,7 +895,7 @@
         return currentValue !== initialValue;
       });
     for (const input of inputs) {
-      await saveBuildingCurrentMonthFromTable(state, input);
+      await saveBuildingRowFieldFromTable(state, input);
     }
   }
 
