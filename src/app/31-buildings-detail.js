@@ -132,12 +132,13 @@
 
   function formatAmountInputValue(value, allowDecimals) {
     const normalized = normalizeAmountInputValue(value, !!allowDecimals);
-    return normalized > 0 ? normalized.toFixed(3) : '';
+    if (!(normalized > 0)) return '';
+    return String(Number(normalized.toFixed(3)));
   }
 
   function formatBlankAmountInputValue(value, allowDecimals) {
     const normalized = normalizeAmountInputValue(value, !!allowDecimals);
-    return normalized > 0 ? normalized.toFixed(3) : '';
+    return normalized > 0 ? String(Number(normalized.toFixed(3))) : '';
   }
 
   function getDetailNumericInputValue(input, fallbackValue) {
