@@ -86,6 +86,11 @@
     );
   }
 
+  function getBuildingTotalUnpaidAmount(tenant) {
+    if (!tenant) return 0;
+    return Number(tenant.previousDue || 0) + Number(tenant.remainingCurrent || 0);
+  }
+
   function statusRank(status) {
     return { overdue: 0, upcoming: 1, partial: 2, paid: 3 }[status] ?? 4;
   }
@@ -367,7 +372,7 @@
         <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.remainingCurrent)}</td>
-        <td class="amount">${formatBuildingAmountCell(tenant.totalDue)}</td>
+        <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.insuranceCurrentAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.insurancePreviousAmount)}</td>
         <td class="amount">${formatBuildingAmountCell(oldTenantDuePaid)}</td>
@@ -463,7 +468,7 @@
     const isLockedBaseline = typeof isBuildingMonthLocked === 'function' ? isBuildingMonthLocked(tenant.building, selectedMonth) : false;
     const isProtectedBaselinePrepaid = typeof isProtectedBaselinePrepaidTenant === 'function'
       && isProtectedBaselinePrepaidTenant(tenant, selectedMonth);
-    const hasPastDueToClearFirst = Number(tenant.totalDue || 0) > Number(getBuildingActualAmount(tenant) || 0);
+    const hasPastDueToClearFirst = getBuildingTotalUnpaidAmount(tenant) > Number(getBuildingActualAmount(tenant) || 0);
     const allowDecimalAmounts = typeof usesDecimalAmountInputs === 'function' ? usesDecimalAmountInputs(tenant) : false;
     const amountInputStep = typeof getAmountInputStep === 'function' ? getAmountInputStep(tenant) : '1';
     const currentMonthValue = formatBlankAmountInputValue(tenant.paidCurrent, allowDecimalAmounts);
@@ -485,7 +490,7 @@
       <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.remainingCurrent)}</td>
-      <td class="amount">${formatBuildingAmountCell(tenant.totalDue)}</td>
+      <td class="amount">${formatBuildingAmountCell(getBuildingTotalUnpaidAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.insuranceCurrentAmount)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.insurancePreviousAmount)}</td>
       <td class="amount">${formatBuildingAmountCell(oldTenantDuePaidNote)}</td>
@@ -657,7 +662,7 @@
     const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
     const prepaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidNext || 0), 0);
     const unpaidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.remainingCurrent || 0), 0);
-    const unpaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.totalDue || 0), 0);
+    const unpaidTotal = tenants.reduce((sum, tenant) => sum + getBuildingTotalUnpaidAmount(tenant), 0);
     const insurancePreviousTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insurancePreviousAmount || 0), 0);
     const insuranceCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insuranceCurrentAmount || 0), 0);
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, selectedMonth) || 0), 0);
