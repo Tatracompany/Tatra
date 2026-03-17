@@ -1015,6 +1015,31 @@ async function saveBuildingInlineEditToDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function saveBuildingFooterValueToDatabase(payload) {
+  const buildingId = String(payload && payload.buildingId || '').trim();
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  const field = String(payload && payload.field || '').trim();
+  if (!buildingId || !monthKey || !field) {
+    throw new Error('buildingId, monthKey, and field are required.');
+  }
+  if (field !== 'prepaid_from_before') {
+    throw new Error(`Unsupported footer field ${field}`);
+  }
+  const metaKey = `building_footer_prepaid_from_before::${buildingId}::${monthKey}`;
+  const metaValue = String(Number(payload && payload.value || 0));
+  const database = openDatabase(databasePath);
+  try {
+    await database.prepare(`
+      INSERT INTO app_meta(key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `).run(metaKey, metaValue);
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function setTenantPaymentInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const rentMonth = String(payload && payload.rentMonth || '').trim();
@@ -1928,6 +1953,16 @@ async function handleApiRequest(request, response, requestUrl) {
       });
     }
     return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/building-footer-save') {
+    try {
+      const payload = await readJsonBody(request);
+      const snapshot = await saveBuildingFooterValueToDatabase(payload);
+      return sendJson(response, 200, { ok: true, snapshot });
+    } catch (error) {
+      return sendJson(response, 400, { ok: false, error: error.message || 'Failed to save building footer value.' });
+    }
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/vacant-unit-meta') {

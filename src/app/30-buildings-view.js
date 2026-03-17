@@ -551,6 +551,79 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     return normalizeAmount(Number(tenant.prepaidFromBefore || 0));
   }
 
+  function getBuildingFooterPrepaidFromBeforeMetaKey(buildingId, monthKey) {
+    const normalizedBuildingId = String(buildingId || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedBuildingId || !normalizedMonthKey) return '';
+    return `building_footer_prepaid_from_before::${normalizedBuildingId}::${normalizedMonthKey}`;
+  }
+
+  function getBuildingFooterPrepaidFromBeforeAmount(buildingName, monthKey, fallbackValue) {
+    const building = typeof getDbSnapshotBuildingByName === 'function' ? getDbSnapshotBuildingByName(buildingName) : null;
+    const metaKey = getBuildingFooterPrepaidFromBeforeMetaKey(building && building.id, monthKey);
+    if (!metaKey || typeof getDbSnapshotAppMetaValue !== 'function') {
+      return normalizeAmount(fallbackValue || 0);
+    }
+    const rawValue = getDbSnapshotAppMetaValue(metaKey);
+    if (String(rawValue || '').trim() === '') return normalizeAmount(fallbackValue || 0);
+    return normalizeAmount(Number(rawValue || 0));
+  }
+
+  function renderBuildingFooterEditableAmountInput(field, value, buildingName, monthKey) {
+    const canEdit = canEditBuildingMonth(buildingName, monthKey);
+    const normalizedValue = normalizeAmount(value || 0);
+    if (!canEdit) {
+      return `<strong>${formatCurrency(normalizedValue)}</strong>`;
+    }
+    return `<input type="number" class="table-amount-input table-summary-input" step="1" value="${escapeHtml(formatBlankAmountInputValue(normalizedValue, false))}" data-building-footer-edit="${escapeHtml(field)}" data-building-name="${escapeHtml(buildingName)}" data-month-key="${escapeHtml(monthKey)}" data-initial-value="${escapeHtml(String(normalizedValue))}" aria-label="${escapeHtml(field)}">`;
+  }
+
+  function bindBuildingFooterInputs(state) {
+    document.querySelectorAll('[data-building-footer-edit]').forEach((input) => {
+      if (input.dataset.tableFooterBound === 'true') return;
+      input.dataset.tableFooterBound = 'true';
+      ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, stopRowToggleEvent));
+      input.addEventListener('keydown', async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        await saveBuildingFooterFieldFromTable(state, input);
+      });
+      input.addEventListener('blur', async () => {
+        await saveBuildingFooterFieldFromTable(state, input);
+      });
+    });
+  }
+
+  async function saveBuildingFooterFieldFromTable(state, input) {
+    if (!input) return;
+    const field = String(input.getAttribute('data-building-footer-edit') || '').trim();
+    const buildingName = String(input.getAttribute('data-building-name') || '').trim();
+    const monthKey = String(input.getAttribute('data-month-key') || '').trim();
+    const currentValue = String(input.value || '').trim();
+    const initialValue = String(input.dataset.initialValue || '').trim();
+    if (!field || !buildingName || !monthKey || input.dataset.tableFooterSaving === 'true' || currentValue === initialValue) return;
+    const building = typeof getDbSnapshotBuildingByName === 'function' ? getDbSnapshotBuildingByName(buildingName) : null;
+    if (!building || typeof syncBuildingFooterValueToDb !== 'function') return;
+    input.dataset.tableFooterSaving = 'true';
+    try {
+      const numericValue = normalizeAmount(Number(currentValue || 0));
+      await syncBuildingFooterValueToDb({
+        buildingId: building.id,
+        monthKey,
+        field,
+        value: numericValue
+      });
+      input.value = formatBlankAmountInputValue(numericValue, false);
+      input.dataset.initialValue = String(numericValue);
+      if (typeof refreshSnapshotAndDerivedState === 'function') {
+        await refreshSnapshotAndDerivedState(state);
+      }
+      renderAll(window.__appState || state, buildingName);
+    } finally {
+      delete input.dataset.tableFooterSaving;
+    }
+  }
+
   function renderBuildingRow(state, tenant, selectedMonth) {
     const badge = STATUS_META[tenant.status] || STATUS_META.upcoming;
     const previousPaid = getTenantDuePaidAmount(state, tenant.id, selectedMonth);
@@ -809,8 +882,14 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       + oldTenantDuePaidTotal;
     const totalCurrentMonth = bankReceiptsTotal + prepaidTotal;
     const januaryBaselineAdjustment = 0;
-    const totalInBank = totalCurrentMonth - prepaidLastMonthTotal - januaryBaselineAdjustment;
+    const footerPrepaidFromBefore = getBuildingFooterPrepaidFromBeforeAmount(
+      window.__selectedBuildingName || getDefaultBuildingName(state),
+      selectedMonth,
+      prepaidFromBeforeTotal
+    );
+    const totalInBank = totalCurrentMonth - prepaidLastMonthTotal - footerPrepaidFromBefore - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
+    const activeBuildingName = window.__selectedBuildingName || getDefaultBuildingName(state);
     const countRows = summary
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Empty units</strong></td><td colspan="${summaryValueColspan}"><strong>${Math.max(Number(summary.totalUnits || 0) - Number(summary.occupied || 0), 0)}</strong></td></tr>
          <tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total units</strong></td><td colspan="${summaryValueColspan}"><strong>${Number(summary.totalUnits || 0)}</strong></td></tr>`
@@ -818,7 +897,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const baselineAdjustmentRow = januaryBaselineAdjustment > 0
       ? `<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Baseline December prepaid</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(januaryBaselineAdjustment)}</strong></td></tr>`
       : '';
-    return `<tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(contractRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(discountTotal)}</strong></td><td class="amount"><strong>${formatCurrency(vacantTotal)}</strong></td><td class="amount"><strong>${formatCurrency(actualRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidFromBeforeTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidFromBeforeTotal)}</strong></td><td class="center"><strong>${formatCurrency(paidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(previousPaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insuranceCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insurancePreviousTotal)}</strong></td><td class="amount"><strong>${formatCurrency(oldTenantDuePaidTotal)}</strong></td><td></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total current month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalCurrentMonth)}</strong></td></tr>${baselineAdjustmentRow}<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Prepaid last month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(prepaidLastMonthTotal)}</strong></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total in bank</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalInBank)}</strong></td></tr>${countRows}`;
+    return `<tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(contractRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(discountTotal)}</strong></td><td class="amount"><strong>${formatCurrency(vacantTotal)}</strong></td><td class="amount"><strong>${formatCurrency(actualRentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidFromBeforeTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidFromBeforeTotal)}</strong></td><td class="center"><strong>${formatCurrency(paidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(previousPaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(prepaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(unpaidTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insuranceCurrentTotal)}</strong></td><td class="amount"><strong>${formatCurrency(insurancePreviousTotal)}</strong></td><td class="amount"><strong>${formatCurrency(oldTenantDuePaidTotal)}</strong></td><td></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total current month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalCurrentMonth)}</strong></td></tr>${baselineAdjustmentRow}<tr class="totals-row totals-row-muted"><td colspan="4"><strong>Prepaid last month</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(prepaidLastMonthTotal)}</strong></td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Prepaid from before</strong></td><td colspan="${summaryValueColspan}" class="center">${renderBuildingFooterEditableAmountInput('prepaid_from_before', footerPrepaidFromBefore, activeBuildingName, selectedMonth)}</td></tr><tr class="totals-row totals-row-muted"><td colspan="4"><strong>Total in bank</strong></td><td colspan="${summaryValueColspan}"><strong>${formatCurrency(totalInBank)}</strong></td></tr>${countRows}`;
   }
 
   function renderBuildingsPage(state, selectedBuilding) {
@@ -858,4 +937,5 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     bindBuildingCards(state);
     renderBuildingMonthTabs();
     renderBuildingDetails(state, chosenBuilding);
+    bindBuildingFooterInputs(state);
   }

@@ -1070,6 +1070,19 @@
     return postToLocalDbApi('/api/db/building-inline-save', requestBody);
   }
 
+  function syncBuildingFooterValueToDb(payload) {
+    const buildingId = String(payload && payload.buildingId || '').trim();
+    const monthKey = String(payload && payload.monthKey || '').trim();
+    const field = String(payload && payload.field || '').trim();
+    if (!buildingId || !monthKey || !field) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/building-footer-save', {
+      buildingId,
+      monthKey,
+      field,
+      value: Number(payload && payload.value || 0)
+    });
+  }
+
   function syncTenantPaymentToDb(payload) {
     const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
     const rentMonth = String(payload && payload.rentMonth || '').trim();
