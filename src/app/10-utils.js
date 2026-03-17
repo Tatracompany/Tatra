@@ -1176,6 +1176,7 @@
     const unit = String(payload && payload.unit || '').trim();
     const floor = String(payload && payload.floor || '').trim();
     const vacateDate = String(payload && payload.vacateDate || '').trim();
+    const monthKey = String(payload && payload.monthKey || '').trim();
     if (!sourceTenantId || !vacateDate) return Promise.resolve(null);
     return postToLocalDbApi('/api/db/vacate-tenant', {
       sourceTenantId,
@@ -1183,6 +1184,7 @@
       buildingName,
       unit,
       floor,
+      monthKey,
       vacateDate,
       lastTenantName: String(payload && payload.lastTenantName || '').trim(),
       lastContractRent: Number(payload && payload.lastContractRent || 0),

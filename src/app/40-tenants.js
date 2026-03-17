@@ -643,6 +643,7 @@
     const sourceTenantId = String(tenant.sourceTenantId || tenant.id || '').trim();
     if (!sourceTenantId) return;
     const selectedMonth = getSelectedTenantMonth();
+    const isFutureMonth = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0;
     if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
       return;
     }
@@ -662,60 +663,62 @@
     const ok = window.confirm(`Remove tenant ${tenant.name} from ${tenant.building} ${tenant.unit}? The unit will become vacant.`);
     if (!ok) return;
 
-    const existingVacant = state.tenants.find((item) => (
-      item.building === tenant.building
-      && item.unit === tenant.unit
-      && item.isVacant
-      && !item.isArchived
-    ));
+    if (!isFutureMonth) {
+      const existingVacant = state.tenants.find((item) => (
+        item.building === tenant.building
+        && item.unit === tenant.unit
+        && item.isVacant
+        && !item.isArchived
+      ));
 
-    const tenantIndex = state.tenants.findIndex((item) => item.id === tenantId);
-    state.tenants = state.tenants.filter((item) => item.id !== tenantId);
+      const tenantIndex = state.tenants.findIndex((item) => item.id === tenantId);
+      state.tenants = state.tenants.filter((item) => item.id !== tenantId);
 
-    if (!existingVacant) {
-      const vacantTenant = {
-        id: `vacant-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-        building: tenant.building,
-        unit: String(effectiveProfile.unit || tenant.unit || '').trim(),
-        floor: String(effectiveProfile.floor || tenant.floor || '').trim(),
-        name: 'Available unit',
-        moveInDate: '',
-        isVacant: true,
-        isArchived: false,
-        phone: '',
-        civilId: '',
-        nationality: 'Not set',
-        insurancePreviousAmount: 0,
-        insuranceCurrentAmount: 0,
-        insuranceAmount: 0,
-        insurancePaidMonth: '',
-        dueDay: Number(tenant.dueDay || 20),
-        contractStart: '',
-        contractEnd: '',
-        contractRent: 0,
-        discount: 0,
-        actualRent: 0,
-        previousDue: 0,
-        notes: `Vacated on ${vacateDate}. Last tenant: ${tenant.name}`,
-        vacatedOn: vacateDate,
-        prepaidNextMonth: 0,
-        seedOrder: Number(tenant.seedOrder || 0),
-        lastPaidMonth: ''
-      };
-      if (tenantIndex >= 0 && tenantIndex <= state.tenants.length) {
-        state.tenants.splice(tenantIndex, 0, vacantTenant);
-      } else {
-        state.tenants.push(vacantTenant);
+      if (!existingVacant) {
+        const vacantTenant = {
+          id: `vacant-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          building: tenant.building,
+          unit: String(effectiveProfile.unit || tenant.unit || '').trim(),
+          floor: String(effectiveProfile.floor || tenant.floor || '').trim(),
+          name: 'Available unit',
+          moveInDate: '',
+          isVacant: true,
+          isArchived: false,
+          phone: '',
+          civilId: '',
+          nationality: 'Not set',
+          insurancePreviousAmount: 0,
+          insuranceCurrentAmount: 0,
+          insuranceAmount: 0,
+          insurancePaidMonth: '',
+          dueDay: Number(tenant.dueDay || 20),
+          contractStart: '',
+          contractEnd: '',
+          contractRent: 0,
+          discount: 0,
+          actualRent: 0,
+          previousDue: 0,
+          notes: `Vacated on ${vacateDate}. Last tenant: ${tenant.name}`,
+          vacatedOn: vacateDate,
+          prepaidNextMonth: 0,
+          seedOrder: Number(tenant.seedOrder || 0),
+          lastPaidMonth: ''
+        };
+        if (tenantIndex >= 0 && tenantIndex <= state.tenants.length) {
+          state.tenants.splice(tenantIndex, 0, vacantTenant);
+        } else {
+          state.tenants.push(vacantTenant);
+        }
+        const nextOrderKey = typeof getTenantOrderKey === 'function' ? getTenantOrderKey(vacantTenant) : '';
+        if (previousOrderKey && nextOrderKey && previousOrderKey !== nextOrderKey) {
+          replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
+        }
+        replaceBuildingTenantOrderOverrideId(state, tenant.building, tenant.id, vacantTenant.id);
       }
-      const nextOrderKey = typeof getTenantOrderKey === 'function' ? getTenantOrderKey(vacantTenant) : '';
-      if (previousOrderKey && nextOrderKey && previousOrderKey !== nextOrderKey) {
-        replaceBuildingTenantOrderOverrideKey(state, tenant.building, previousOrderKey, nextOrderKey);
-      }
-      replaceBuildingTenantOrderOverrideId(state, tenant.building, tenant.id, vacantTenant.id);
+
+      refreshBuildingTenantOrder(state, tenant.building);
+      saveState(state);
     }
-
-    refreshBuildingTenantOrder(state, tenant.building);
-    saveState(state);
     try {
       if (typeof syncVacateTenantToDb === 'function') {
         await syncVacateTenantToDb({
@@ -724,6 +727,7 @@
           buildingName: tenant.building,
           unit: String(tenant.unit || '').trim(),
           floor: String(tenant.floor || '').trim(),
+          monthKey: selectedMonth,
           vacateDate,
           lastTenantName: tenant.name,
           lastContractRent: Number(tenant.contractRent || 0),
@@ -734,7 +738,7 @@
         });
       }
       logActivity(state, 'Tenant removed', `${tenant.building} ${tenant.unit} ${tenant.name} removed from tenant page.`);
-      showFlashMessage(`Removed ${tenant.building} ${tenant.unit}. Refreshing...`);
+      showFlashMessage(`${isFutureMonth ? 'Saved future-month vacancy' : 'Removed'} ${tenant.building} ${tenant.unit}. Refreshing...`);
       setTimeout(() => window.location.reload(), 200);
     } catch (error) {
       showFlashMessage(String(error && error.message || 'Remove tenant failed.'));

@@ -418,6 +418,14 @@ function setActualRentOverride(state, tenantId, monthKey, amountOrNull) {
     return getTenantMonthTextOverride(state, tenantId, monthKey, 'planned_vacate_date');
   }
 
+  function getVacatedOnOverride(state, tenantId, monthKey) {
+    return getTenantMonthTextOverride(state, tenantId, monthKey, 'vacated_on');
+  }
+
+  function getVacancyNotesOverride(state, tenantId, monthKey) {
+    return getTenantMonthTextOverride(state, tenantId, monthKey, 'vacancy_notes');
+  }
+
   function getVacantAmountOverride(state, tenantId, monthKey) {
     if (typeof getDbSnapshotTenantMonthState === 'function') {
       const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
@@ -735,6 +743,56 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const effectivePhone = profile ? profile.phone : String(tenant.phone || '');
     const effectiveCivilId = profile ? profile.civilId : String(tenant.civilId || '');
     const effectiveNationality = profile ? profile.nationality : (tenant.nationality || 'Not set');
+    const monthVacatedOn = getVacatedOnOverride(state, tenant.id, selectedMonth);
+    const monthVacancyNotes = getVacancyNotesOverride(state, tenant.id, selectedMonth);
+    const isMonthVacant = String(effectiveName || '').trim() === 'Available unit';
+    if (isMonthVacant) {
+      return {
+        id: tenant.id,
+        unitId: String(tenant.unitId || '').trim(),
+        sourceTenantId: String(tenant.sourceTenantId || tenant.id || '').trim(),
+        building: tenant.building,
+        unit: String(effectiveUnit || tenant.unit || '').trim(),
+        floor: String(effectiveFloor || tenant.floor || '').trim(),
+        name: 'Available unit',
+        isVacant: true,
+        isArchived: false,
+        phone: '',
+        civilId: '',
+        nationality: 'Not set',
+        insurancePreviousAmount: 0,
+        insuranceCurrentAmount: 0,
+        insuranceAmount: 0,
+        insurancePaidMonth: '',
+        dueDay: Number(tenant.dueDay || 20),
+        contractStart: '',
+        contractEnd: '',
+        contractRent: 0,
+        discount: normalizeAmount(Number(tenant.discount || 0)),
+        actualRent: 0,
+        lastActualRent: normalizeAmount(Number(tenant.actualRent || 0)),
+        lastContractRent: normalizeAmount(Number(tenant.contractRent || 0)),
+        previousDue: 0,
+        paidCurrent: 0,
+        prepaidNext: 0,
+        prepaidFromBefore: 0,
+        remainingCurrent: 0,
+        totalDue: 0,
+        status: 'vacant',
+        lateMonths: 0,
+        prepaidMonths: 0,
+        paidThroughMonth: selectedMonth,
+        lastPaidMonth: '',
+        lastPaidMonthLabel: '-',
+        contractAlert: false,
+        contractExpired: false,
+        daysToEnd: null,
+        notes: String(monthVacancyNotes || `Vacated on ${monthVacatedOn || selectedMonth}. Last tenant: ${tenant.name}`).trim(),
+        vacatedOn: String(monthVacatedOn || '').trim(),
+        oldTenantDuePaid: 0,
+        seedOrder: Number(tenant.seedOrder || 0)
+      };
+    }
     const moveInMonth = getMonthKeyFromDate(effectiveMoveInDate);
     const contractRentOverride = getContractRentOverride(state, tenant.id, selectedMonth);
     const discountOverride = getDiscountOverride(state, tenant.id, selectedMonth);

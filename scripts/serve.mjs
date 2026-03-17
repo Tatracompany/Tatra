@@ -1369,12 +1369,38 @@ async function vacateTenantInDatabase(payload) {
   const buildingName = String(payload && payload.buildingName || '').trim();
   const unitLabel = String(payload && payload.unit || '').trim();
   const floorLabel = String(payload && payload.floor || '').trim();
+  const monthKey = String(payload && payload.monthKey || '').trim();
   const vacateDate = String(payload && payload.vacateDate || '').trim();
   if (!sourceTenantId || !vacateDate) {
     throw new Error('sourceTenantId and vacateDate are required.');
   }
   const database = openDatabase(databasePath);
   try {
+    if (monthKey && compareMonthKeys(monthKey, BASELINE_MONTH_KEY) > 0) {
+      await database.exec('BEGIN');
+      await ensureFrozenMonthBaseline(database, sourceTenantId, monthKey);
+      for (const [overrideKind, valueText] of [
+        ['name', 'Available unit'],
+        ['phone', ''],
+        ['civilId', ''],
+        ['nationality', 'Not set'],
+        ['moveInDate', ''],
+        ['contractStart', ''],
+        ['contractEnd', ''],
+        ['planned_vacate_date', ''],
+        ['vacated_on', vacateDate],
+        ['vacancy_notes', String(payload && payload.vacancyNotes || '').trim()]
+      ]) {
+        await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
+      }
+      await database.exec(`
+        INSERT INTO app_meta(key, value)
+        VALUES ('last_vacate_sync_at', CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+      `);
+      await database.exec('COMMIT');
+      return await exportSnapshotToBrowserFile();
+    }
     const tenancy = await database.prepare(`
       SELECT id, unit_id AS unitId, tenant_name AS tenantName
       FROM tenancies
