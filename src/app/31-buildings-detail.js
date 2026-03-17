@@ -668,7 +668,7 @@
         paidOverride: currentMonthAmount,
         insuranceAmount,
         insurancePaidMonth,
-        oldTenantDuePaid: paidPreviousAmount,
+        oldTenantDuePaid: oldTenantDuePaidNote,
         prepaidAmount,
         plannedVacateDate,
         notes: getDetailTextInputValue(notesInput, tenantForDisplay.notes || '')
