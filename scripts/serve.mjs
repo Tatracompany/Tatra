@@ -848,6 +848,7 @@ async function createMonthTabInDatabase(payload) {
         ['actual_rent', String(Number(row && row.actualRent || 0))],
         ['opening_credit', String(Number(row && row.prepaidFromBefore || 0))],
         ['carry', String(Number((row && row.previousDue || 0) + (row && row.paidPrevious || 0) || 0))],
+        ['paid_previous', String(Number(row && row.paidPrevious || 0))],
         ['paid', String(Number(row && row.paidCurrent || 0))],
         ['prepaid_next', String(Number((row && (row.prepaidNext ?? row.prepaidAmount)) || 0))],
         ['insurance_amount', String(Number(row && row.insuranceAmount || 0))],
@@ -855,7 +856,7 @@ async function createMonthTabInDatabase(payload) {
         ['planned_vacate_date', String(row && row.plannedVacateDate || '').trim()],
         ['notes', String(row && row.notes || '').trim()],
         ['vacant_amount', String(Number(row && row.vacantAmount || 0))],
-        ['old_tenant_due_paid', String(Number((row && (row.paidPrevious ?? row.oldTenantDuePaid)) || 0))]
+        ['old_tenant_due_paid', String(Number(row && row.oldTenantDuePaid || 0))]
       ];
       for (const [overrideKind, valueText] of entries) {
         await upsertTenantMonthOverride(database, sourceTenantId, monthKey, overrideKind, valueText);
@@ -956,6 +957,9 @@ async function saveBuildingInlineEditToDatabase(payload) {
     }
     if (hasPayloadField('carryOverride')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'carry', String(Number(payload && payload.carryOverride || 0)));
+    }
+    if (hasPayloadField('paidPreviousAmount')) {
+      await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid_previous', String(Number(payload && payload.paidPreviousAmount || 0)));
     }
     if (hasPayloadField('paidOverride')) {
       await upsertTenantMonthOverride(database, sourceTenantId, monthKey, 'paid', String(Number(payload && payload.paidOverride || 0)));

@@ -665,6 +665,7 @@
         vacantAmount,
         openingCreditAmount: prepaidFromBeforeAmount,
         carryOverride: compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) > 0 ? 0 : (previousDueAmount + paidPreviousAmount),
+        paidPreviousAmount,
         paidOverride: currentMonthAmount,
         insuranceAmount,
         insurancePaidMonth,

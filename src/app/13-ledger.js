@@ -464,11 +464,54 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
 
   function getOldTenantDuePaidNote(state, buildingName, unit, monthKey) {
     ensureOldTenantDuePaidNotesState(state);
-    const buildingBucket = state.oldTenantDuePaidNotes[String(buildingName || '').trim()];
-    if (!buildingBucket) return 0;
-    const unitBucket = buildingBucket[String(unit || '').trim()];
-    if (!unitBucket) return 0;
-    return normalizeAmount(Math.max(0, Number(unitBucket[String(monthKey || '').trim()] || 0)));
+    const normalizedBuildingName = String(buildingName || '').trim();
+    const normalizedUnit = String(unit || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    const buildingBucket = state.oldTenantDuePaidNotes[normalizedBuildingName];
+    if (buildingBucket) {
+      const unitBucket = buildingBucket[normalizedUnit];
+      if (unitBucket && unitBucket[normalizedMonthKey] != null) {
+        return normalizeAmount(Math.max(0, Number(unitBucket[normalizedMonthKey] || 0)));
+      }
+    }
+    const candidateTenantIds = new Set(
+      (state.tenants || [])
+        .filter((tenant) => (
+          String(tenant && tenant.building || '').trim() === normalizedBuildingName
+          && String(tenant && tenant.unit || '').trim() === normalizedUnit
+        ))
+        .flatMap((tenant) => {
+          const ids = [];
+          const linkedId = String(tenant && tenant.id || '').trim();
+          const sourceId = String(tenant && tenant.sourceTenantId || '').trim();
+          if (linkedId) ids.push(linkedId);
+          if (sourceId) ids.push(sourceId);
+          return ids;
+        })
+    );
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      let total = 0;
+      let matched = false;
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, normalizedMonthKey, 'old_tenant_due_paid');
+        if (!snapshotOverride) return;
+        matched = true;
+        total += Number(snapshotOverride.valueText || 0);
+      });
+      if (matched) return normalizeAmount(Math.max(0, total));
+    }
+    if (typeof getDbSnapshotTenantMonthState === 'function') {
+      let total = 0;
+      let matched = false;
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotState = getDbSnapshotTenantMonthState(candidateId, normalizedMonthKey);
+        if (!snapshotState || snapshotState.oldTenantDuePaid == null) return;
+        matched = true;
+        total += Number(snapshotState.oldTenantDuePaid || 0);
+      });
+      if (matched) return normalizeAmount(Math.max(0, total));
+    }
+    return 0;
   }
 
   function setOldTenantDuePaidNote(state, buildingName, unit, monthKey, noteText) {
@@ -1444,11 +1487,18 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     }
     let total = 0;
     const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
-    if (typeof getDbSnapshotTenantMonthState === 'function') {
+    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
+      candidateTenantIds.forEach((candidateId) => {
+        const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, 'paid_previous');
+        if (!snapshotOverride) return;
+        total += Number(snapshotOverride.valueText || 0);
+      });
+    }
+    if (!(total > 0) && typeof getDbSnapshotTenantMonthState === 'function') {
       candidateTenantIds.forEach((candidateId) => {
         const snapshotState = getDbSnapshotTenantMonthState(candidateId, monthKey);
-        if (snapshotState && snapshotState.oldTenantDuePaid != null) {
-          total += Number(snapshotState.oldTenantDuePaid || 0);
+        if (snapshotState && snapshotState.previousPaid != null) {
+          total += Number(snapshotState.previousPaid || 0);
         }
       });
     }
