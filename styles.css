@@ -722,6 +722,10 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 }
 .building-table .table-summary-input {
   text-align: left;
+  width: 100%;
+  max-width: 96px;
+  margin-left: 0;
+  margin-right: auto;
 }
 .building-table tbody tr:last-child td { border-bottom: 0; }
 .building-table td:first-child,
