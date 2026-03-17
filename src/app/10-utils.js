@@ -656,7 +656,14 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
       return {
-        building: String(parsed.building || 'all').trim() || 'all'
+        building: String(parsed.building || 'all').trim() || 'all',
+        monthByBuilding: parsed.monthByBuilding && typeof parsed.monthByBuilding === 'object'
+          ? Object.fromEntries(
+            Object.entries(parsed.monthByBuilding)
+              .map(([key, value]) => [String(key || '').trim(), String(value || '').trim()])
+              .filter(([key, value]) => !!key && !!value)
+          )
+          : {}
       };
     } catch (error) {
       return null;
@@ -665,8 +672,16 @@
 
   function saveTenantViewPreference(buildingName) {
     const normalizedBuilding = String(buildingName || 'all').trim() || 'all';
+    const monthByBuilding = window.__selectedTenantMonthByBuilding && typeof window.__selectedTenantMonthByBuilding === 'object'
+      ? Object.fromEntries(
+        Object.entries(window.__selectedTenantMonthByBuilding)
+          .map(([key, value]) => [String(key || '').trim(), String(value || '').trim()])
+          .filter(([key, value]) => !!key && !!value)
+      )
+      : {};
     safeStorageSet(TENANT_VIEW_KEY, JSON.stringify({
-      building: normalizedBuilding
+      building: normalizedBuilding,
+      monthByBuilding
     }));
   }
 
@@ -675,6 +690,16 @@
     const preferredBuilding = savedView ? String(savedView.building || 'all').trim() || 'all' : 'all';
     if (preferredBuilding === 'all') return 'all';
     return state.buildings.some((building) => building.name === preferredBuilding) ? preferredBuilding : 'all';
+  }
+
+  function getPreferredTenantMonthForBuilding(buildingName) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return '';
+    const savedView = loadTenantViewPreference();
+    const savedMonth = savedView && savedView.monthByBuilding
+      ? String(savedView.monthByBuilding[normalizedBuilding] || '').trim()
+      : '';
+    return savedMonth;
   }
 
   function getPreferredBuildingForArea(state, areaName) {

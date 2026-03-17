@@ -519,6 +519,7 @@
       }
       if (savedTenantView && savedTenantView.building) {
         window.__selectedTenantBuildingFilter = savedTenantView.building;
+        window.__selectedTenantMonthByBuilding = savedTenantView.monthByBuilding || {};
       }
       if (queryMonth) window.__selectedBuildingMonth = queryMonth;
       const initialBuilding = queryBuilding || window.__selectedBuildingName || getDefaultBuildingName(state);
@@ -557,6 +558,15 @@
       if (statusFilter) statusFilter.addEventListener('change', () => renderTenants(state));
       if (tenantBuildingFilter) tenantBuildingFilter.addEventListener('change', () => {
         window.__selectedTenantBuildingFilter = tenantBuildingFilter.value || 'all';
+        const selectedBuilding = String(window.__selectedTenantBuildingFilter || '').trim();
+        if (selectedBuilding && selectedBuilding !== 'all') {
+          if (!window.__selectedTenantMonthByBuilding || typeof window.__selectedTenantMonthByBuilding !== 'object') {
+            window.__selectedTenantMonthByBuilding = {};
+          }
+          if (!window.__selectedTenantMonthByBuilding[selectedBuilding]) {
+            window.__selectedTenantMonthByBuilding[selectedBuilding] = getPreferredTenantMonthForBuilding(selectedBuilding) || getDefaultActiveMonthKey();
+          }
+        }
         saveTenantViewPreference(window.__selectedTenantBuildingFilter);
         renderTenants(state);
       });

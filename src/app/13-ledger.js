@@ -1560,7 +1560,16 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
   function getSelectedTenantMonth() {
     const buildingFilter = ((document.getElementById('tenantBuildingFilter') || {}).value || window.__selectedTenantBuilding || 'all');
     const buildingName = buildingFilter === 'all' ? '' : buildingFilter;
-    return clampMonthToVisibleForBuilding(window.__selectedTenantMonth || getActiveMonthKey(), buildingName);
+    const monthByBuilding = window.__selectedTenantMonthByBuilding && typeof window.__selectedTenantMonthByBuilding === 'object'
+      ? window.__selectedTenantMonthByBuilding
+      : {};
+    const fallbackMonth = buildingName
+      ? (monthByBuilding[buildingName] || getPreferredTenantMonthForBuilding(buildingName) || getDefaultActiveMonthKey())
+      : (window.__selectedTenantMonth || getDefaultActiveMonthKey());
+    const selectedMonth = buildingName
+      ? (monthByBuilding[buildingName] || fallbackMonth)
+      : (window.__selectedTenantMonth || fallbackMonth);
+    return clampMonthToVisibleForBuilding(selectedMonth || getActiveMonthKey(), buildingName);
   }
 
   function renderTenantMonthTabs() {
@@ -1569,18 +1578,31 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const selectedMonth = getSelectedTenantMonth();
     const buildingFilter = ((document.getElementById('tenantBuildingFilter') || {}).value || window.__selectedTenantBuilding || 'all');
     const buildingName = buildingFilter === 'all' ? '' : buildingFilter;
-    window.__selectedTenantMonth = selectedMonth;
+    if (!window.__selectedTenantMonthByBuilding || typeof window.__selectedTenantMonthByBuilding !== 'object') {
+      window.__selectedTenantMonthByBuilding = {};
+    }
+    if (buildingName) {
+      window.__selectedTenantMonthByBuilding[buildingName] = selectedMonth;
+    } else {
+      window.__selectedTenantMonth = selectedMonth;
+    }
     const year = monthStart(selectedMonth).getFullYear();
     const monthButtons = getVisibleYearMonthKeysForBuilding(year, buildingName).map((monthKey) => {
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-tenant-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
-    const latestCreatedMonth = getLatestCreatedMonthKey();
-    const nextCreatableMonth = getNextCreatableMonthKey();
+    const latestCreatedMonth = buildingName ? getLatestCreatedMonthKeyForBuilding(buildingName) : getLatestCreatedMonthKey();
+    const nextCreatableMonth = buildingName ? getNextCreatableMonthKeyForBuilding(buildingName) : getNextCreatableMonthKey();
     container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-tenant-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}${latestCreatedMonth !== getDefaultActiveMonthKey() ? `<button type="button" class="month-tab month-tab-delete" data-delete-tenant-month="${escapeHtml(latestCreatedMonth)}">-</button>` : ''}`;
     container.querySelectorAll('[data-tenant-month]').forEach((button) => {
       button.addEventListener('click', () => {
-        window.__selectedTenantMonth = button.getAttribute('data-tenant-month') || getActiveMonthKey();
+        const nextMonth = button.getAttribute('data-tenant-month') || getActiveMonthKey();
+        if (buildingName) {
+          window.__selectedTenantMonthByBuilding[buildingName] = nextMonth;
+        } else {
+          window.__selectedTenantMonth = nextMonth;
+        }
+        saveTenantViewPreference(window.__selectedTenantBuildingFilter || buildingFilter || 'all');
         renderTenantMonthTabs();
         populateTenantSelectors(window.__appState);
         renderTenants(window.__appState);
@@ -1591,8 +1613,14 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         const nextMonth = button.getAttribute('data-create-tenant-month') || '';
         if (!nextMonth || typeof createMonthTab !== 'function') return;
         try {
-          await createMonthTab(nextMonth);
-          window.__selectedTenantMonth = nextMonth;
+          if (buildingName) {
+            markBuildingMonthAsCreated(buildingName, nextMonth);
+            window.__selectedTenantMonthByBuilding[buildingName] = nextMonth;
+          } else {
+            await createMonthTab(nextMonth);
+            window.__selectedTenantMonth = nextMonth;
+          }
+          saveTenantViewPreference(window.__selectedTenantBuildingFilter || buildingFilter || 'all');
           renderTenantMonthTabs();
           populateTenantSelectors(window.__appState);
           renderTenants(window.__appState);
@@ -1611,8 +1639,14 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         const monthToDelete = button.getAttribute('data-delete-tenant-month') || '';
         if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
         try {
-          await deleteMonthTab(monthToDelete);
-          window.__selectedTenantMonth = getLatestCreatedMonthKey();
+          if (buildingName) {
+            unmarkBuildingMonthAsCreated(buildingName, monthToDelete);
+            window.__selectedTenantMonthByBuilding[buildingName] = getLatestCreatedMonthKeyForBuilding(buildingName);
+          } else {
+            await deleteMonthTab(monthToDelete);
+            window.__selectedTenantMonth = getLatestCreatedMonthKey();
+          }
+          saveTenantViewPreference(window.__selectedTenantBuildingFilter || buildingFilter || 'all');
           renderTenantMonthTabs();
           populateTenantSelectors(window.__appState);
           renderTenants(window.__appState);
