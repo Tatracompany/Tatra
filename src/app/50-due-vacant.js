@@ -139,8 +139,12 @@
     const selectedMonth = getSelectedVacantMonth();
     const currentMonth = getCurrentMonthKey();
     const vacantUnits = getTenantViews(state, selectedMonth)
-      .filter((tenant) => tenant.isVacant)
+      .filter((tenant) => tenant.isVacant || (!tenant.isArchived && !tenant.isVacant && tenant.plannedVacateDate))
       .filter((tenant) => {
+        if (!tenant.isVacant) {
+          const plannedMonth = getMonthKeyFromDate(tenant.plannedVacateDate || '');
+          return !plannedMonth || compareMonthKeys(selectedMonth, plannedMonth) <= 0;
+        }
         const vacantFromMonth = getMonthKeyFromDate(tenant.vacatedOn || '');
         if (vacantFromMonth) return compareMonthKeys(selectedMonth, vacantFromMonth) >= 0;
         return compareMonthKeys(selectedMonth, currentMonth) >= 0;
@@ -152,6 +156,18 @@
           || unitSortValue(String(a.unit || '')).localeCompare(unitSortValue(String(b.unit || '')), 'en', { numeric: true });
       })
       .map((tenant) => {
+        if (!tenant.isVacant) {
+          return Object.assign({}, tenant, {
+            lastTenantId: tenant.id,
+            lastTenantName: tenant.name || '-',
+            lastActualRent: Number(tenant.actualRent || tenant.rentDue || 0),
+            lastContractRent: Number(tenant.contractRent || tenant.actualRent || tenant.rentDue || 0),
+            vacantSince: '',
+            notes: String(tenant.notes || `Planned vacate ${tenant.plannedVacateDate || ''}`).trim(),
+            isPlannedVacate: true,
+            plannedVacateDate: String(tenant.plannedVacateDate || '').trim()
+          });
+        }
         const lastTenant = getLatestArchivedTenantForUnitUpToMonth(state, tenant.building, tenant.unit, selectedMonth);
         const vacantSince = tenant.vacatedOn || (lastTenant && (lastTenant.archivedOn || lastTenant.contractEnd)) || '';
         return Object.assign({}, tenant, {
@@ -177,16 +193,16 @@
       ].join('');
     }
     container.innerHTML = vacantUnits.length ? `<div class="table-scroll"><table class="building-table vacant-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Last tenant</th><th class="amount"><span class="header-stack"><span>Last actual</span><span>rent</span></span></th><th class="amount"><span class="header-stack"><span>Last contract</span><span>rent</span></span></th><th>Vacant since</th><th>Planned vacate</th><th>Notes</th></tr></thead><tbody>${vacantUnits.map((tenant) => `
-      <tr class="is-vacant">
+      <tr class="${tenant.isPlannedVacate ? 'is-upcoming' : 'is-vacant'}">
         <td>${escapeHtml(tenant.building)}</td>
         <td>${escapeHtml(tenant.unit)}</td>
         <td>${escapeHtml(tenant.floor || '-')}</td>
         <td>${escapeHtml(tenant.lastTenantName || '-')}</td>
         <td class="amount">${formatCurrency(tenant.lastActualRent || 0)}</td>
         <td class="amount">${formatCurrency(tenant.lastContractRent || 0)}</td>
-        <td>${escapeHtml(tenant.vacantSince ? formatDate(tenant.vacantSince) : '-')}</td>
+        <td>${escapeHtml(tenant.vacantSince ? formatDate(tenant.vacantSince) : (tenant.isPlannedVacate ? 'Planned' : '-'))}</td>
         <td>${escapeHtml(tenant.plannedVacateDate ? formatDate(tenant.plannedVacateDate) : '-')}</td>
-        <td class="notes-cell">${escapeHtml(tenant.notes || 'Vacant unit')}</td>
+        <td class="notes-cell">${escapeHtml(tenant.notes || (tenant.isPlannedVacate ? 'Planned vacate' : 'Vacant unit'))}</td>
       </tr>`).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="4"><strong>Total</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastActualRent || 0), 0))}</strong></td><td class="amount"><strong>${formatCurrency(vacantUnits.reduce((sum, tenant) => sum + Number(tenant.lastContractRent || 0), 0))}</strong></td><td colspan="3"><strong>${vacantUnits.length} vacant units</strong></td></tr></tfoot></table></div>` : '<div class="empty-state">No vacant units found for the selected month.</div>';
   }
 
