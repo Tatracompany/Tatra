@@ -1046,21 +1046,19 @@ async function saveTenantTrackerToDatabase(payload) {
   if (!unitId || !monthKey) {
     throw new Error('unitId and monthKey are required.');
   }
-  const metaKey = `tenant_tracker_occupants::${unitId}`;
-  const legacyMetaKey = `tenant_tracker_occupants::${unitId}::${monthKey}`;
+  const metaKey = `tenant_tracker_occupants::${unitId}::${monthKey}`;
+  const legacyMetaKey = `tenant_tracker_occupants::${unitId}`;
   const namesText = String(payload && payload.namesText || '').trim();
   const database = openDatabase(databasePath);
   try {
     if (!namesText) {
       await database.prepare(`DELETE FROM app_meta WHERE key = ?`).run(metaKey);
-      await database.prepare(`DELETE FROM app_meta WHERE key = ?`).run(legacyMetaKey);
     } else {
       await database.prepare(`
         INSERT INTO app_meta(key, value)
         VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value;
       `).run(metaKey, namesText);
-      await database.prepare(`DELETE FROM app_meta WHERE key = ?`).run(legacyMetaKey);
     }
   } finally {
     await database.close();

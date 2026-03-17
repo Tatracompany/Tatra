@@ -23,8 +23,9 @@
 
   function getTrackerOccupantsMetaKey(unitId, monthKey) {
     const normalizedUnitId = String(unitId || '').trim();
-    if (!normalizedUnitId) return '';
-    return `tenant_tracker_occupants::${normalizedUnitId}`;
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedUnitId || !normalizedMonthKey) return '';
+    return `tenant_tracker_occupants::${normalizedUnitId}::${normalizedMonthKey}`;
   }
 
   function getTrackerRowStorageKey(tenant) {
@@ -39,9 +40,8 @@
 
   function getLegacyTrackerOccupantsMetaKey(unitId, monthKey) {
     const normalizedUnitId = String(unitId || '').trim();
-    const normalizedMonthKey = String(monthKey || '').trim();
-    if (!normalizedUnitId || !normalizedMonthKey) return '';
-    return `tenant_tracker_occupants::${normalizedUnitId}::${normalizedMonthKey}`;
+    if (!normalizedUnitId) return '';
+    return `tenant_tracker_occupants::${normalizedUnitId}`;
   }
 
   function getTrackerAppMetaEntries() {
