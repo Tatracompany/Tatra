@@ -853,14 +853,29 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
           )
           : 0
       );
+    const stableDisplayActualRent = normalizeAmount(
+      baseActualRent > 0
+        ? baseActualRent
+        : (handoverVacantBaseAmount || rentDue || defaultActualRent || 0)
+    );
+    const shouldTreatPrecontractAsCurrentMonth = (
+      (isPreContractOccupancy || startsNextMonthVisible)
+      && stableDisplayActualRent > 0
+      && displayPaidCurrentRaw > 0
+    );
+    const displayRentDue = shouldTreatPrecontractAsCurrentMonth ? stableDisplayActualRent : rentDue;
+    const displayRemainingCurrent = shouldTreatPrecontractAsCurrentMonth
+      ? normalizeAmount(Math.max(stableDisplayActualRent - displayPaidCurrentRaw, 0))
+      : remainingCurrent;
+    const displayTotalDue = normalizeAmount(previousDue + displayRemainingCurrent);
     const shouldMarkCurrentMonthLateByDate = compareMonthKeys(selectedMonth, getDefaultActiveMonthKey()) <= 0;
     let status = 'paid';
-    if (isPreContractOccupancy || startsNextMonthVisible) status = 'precontract';
+    if ((isPreContractOccupancy || startsNextMonthVisible) && !shouldTreatPrecontractAsCurrentMonth) status = 'precontract';
     else if (previousDue > 0) status = 'overdue';
-    else if (rentDue <= 0 || totalDue <= 0 || remainingCurrent <= 0) status = 'paid';
-    else if (displayPaidCurrent >= rentDue && rentDue > 0) status = 'paid';
-    else if (displayPaidCurrent > 0 && remainingCurrent > 0) status = 'partial';
-    else if (shouldMarkCurrentMonthLateByDate && today() > dueDate && remainingCurrent > 0) status = 'overdue';
+    else if (displayRentDue <= 0 || displayTotalDue <= 0 || displayRemainingCurrent <= 0) status = 'paid';
+    else if (displayPaidCurrent >= displayRentDue && displayRentDue > 0) status = 'paid';
+    else if (displayPaidCurrent > 0 && displayRemainingCurrent > 0) status = 'partial';
+    else if (shouldMarkCurrentMonthLateByDate && today() > dueDate && displayRemainingCurrent > 0) status = 'overdue';
     else status = 'upcoming';
 
     const lateMonths = monthsLate(previousDue, rentDue);
@@ -886,12 +901,6 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const contractEnd = effectiveContractEnd ? new Date(`${effectiveContractEnd}T00:00:00`) : null;
     const daysToEnd = contractEnd ? Math.ceil((contractEnd - today()) / 86400000) : null;
 
-    const stableDisplayActualRent = normalizeAmount(
-      baseActualRent > 0
-        ? baseActualRent
-        : (handoverVacantBaseAmount || rentDue || defaultActualRent || 0)
-    );
-
     return Object.assign({}, tenant, {
       name: effectiveName,
       unit: effectiveUnit,
@@ -909,14 +918,14 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       prepaidFromBefore,
       prepaidCredit,
       prepaidNext,
-      rentDue,
+      rentDue: displayRentDue,
       baseActualRent,
       displayActualRent: stableDisplayActualRent,
       displayVacantAmount,
       previousDue,
       previousPaid: normalizeAmount(currentLedger.previousPaid || 0),
-      remainingCurrent,
-      totalDue,
+      remainingCurrent: displayRemainingCurrent,
+      totalDue: displayTotalDue,
       status,
       isPreContractOccupancy,
       startsNextMonthVisible,
