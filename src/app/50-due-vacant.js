@@ -11,7 +11,7 @@
         return Object.assign({}, view, {
           isFormerTenant: true,
           vacatedOn: tenant.archivedOn || tenant.contractEnd || '',
-          displayType: 'Former tenant',
+          displayType: 'Vacated due',
           previousDue,
           previousPaid: paidPrevious,
           remainingCurrent: 0,
@@ -30,7 +30,7 @@
       .map((tenant) => Object.assign({}, tenant, {
         isFormerTenant: false,
         vacatedOn: '',
-        displayType: 'Current tenant'
+        displayType: 'Current due'
       }));
     const formerTenants = getFormerDueTenantViews(state, selectedMonth);
     return []
