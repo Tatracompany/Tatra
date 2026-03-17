@@ -562,7 +562,10 @@
     const previousDueInput = findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_from_before');
     const paidPreviousInput = findDetailInputByFieldId('data-edit-paid-previous', fieldTenantId, selectedMonth, 'paid_previous');
     const prepaidFromBeforeInput = findDetailInputByFieldId('data-edit-prepaid-from-before', fieldTenantId, selectedMonth, 'prepaid_from_before');
-    const currentMonthInput = findDetailInputByFieldId('data-edit-current-month', fieldTenantId, selectedMonth, 'current_month');
+    const currentMonthFieldId = buildTenantMonthFieldId(fieldTenantId, selectedMonth, 'current_month');
+    const currentMonthInput = currentMonthFieldId
+      ? document.querySelector(`[data-inline-field-id="${currentMonthFieldId}"][data-row-edit-current-month]`)
+      : findDetailInputByFieldId('data-edit-current-month', fieldTenantId, selectedMonth, 'current_month');
     const contractInput = findDetailInputByFieldId('data-edit-contract', fieldTenantId, selectedMonth, 'contract_amount');
     const discountInput = findDetailInputByFieldId('data-edit-discount', fieldTenantId, selectedMonth, 'discount');
     const actualRentInput = findDetailInputByFieldId('data-edit-actual-rent', fieldTenantId, selectedMonth, 'actual_rent');
