@@ -614,7 +614,12 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const buildingName = String(input.getAttribute('data-building-name') || '').trim() || (window.__selectedBuildingName || getDefaultBuildingName(state));
     const monthKey = String(input.getAttribute('data-month-key') || '').trim() || getSelectedBuildingMonth();
     const currentValue = normalizeAmount(Number(String(input.value || '').trim() || 0));
-    const tenants = getBuildingTenantsForMonth(state, buildingName, monthKey);
+    let tenants = [];
+    if (typeof getBuildingTenantsForMonth === 'function') {
+      tenants = getBuildingTenantsForMonth(state, buildingName, monthKey);
+    } else if (typeof getBuildingDisplayTenants === 'function') {
+      tenants = getBuildingDisplayTenants(state, buildingName, monthKey);
+    }
     const previousPaidTotal = tenants.reduce((sum, tenant) => sum + Number(getTenantDuePaidAmount(state, tenant.id, monthKey) || 0), 0);
     const insuranceCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.insuranceCurrentAmount || 0), 0);
     const oldTenantDuePaidTotal = tenants.reduce((sum, tenant) => sum + Number(getOldTenantDuePaidNote(state, tenant.building, tenant.unit, monthKey) || 0), 0);
