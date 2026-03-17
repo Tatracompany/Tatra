@@ -692,12 +692,14 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       const directPaidRaw = normalizeAmount(paymentBreakdown.directPaid);
       const priorAdvancePaidRaw = normalizeAmount(paymentBreakdown.priorAdvancePaid);
       const occupancyPaidRaw = normalizeAmount(paymentBreakdown.occupancyPaid);
-      const prepaidFromBefore = normalizeAmount(Math.min(due, effectiveOpeningCredit + priorAdvancePaidRaw));
+      // "Prepaid from before" is currently a stored/display value only.
+      // It should not auto-apply into the month math or change current-month balances.
+      const prepaidFromBefore = normalizeAmount(effectiveOpeningCredit);
       const directPaidApplied = normalizeAmount(Math.min(directPaidRaw, due));
       const remainingCurrent = normalizeAmount(due - directPaidRaw);
-      const paid = normalizeAmount(prepaidFromBefore + directPaidApplied + occupancyPaidRaw);
+      const paid = normalizeAmount(directPaidApplied + occupancyPaidRaw);
       const closingCarry = normalizeAmount(Math.max(openingCarry - previousPaid + remainingCurrent, 0));
-      const closingCredit = normalizeAmount(Math.max(effectiveOpeningCredit + priorAdvancePaidRaw + directPaidRaw - due, 0));
+      const closingCredit = normalizeAmount(effectiveOpeningCredit);
       ledger.push({
         monthKey: monthPointer,
         openingCarry,
