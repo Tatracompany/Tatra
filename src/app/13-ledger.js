@@ -777,7 +777,6 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const remainingCurrent = normalizeAmount(currentLedger.remainingCurrent);
     const totalDue = normalizeAmount(previousDue + remainingCurrent);
     const manualPrepaidFromBefore = getManualPrepaidFromBeforeOverride(tenant, selectedMonth);
-    const rowCreditAppliedCurrent = getRowCreditCarryIntoMonth(state, tenant.id, selectedMonth);
     const prepaidFromBefore = normalizeAmount(
       manualPrepaidFromBefore != null
         ? manualPrepaidFromBefore
@@ -819,7 +818,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const coveredCurrentBeforeArchived = normalizeAmount(
       isPreContractOccupancy
         ? occupancyPaidCurrent
-        : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent)
+        : (paidCurrent + priorAdvanceAppliedCurrent)
     );
     const displayPaidCurrent = normalizeAmount(
       coveredCurrentBeforeArchived
@@ -828,7 +827,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const displayPaidCurrentRaw = normalizeAmount(
       (isPreContractOccupancy
         ? occupancyPaidCurrent
-        : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
+        : (paidCurrentRaw + priorAdvanceAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
