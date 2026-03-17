@@ -355,21 +355,19 @@ textarea { resize: vertical; }
   vertical-align: middle;
 }
 .tracker-table th:nth-child(1),
-.tracker-table td:nth-child(1) { min-width: 78px; }
+.tracker-table td:nth-child(1) { min-width: 70px; }
 .tracker-table th:nth-child(2),
-.tracker-table td:nth-child(2) { min-width: 50px; }
+.tracker-table td:nth-child(2) { min-width: 44px; }
 .tracker-table th:nth-child(3),
-.tracker-table td:nth-child(3) { min-width: 54px; }
+.tracker-table td:nth-child(3) { min-width: 48px; }
 .tracker-table th:nth-child(4),
-.tracker-table td:nth-child(4) { min-width: 120px; }
+.tracker-table td:nth-child(4) { min-width: 110px; }
 .tracker-table th:nth-child(5),
-.tracker-table td:nth-child(5) { min-width: 64px; }
+.tracker-table td:nth-child(5) { min-width: 40px; text-align: center; }
 .tracker-table th:nth-child(6),
-.tracker-table td:nth-child(6) { min-width: 46px; text-align: center; }
-.tracker-table th:nth-child(n+7):nth-child(-n+14),
-.tracker-table td:nth-child(n+7):nth-child(-n+14) { min-width: 74px; text-align: center; }
-.tracker-table th:nth-child(15),
-.tracker-table td:nth-child(15) { min-width: 64px; text-align: center; }
+.tracker-table td:nth-child(n+6):nth-child(-n+13) { min-width: 62px; text-align: center; }
+.tracker-table th:nth-child(14),
+.tracker-table td:nth-child(14) { min-width: 58px; text-align: center; }
 .tracker-name-cell {
   padding-left: 2px;
   padding-right: 2px;
@@ -377,23 +375,23 @@ textarea { resize: vertical; }
 .tracker-name-field {
   width: 100%;
   min-width: 0;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: #fffdf9;
   line-height: 1.05;
-  height: 24px;
-  font-size: 0.72rem;
+  height: 20px;
+  font-size: 0.68rem;
 }
 .tracker-name-field::placeholder {
   color: rgba(120, 103, 84, 0.7);
 }
 .tracker-table .secondary-action {
   min-width: 56px;
-  padding: 4px 8px;
-  min-height: 24px;
-  height: 24px;
-  font-size: 0.72rem;
+  padding: 2px 8px;
+  min-height: 22px;
+  height: 22px;
+  font-size: 0.68rem;
   background: #fffdf9;
 }
 .tracker-save-cell > div[data-tracker-names] {
@@ -472,7 +470,7 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
 .activity-page-row.system { background: linear-gradient(180deg, #f8f5ef 0%, #eee5d8 100%); }
 .activity-page-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 6px; }
 .activity-page-head strong { font-size: 0.92rem; }
-.activity-row.activity-page-row { padding: 12px 14px; border-radius: 14px; }
+.activity-row.activity-page-row { padding: 6px 9px; border-radius: 12px; }
 .activity-row.activity-page-row .small-note { font-size: 0.76rem; }
 .payments-hero, .contracts-hero { background: linear-gradient(135deg, #fffaf2 0%, #f5ede0 52%, #efe2cf 100%); }
 .payments-panel, .contracts-panel { display: grid; gap: 14px; }
