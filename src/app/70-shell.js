@@ -82,6 +82,101 @@
     return;
   }
 
+  function getPresenceScopeKey() {
+    const currentPage = String((document.body && document.body.dataset.page) || '').trim();
+    if (!currentPage) return '';
+    if (currentPage === 'buildings') {
+      return [
+        currentPage,
+        String(window.__selectedBuildingName || '').trim(),
+        String(getSelectedBuildingMonth() || '').trim()
+      ].join('::');
+    }
+    if (currentPage === 'tenants') {
+      return [
+        currentPage,
+        String(window.__selectedTenantBuildingFilter || 'all').trim(),
+        String(getSelectedTenantMonth() || '').trim()
+      ].join('::');
+    }
+    if (currentPage === 'tenant-tracker') {
+      return [currentPage, String(getSelectedTrackerMonth() || '').trim()].join('::');
+    }
+    if (currentPage === 'due') {
+      return [currentPage, String(getSelectedDueMonth() || '').trim()].join('::');
+    }
+    if (currentPage === 'vacant') {
+      return [currentPage, String(getSelectedVacantMonth() || '').trim()].join('::');
+    }
+    return currentPage;
+  }
+
+  function ensurePresenceBanner() {
+    const pageShell = document.querySelector('.page-shell');
+    if (!pageShell) return null;
+    let banner = pageShell.querySelector('[data-presence-banner]');
+    if (!banner) {
+      banner = document.createElement('section');
+      banner.className = 'presence-banner';
+      banner.setAttribute('data-presence-banner', 'true');
+      const monthBanner = pageShell.querySelector('[data-month-phase-banner]');
+      const hero = pageShell.querySelector('.hero');
+      const anchor = monthBanner || hero;
+      if (anchor && anchor.nextSibling) {
+        pageShell.insertBefore(banner, anchor.nextSibling);
+      } else {
+        pageShell.insertBefore(banner, pageShell.firstChild);
+      }
+    }
+    return banner;
+  }
+
+  function updatePresenceBanner(presence) {
+    const banner = ensurePresenceBanner();
+    if (!banner) return;
+    const count = Number(presence && presence.viewerCount || 0);
+    if (count > 1) {
+      banner.innerHTML = `<strong>Multiple viewers</strong><span>${escapeHtml(String(count))} people are viewing this same tab right now.</span>`;
+      banner.classList.add('is-visible');
+      return;
+    }
+    banner.innerHTML = '';
+    banner.classList.remove('is-visible');
+  }
+
+  async function syncSharedViewPresence() {
+    if (typeof syncViewPresenceToDb !== 'function') return;
+    const currentPage = String((document.body && document.body.dataset.page) || '').trim();
+    if (!currentPage || currentPage === 'index') return;
+    const sessionId = typeof getTabSessionId === 'function' ? getTabSessionId() : '';
+    const scopeKey = getPresenceScopeKey();
+    if (!sessionId || !scopeKey) return;
+    try {
+      const result = await syncViewPresenceToDb({
+        sessionId,
+        page: currentPage,
+        scopeKey
+      });
+      updatePresenceBanner(result);
+    } catch (_error) {
+      updatePresenceBanner(null);
+    }
+  }
+
+  function bindSharedViewPresence() {
+    if (window.__tatraPresenceBound) return;
+    window.__tatraPresenceBound = true;
+    const schedule = () => void syncSharedViewPresence();
+    schedule();
+    window.__tatraPresenceInterval = window.setInterval(schedule, 15000);
+    window.addEventListener('beforeunload', () => {
+      if (window.__tatraPresenceInterval) {
+        window.clearInterval(window.__tatraPresenceInterval);
+        window.__tatraPresenceInterval = 0;
+      }
+    });
+  }
+
   function ensureFrozenTableHeaderHost() {
     let host = document.getElementById('frozenTableHeaderHost');
     if (host) return host;
@@ -348,6 +443,7 @@
 
     if (currentPage === 'buildings') renderBuildingsPage(state, selectedBuilding);
     if (typeof renderMonthPhaseBanner === 'function') renderMonthPhaseBanner();
+    void syncSharedViewPresence();
     window.requestAnimationFrame(syncFrozenUi);
   }
 
@@ -402,6 +498,7 @@
     bindStaleStateWarning();
     bindFrozenTableHeader();
     bindFrozenMonthTabs();
+    bindSharedViewPresence();
       const params = new URLSearchParams(window.location.search);
       window.__tatraInitStage = 'queryParams';
       const queryBuilding = params.get('building') || '';

@@ -1068,6 +1068,71 @@ async function saveTenantTrackerToDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function saveViewPresenceToDatabase(payload) {
+  const sessionId = String(payload && payload.sessionId || '').trim();
+  const page = String(payload && payload.page || '').trim();
+  const scopeKey = String(payload && payload.scopeKey || '').trim();
+  const username = String(payload && payload.username || '').trim();
+  const viewedAt = String(payload && payload.viewedAt || '').trim() || new Date().toISOString();
+  if (!sessionId || !page || !scopeKey) {
+    throw new Error('sessionId, page, and scopeKey are required.');
+  }
+  const database = openDatabase(databasePath);
+  const keyPrefix = 'view_presence::';
+  const metaKey = `${keyPrefix}${page}::${scopeKey}::${sessionId}`;
+  const staleThreshold = Date.now() - (45 * 1000);
+  try {
+    const existingPresence = await database.prepare(`
+      SELECT key, value
+      FROM app_meta
+      WHERE key LIKE ?
+    `).all(`${keyPrefix}${page}::${scopeKey}::%`);
+    for (const row of existingPresence) {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(String(row && row.value || '{}'));
+      } catch (_error) {
+        parsed = null;
+      }
+      const heartbeatAt = Number(parsed && parsed.heartbeatAt || 0);
+      if (!heartbeatAt || heartbeatAt < staleThreshold) {
+        await database.prepare(`DELETE FROM app_meta WHERE key = ?`).run(String(row && row.key || ''));
+      }
+    }
+    await database.prepare(`
+      INSERT INTO app_meta(key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `).run(metaKey, JSON.stringify({
+      sessionId,
+      page,
+      scopeKey,
+      username,
+      viewedAt,
+      heartbeatAt: Date.now()
+    }));
+    const activePresence = await database.prepare(`
+      SELECT value
+      FROM app_meta
+      WHERE key LIKE ?
+    `).all(`${keyPrefix}${page}::${scopeKey}::%`);
+    const viewers = activePresence.map((row) => {
+      try {
+        return JSON.parse(String(row && row.value || '{}'));
+      } catch (_error) {
+        return null;
+      }
+    }).filter((item) => item && Number(item.heartbeatAt || 0) >= staleThreshold);
+    return {
+      ok: true,
+      viewerCount: viewers.length,
+      viewers: viewers.map((item) => String(item.username || '').trim()).filter(Boolean)
+    };
+  } finally {
+    await database.close();
+  }
+}
+
 async function setTenantPaymentInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const rentMonth = String(payload && payload.rentMonth || '').trim();
@@ -2009,6 +2074,17 @@ async function handleApiRequest(request, response, requestUrl) {
       });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message || 'Failed to save tenant tracker value.' });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/view-presence') {
+    try {
+      const body = await readJsonBody(request);
+      const result = await saveViewPresenceToDatabase(body);
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: error.message || 'Failed to save view presence.' });
     }
     return true;
   }

@@ -867,9 +867,38 @@
           return null;
         }
       })
-      .catch((error) => {
-        throw error;
-      });
+        .catch((error) => {
+          throw error;
+        });
+  }
+
+  function postToLocalDbApiNoSnapshot(pathname, payload) {
+    if (typeof fetch !== 'function') return Promise.resolve(null);
+    const normalizedPath = String(pathname || '').trim();
+    if (!normalizedPath) return Promise.resolve(null);
+    const requestUrl = typeof getDbApiUrl === 'function'
+      ? getDbApiUrl(normalizedPath)
+      : normalizedPath;
+    return fetch(requestUrl, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload || {})
+    }).then(async (response) => {
+      let result = null;
+      try {
+        result = await response.json();
+      } catch (_error) {
+        result = null;
+      }
+      if (!response.ok) {
+        const message = result && result.error ? String(result.error) : `Local DB sync failed (${response.status}).`;
+        throw new Error(message);
+      }
+      return result;
+    });
   }
 
   function syncPlannedVacateToDb(sourceTenantId, plannedVacateDate) {
@@ -1290,6 +1319,20 @@
       unitId,
       monthKey,
       namesText: String(payload && payload.namesText || '').trim()
+    });
+  }
+
+  function syncViewPresenceToDb(payload) {
+    const sessionId = String(payload && payload.sessionId || '').trim();
+    const page = String(payload && payload.page || '').trim();
+    const scopeKey = String(payload && payload.scopeKey || '').trim();
+    if (!sessionId || !page || !scopeKey) return Promise.resolve(null);
+    return postToLocalDbApiNoSnapshot('/api/db/view-presence', {
+      sessionId,
+      page,
+      scopeKey,
+      username: typeof getCurrentUser === 'function' ? String(getCurrentUser() || '').trim() : '',
+      viewedAt: new Date().toISOString()
     });
   }
 
