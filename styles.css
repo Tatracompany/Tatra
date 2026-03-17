@@ -323,7 +323,7 @@ textarea { resize: vertical; }
 .building-filter-bar input[type='search'] { min-width: 220px; flex: 1 1 220px; }
 .print-building-button { min-width: 92px; }
 .tracker-table {
-  min-width: 980px;
+  min-width: 900px;
 }
 .tracker-table th:nth-child(6),
 .tracker-table td:nth-child(6),
@@ -331,13 +331,52 @@ textarea { resize: vertical; }
 .tracker-table td:nth-child(8) {
   text-align: center;
 }
+.tracker-table th,
+.tracker-table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .tracker-table td {
   vertical-align: top;
 }
-.tracker-names-input {
+.tracker-table th:nth-child(1),
+.tracker-table td:nth-child(1) { min-width: 90px; }
+.tracker-table th:nth-child(2),
+.tracker-table td:nth-child(2) { min-width: 56px; }
+.tracker-table th:nth-child(3),
+.tracker-table td:nth-child(3) { min-width: 70px; }
+.tracker-table th:nth-child(4),
+.tracker-table td:nth-child(4) { min-width: 160px; }
+.tracker-table th:nth-child(5),
+.tracker-table td:nth-child(5) { min-width: 76px; }
+.tracker-table th:nth-child(6),
+.tracker-table td:nth-child(6) { min-width: 54px; }
+.tracker-table th:nth-child(7),
+.tracker-table td:nth-child(7) { min-width: 290px; }
+.tracker-table th:nth-child(8),
+.tracker-table td:nth-child(8) { min-width: 70px; }
+.tracker-names-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.tracker-name-field {
   width: 100%;
-  min-height: 88px;
-  line-height: 1.35;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fffdf9;
+  line-height: 1.2;
+  height: 34px;
+}
+.tracker-name-field::placeholder {
+  color: rgba(120, 103, 84, 0.7);
+}
+.tracker-table .secondary-action {
+  min-width: 68px;
+  padding: 7px 10px;
+  height: 34px;
   background: #fffdf9;
 }
 .month-tabs {

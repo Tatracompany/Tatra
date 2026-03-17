@@ -38,7 +38,11 @@
     const normalizedKey = String(metaKey || '').trim();
     if (!normalizedKey) return '';
     const entry = getTrackerAppMetaEntries().find((item) => String(item && item.key || '').trim() === normalizedKey);
-    return entry ? String(entry.value || '') : '';
+    return entry ? String(itemValue(entry.value)) : '';
+  }
+
+  function itemValue(value) {
+    return value == null ? '' : value;
   }
 
   function setTrackerMetaValue(metaKey, valueText) {
@@ -60,10 +64,33 @@
 
   function parseTrackerNames(valueText) {
     return String(valueText || '')
-      .replace(/[،;]/g, '\n')
-      .split(/\r?\n|,/)
+      .replace(/[;,]/g, '\n')
+      .split(/\r?\n/)
       .map((item) => String(item || '').trim())
       .filter(Boolean);
+  }
+
+  function normalizeTrackerNameSlots(names, tenantName) {
+    const slots = new Array(8).fill('');
+    const normalizedNames = Array.isArray(names)
+      ? names.map((item) => String(item || '').trim()).filter(Boolean)
+      : [];
+    if (normalizedNames.length) {
+      normalizedNames.slice(0, 8).forEach((name, index) => {
+        slots[index] = name;
+      });
+      return slots;
+    }
+    const normalizedTenantName = String(tenantName || '').trim();
+    if (normalizedTenantName) slots[0] = normalizedTenantName;
+    return slots;
+  }
+
+  function serializeTrackerNameSlots(slots) {
+    return (Array.isArray(slots) ? slots : [])
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .join('\n');
   }
 
   function getTrackerStoredNamesText(unitId, monthKey, fallbackText) {
@@ -85,15 +112,25 @@
         return unitSortValue(String(left.unit || '')).localeCompare(unitSortValue(String(right.unit || '')), 'en', { numeric: true });
       })
       .map((tenant) => {
-        const defaultNames = tenant.isVacant ? '' : String(tenant.name || '').trim();
-        const namesText = getTrackerStoredNamesText(tenant.unitId, selectedMonth, defaultNames);
+        const namesText = getTrackerStoredNamesText(tenant.unitId, selectedMonth, '');
         const names = parseTrackerNames(namesText);
+        const trackerNameSlots = normalizeTrackerNameSlots(names, tenant.isVacant ? '' : tenant.name);
         return Object.assign({}, tenant, {
           trackerNamesText: namesText,
           trackerNames: names,
-          trackerCount: names.length
+          trackerNameSlots,
+          trackerCount: trackerNameSlots.filter(Boolean).length
         });
       });
+  }
+
+  function getTrackerNameSlotsFromContainer(container) {
+    return Array.from((container && container.querySelectorAll('[data-tracker-name-slot]')) || [])
+      .map((node) => String(node.value || '').trim());
+  }
+
+  function unitIdFromTrackerInput(input) {
+    return String(input && input.getAttribute('data-tracker-names') || '').trim();
   }
 
   function renderTenantTracker(state) {
@@ -122,6 +159,11 @@
     const totalPeople = rows.reduce((sum, row) => sum + Number(row.trackerCount || 0), 0);
     container.innerHTML = `<div class="table-scroll"><table class="building-table tracker-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Tenant</th><th>Status</th><th class="center">People</th><th>Names</th><th class="center">Save</th></tr></thead><tbody>${rows.map((tenant) => {
       const namesValue = escapeHtml(String(tenant.trackerNamesText || '').trim());
+      const slotInputs = tenant.trackerNameSlots.map((nameValue, index) => {
+        const escapedValue = escapeHtml(String(nameValue || '').trim());
+        const placeholder = index === 0 ? 'Tenant name' : `Person ${index + 1}`;
+        return `<input type="text" class="tracker-name-field" data-tracker-name-slot="${escapeHtml(tenant.unitId || '')}" data-slot-index="${escapeHtml(String(index))}" value="${escapedValue}" placeholder="${escapeHtml(placeholder)}">`;
+      }).join('');
       return `<tr>
         <td>${escapeHtml(getBuildingDisplayLabel(tenant.building))}</td>
         <td>${escapeHtml(tenant.unit || '-')}</td>
@@ -129,23 +171,23 @@
         <td>${escapeHtml(tenant.name || 'Available unit')}</td>
         <td><span class="badge ${(STATUS_META[tenant.status] || STATUS_META.upcoming).className}">${escapeHtml((STATUS_META[tenant.status] || STATUS_META.upcoming).label)}</span></td>
         <td class="center"><strong data-tracker-count="${escapeHtml(tenant.unitId || '')}">${escapeHtml(String(tenant.trackerCount || 0))}</strong></td>
-        <td><textarea class="tracker-names-input" rows="3" data-tracker-names="${escapeHtml(tenant.unitId || '')}" data-month-key="${escapeHtml(selectedMonth)}" data-building-name="${escapeHtml(tenant.building || '')}" data-initial-value="${namesValue}" placeholder="One name per line">${namesValue}</textarea></td>
+        <td><div class="tracker-names-grid" data-tracker-names="${escapeHtml(tenant.unitId || '')}" data-month-key="${escapeHtml(selectedMonth)}" data-building-name="${escapeHtml(tenant.building || '')}" data-initial-value="${namesValue}">${slotInputs}</div></td>
         <td class="center"><button type="button" class="secondary-action" data-save-tracker-row="${escapeHtml(tenant.unitId || '')}">Save</button></td>
       </tr>`;
     }).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="5"><strong>Total</strong></td><td class="center"><strong>${escapeHtml(String(totalPeople))}</strong></td><td><strong>${escapeHtml(String(rows.length))} units tracked</strong></td><td></td></tr></tfoot></table></div>`;
 
-    container.querySelectorAll('[data-tracker-names]').forEach((input) => {
-      input.addEventListener('input', () => {
-        const unitId = String(input.getAttribute('data-tracker-names') || '').trim();
+    container.querySelectorAll('[data-tracker-names]').forEach((grid) => {
+      grid.addEventListener('input', () => {
+        const unitId = String(grid.getAttribute('data-tracker-names') || '').trim();
         const countNode = unitId ? container.querySelector(`[data-tracker-count="${CSS.escape(unitId)}"]`) : null;
         if (countNode) {
-          countNode.textContent = String(parseTrackerNames(input.value).length);
+          countNode.textContent = String(getTrackerNameSlotsFromContainer(grid).filter(Boolean).length);
         }
       });
-      input.addEventListener('keydown', async (event) => {
+      grid.addEventListener('keydown', async (event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
           event.preventDefault();
-          await saveTenantTrackerRow(state, unitIdFromTrackerInput(input), selectedMonth);
+          await saveTenantTrackerRow(state, unitIdFromTrackerInput(grid), selectedMonth);
         }
       });
     });
@@ -157,10 +199,6 @@
     });
   }
 
-  function unitIdFromTrackerInput(input) {
-    return String(input && input.getAttribute('data-tracker-names') || '').trim();
-  }
-
   async function saveTenantTrackerRow(state, unitId, monthKey) {
     const normalizedUnitId = String(unitId || '').trim();
     const normalizedMonthKey = String(monthKey || '').trim();
@@ -168,7 +206,7 @@
     const input = Array.from(document.querySelectorAll('[data-tracker-names]'))
       .find((node) => unitIdFromTrackerInput(node) === normalizedUnitId);
     if (!input) return;
-    const namesText = String(input.value || '').trim();
+    const namesText = serializeTrackerNameSlots(getTrackerNameSlotsFromContainer(input));
     const initialValue = String(input.getAttribute('data-initial-value') || '').trim();
     if (namesText === initialValue) return;
     if (typeof syncTenantTrackerToDb !== 'function') return;
