@@ -323,61 +323,61 @@ textarea { resize: vertical; }
 .building-filter-bar input[type='search'] { min-width: 220px; flex: 1 1 220px; }
 .print-building-button { min-width: 92px; }
 .tracker-table {
-  min-width: 900px;
-}
-.tracker-table th:nth-child(6),
-.tracker-table td:nth-child(6),
-.tracker-table th:nth-child(8),
-.tracker-table td:nth-child(8) {
-  text-align: center;
+  min-width: 1160px;
 }
 .tracker-table th,
 .tracker-table td {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: 0.74rem;
 }
 .tracker-table td {
-  vertical-align: top;
+  vertical-align: middle;
 }
 .tracker-table th:nth-child(1),
-.tracker-table td:nth-child(1) { min-width: 90px; }
+.tracker-table td:nth-child(1) { min-width: 78px; }
 .tracker-table th:nth-child(2),
-.tracker-table td:nth-child(2) { min-width: 56px; }
+.tracker-table td:nth-child(2) { min-width: 50px; }
 .tracker-table th:nth-child(3),
-.tracker-table td:nth-child(3) { min-width: 70px; }
+.tracker-table td:nth-child(3) { min-width: 54px; }
 .tracker-table th:nth-child(4),
-.tracker-table td:nth-child(4) { min-width: 160px; }
+.tracker-table td:nth-child(4) { min-width: 120px; }
 .tracker-table th:nth-child(5),
-.tracker-table td:nth-child(5) { min-width: 76px; }
+.tracker-table td:nth-child(5) { min-width: 64px; }
 .tracker-table th:nth-child(6),
-.tracker-table td:nth-child(6) { min-width: 54px; }
-.tracker-table th:nth-child(7),
-.tracker-table td:nth-child(7) { min-width: 290px; }
-.tracker-table th:nth-child(8),
-.tracker-table td:nth-child(8) { min-width: 70px; }
-.tracker-names-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+.tracker-table td:nth-child(6) { min-width: 46px; text-align: center; }
+.tracker-table th:nth-child(n+7):nth-child(-n+14),
+.tracker-table td:nth-child(n+7):nth-child(-n+14) { min-width: 74px; text-align: center; }
+.tracker-table th:nth-child(15),
+.tracker-table td:nth-child(15) { min-width: 64px; text-align: center; }
+.tracker-name-cell {
+  padding-left: 2px;
+  padding-right: 2px;
 }
 .tracker-name-field {
   width: 100%;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 2px 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: 6px;
   background: #fffdf9;
-  line-height: 1.2;
-  height: 34px;
+  line-height: 1.05;
+  height: 24px;
+  font-size: 0.72rem;
 }
 .tracker-name-field::placeholder {
   color: rgba(120, 103, 84, 0.7);
 }
 .tracker-table .secondary-action {
-  min-width: 68px;
-  padding: 7px 10px;
-  height: 34px;
+  min-width: 56px;
+  padding: 4px 8px;
+  min-height: 24px;
+  height: 24px;
+  font-size: 0.72rem;
   background: #fffdf9;
+}
+.tracker-save-cell > div[data-tracker-names] {
+  display: none;
 }
 .month-tabs {
   display: flex;

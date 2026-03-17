@@ -79,10 +79,7 @@
       normalizedNames.slice(0, 8).forEach((name, index) => {
         slots[index] = name;
       });
-      return slots;
     }
-    const normalizedTenantName = String(tenantName || '').trim();
-    if (normalizedTenantName) slots[0] = normalizedTenantName;
     return slots;
   }
 
@@ -157,12 +154,13 @@
       return;
     }
     const totalPeople = rows.reduce((sum, row) => sum + Number(row.trackerCount || 0), 0);
-    container.innerHTML = `<div class="table-scroll"><table class="building-table tracker-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Tenant</th><th>Status</th><th class="center">People</th><th>Names</th><th class="center">Save</th></tr></thead><tbody>${rows.map((tenant) => {
+    const nameHeaders = Array.from({ length: 8 }, (_, index) => `<th class="center">Name ${index + 1}</th>`).join('');
+    container.innerHTML = `<div class="table-scroll"><table class="building-table tracker-table"><thead><tr><th>Building</th><th>Unit</th><th>Floor</th><th>Tenant</th><th>Status</th><th class="center">People</th>${nameHeaders}<th class="center">Save</th></tr></thead><tbody>${rows.map((tenant) => {
       const namesValue = escapeHtml(String(tenant.trackerNamesText || '').trim());
       const slotInputs = tenant.trackerNameSlots.map((nameValue, index) => {
         const escapedValue = escapeHtml(String(nameValue || '').trim());
-        const placeholder = index === 0 ? 'Tenant name' : `Person ${index + 1}`;
-        return `<input type="text" class="tracker-name-field" data-tracker-name-slot="${escapeHtml(tenant.unitId || '')}" data-slot-index="${escapeHtml(String(index))}" value="${escapedValue}" placeholder="${escapeHtml(placeholder)}">`;
+        const placeholder = `Name ${index + 1}`;
+        return `<td class="tracker-name-cell"><input type="text" class="tracker-name-field" data-tracker-name-slot="${escapeHtml(tenant.unitId || '')}" data-slot-index="${escapeHtml(String(index))}" value="${escapedValue}" placeholder="${escapeHtml(placeholder)}"></td>`;
       }).join('');
       return `<tr>
         <td>${escapeHtml(getBuildingDisplayLabel(tenant.building))}</td>
@@ -171,23 +169,24 @@
         <td>${escapeHtml(tenant.name || 'Available unit')}</td>
         <td><span class="badge ${(STATUS_META[tenant.status] || STATUS_META.upcoming).className}">${escapeHtml((STATUS_META[tenant.status] || STATUS_META.upcoming).label)}</span></td>
         <td class="center"><strong data-tracker-count="${escapeHtml(tenant.unitId || '')}">${escapeHtml(String(tenant.trackerCount || 0))}</strong></td>
-        <td><div class="tracker-names-grid" data-tracker-names="${escapeHtml(tenant.unitId || '')}" data-month-key="${escapeHtml(selectedMonth)}" data-building-name="${escapeHtml(tenant.building || '')}" data-initial-value="${namesValue}">${slotInputs}</div></td>
-        <td class="center"><button type="button" class="secondary-action" data-save-tracker-row="${escapeHtml(tenant.unitId || '')}">Save</button></td>
+        ${slotInputs}
+        <td class="tracker-save-cell center"><div data-tracker-names="${escapeHtml(tenant.unitId || '')}" data-month-key="${escapeHtml(selectedMonth)}" data-building-name="${escapeHtml(tenant.building || '')}" data-initial-value="${namesValue}"></div><button type="button" class="secondary-action" data-save-tracker-row="${escapeHtml(tenant.unitId || '')}">Save</button></td>
       </tr>`;
-    }).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="5"><strong>Total</strong></td><td class="center"><strong>${escapeHtml(String(totalPeople))}</strong></td><td><strong>${escapeHtml(String(rows.length))} units tracked</strong></td><td></td></tr></tfoot></table></div>`;
+    }).join('')}</tbody><tfoot><tr class="totals-row"><td colspan="5"><strong>Total</strong></td><td class="center"><strong>${escapeHtml(String(totalPeople))}</strong></td><td colspan="8"><strong>${escapeHtml(String(rows.length))} units tracked</strong></td><td></td></tr></tfoot></table></div>`;
 
-    container.querySelectorAll('[data-tracker-names]').forEach((grid) => {
-      grid.addEventListener('input', () => {
-        const unitId = String(grid.getAttribute('data-tracker-names') || '').trim();
+    container.querySelectorAll('[data-tracker-name-slot]').forEach((field) => {
+      field.addEventListener('input', () => {
+        const unitId = String(field.getAttribute('data-tracker-name-slot') || '').trim();
         const countNode = unitId ? container.querySelector(`[data-tracker-count="${CSS.escape(unitId)}"]`) : null;
+        const grid = container.querySelector(`[data-tracker-names="${CSS.escape(unitId)}"]`);
         if (countNode) {
           countNode.textContent = String(getTrackerNameSlotsFromContainer(grid).filter(Boolean).length);
         }
       });
-      grid.addEventListener('keydown', async (event) => {
+      field.addEventListener('keydown', async (event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
           event.preventDefault();
-          await saveTenantTrackerRow(state, unitIdFromTrackerInput(grid), selectedMonth);
+          await saveTenantTrackerRow(state, String(field.getAttribute('data-tracker-name-slot') || '').trim(), selectedMonth);
         }
       });
     });
