@@ -380,9 +380,9 @@
     }
     const plannedVacateInput = findDetailInputByFieldId('data-vacate-date', fieldTenantId, selectedMonth, 'planned_vacate_date');
     if (plannedVacateInput) {
-      plannedVacateInput.addEventListener('change', (event) => {
+      plannedVacateInput.addEventListener('change', async (event) => {
         event.stopPropagation();
-        savePlannedVacateDate(state, tenantId);
+        await saveTenantInlineEdit(state, tenantId, { reopenDetail: true });
       });
     }
     const previousDueInput = findDetailInputByFieldId('data-edit-previous-due', fieldTenantId, selectedMonth, 'unpaid_from_before');
@@ -692,21 +692,5 @@
   }
 
   function savePlannedVacateDate(state, tenantId) {
-      const tenant = state.tenants.find((item) => item.id === tenantId);
-      if (!tenant || tenant.isVacant || tenant.isArchived) return;
-      const rowUiState = captureBuildingRowUiState(tenantId);
-      const selectedMonth = getSelectedBuildingMonth();
-      if (!canEditBuildingMonth(tenant.building, selectedMonth)) {
-        return;
-      }
-      const vacateInput = findDetailInput('data-vacate-date', tenantId);
-      const plannedVacateDate = getDetailTextInputValue(vacateInput, '');
-      tenant.plannedVacateDate = plannedVacateDate;
-      saveState(state);
-      if (typeof syncPlannedVacateToDb === 'function') {
-        syncPlannedVacateToDb(tenant.id, plannedVacateDate);
-      }
-      logActivity(state, 'Planned vacate updated', `${tenant.building} ${tenant.unit} planned vacate ${plannedVacateDate || 'cleared'}.`);
-      renderAll(state, tenant.building);
-      restoreBuildingRowUiState(state, rowUiState);
+      return saveTenantInlineEdit(state, tenantId, { reopenDetail: true });
     }
