@@ -634,12 +634,11 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
           await saveBuildingRowFieldFromTable(state, input);
           return;
         }
-        if (!input.hasAttribute('data-row-edit-current-month')) return;
         if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
         event.preventDefault();
         event.stopPropagation();
         const direction = event.key === 'ArrowUp' ? -1 : 1;
-        await moveBuildingCurrentMonthFocus(state, input, direction);
+        await moveBuildingRowFieldFocus(state, input, direction);
       });
       input.addEventListener('blur', async () => {
         window.setTimeout(() => {
@@ -656,9 +655,19 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     });
   }
 
-  async function moveBuildingCurrentMonthFocus(state, input, direction) {
+  function getBuildingRowFieldAttributeName(input) {
+    if (!input) return '';
+    if (input.hasAttribute('data-row-edit-current-month')) return 'data-row-edit-current-month';
+    if (input.hasAttribute('data-row-edit-contract')) return 'data-row-edit-contract';
+    if (input.hasAttribute('data-row-edit-discount')) return 'data-row-edit-discount';
+    return '';
+  }
+
+  async function moveBuildingRowFieldFocus(state, input, direction) {
     if (!input) return;
-    const inputs = Array.from(document.querySelectorAll('[data-row-edit-current-month]'))
+    const fieldAttributeName = getBuildingRowFieldAttributeName(input);
+    if (!fieldAttributeName) return;
+    const inputs = Array.from(document.querySelectorAll(`[${fieldAttributeName}]`))
       .filter((node) => !node.readOnly && !node.disabled);
     const currentIndex = inputs.indexOf(input);
     if (currentIndex < 0) return;
