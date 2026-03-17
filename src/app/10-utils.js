@@ -1058,6 +1058,8 @@
     if (hasPayloadField('vacantAmount')) requestBody.vacantAmount = Number(payload && payload.vacantAmount || 0);
     if (hasPayloadField('carryOverride')) requestBody.carryOverride = Number(payload && payload.carryOverride || 0);
     if (hasPayloadField('paidOverride')) requestBody.paidOverride = Number(payload && payload.paidOverride || 0);
+    if (hasPayloadField('openingCreditAmount')) requestBody.openingCreditAmount = Number(payload && payload.openingCreditAmount || 0);
+    if (hasPayloadField('paidPreviousAmount')) requestBody.paidPreviousAmount = Number(payload && payload.paidPreviousAmount || 0);
     if (hasPayloadField('insuranceAmount')) requestBody.insuranceAmount = Number(payload && payload.insuranceAmount || 0);
     if (hasPayloadField('insurancePaidMonth')) requestBody.insurancePaidMonth = String(payload && payload.insurancePaidMonth || '').trim();
     if (hasPayloadField('oldTenantDuePaid')) requestBody.oldTenantDuePaid = Number(payload && payload.oldTenantDuePaid || 0);
