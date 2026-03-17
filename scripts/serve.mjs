@@ -1040,6 +1040,31 @@ async function saveBuildingFooterValueToDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function saveTenantTrackerToDatabase(payload) {
+  const unitId = String(payload && payload.unitId || '').trim();
+  const monthKey = String(payload && payload.monthKey || '').trim();
+  if (!unitId || !monthKey) {
+    throw new Error('unitId and monthKey are required.');
+  }
+  const metaKey = `tenant_tracker_occupants::${unitId}::${monthKey}`;
+  const namesText = String(payload && payload.namesText || '').trim();
+  const database = openDatabase(databasePath);
+  try {
+    if (!namesText) {
+      await database.prepare(`DELETE FROM app_meta WHERE key = ?`).run(metaKey);
+    } else {
+      await database.prepare(`
+        INSERT INTO app_meta(key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+      `).run(metaKey, namesText);
+    }
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function setTenantPaymentInDatabase(payload) {
   const sourceTenantId = String(payload && payload.sourceTenantId || '').trim();
   const rentMonth = String(payload && payload.rentMonth || '').trim();
@@ -1966,6 +1991,21 @@ async function handleApiRequest(request, response, requestUrl) {
       });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message || 'Failed to save building footer value.' });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/tenant-tracker-save') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await saveTenantTrackerToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot && snapshot.counts ? snapshot.counts : null
+      });
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: error.message || 'Failed to save tenant tracker value.' });
     }
     return true;
   }

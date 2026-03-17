@@ -595,6 +595,7 @@
     const tenantBuildingFilter = document.getElementById('tenantBuildingFilter');
     const dueBuildingFilter = document.getElementById('dueBuildingFilter');
     const vacantBuildingFilter = document.getElementById('vacantBuildingFilter');
+    const trackerBuildingFilter = document.getElementById('trackerBuildingFilter');
     if (areaSelect) {
       const areas = Array.from(new Set(state.buildings.map((building) => building.area)));
       const currentArea = areaSelect.value || areas[0] || '';
@@ -661,6 +662,11 @@
       const currentValue = vacantBuildingFilter.value || 'all';
       vacantBuildingFilter.innerHTML = '<option value="all">All buildings</option>' + state.buildings.map((building) => `<option value="${escapeHtml(building.name)}">${escapeHtml(getBuildingDisplayLabel(building.name))}</option>`).join('');
       vacantBuildingFilter.value = state.buildings.some((building) => building.name === currentValue) ? currentValue : 'all';
+    }
+    if (trackerBuildingFilter) {
+      const currentValue = trackerBuildingFilter.value || 'all';
+      trackerBuildingFilter.innerHTML = '<option value="all">All buildings</option>' + state.buildings.map((building) => `<option value="${escapeHtml(building.name)}">${escapeHtml(getBuildingDisplayLabel(building.name))}</option>`).join('');
+      trackerBuildingFilter.value = state.buildings.some((building) => building.name === currentValue) ? currentValue : 'all';
     }
     populateDueTenantSelect(state);
     if (paymentSelect) {

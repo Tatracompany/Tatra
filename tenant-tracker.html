@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Due</title>
+  <title>Tenant tracker</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css?v=39">
 </head>
-<body data-page="due">
+<body data-page="tenant-tracker">
   <div class="workspace-shell">
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -19,8 +19,8 @@
         <a class="nav-link" href="dashboard.html">1. Dashboard</a>
         <a class="nav-link" href="buildings.html">2. Buildings</a>
         <a class="nav-link" href="tenants.html">3. Tenants</a>
-        <a class="nav-link" href="tenant-tracker.html">4. Tenant tracker</a>
-        <a class="nav-link active" href="due.html">5. Due</a>
+        <a class="nav-link active" href="tenant-tracker.html">4. Tenant tracker</a>
+        <a class="nav-link" href="due.html">5. Due</a>
         <a class="nav-link" href="vacant.html">6. Vacant</a>
         <a class="nav-link" href="expired-contracts.html">7. Expired contracts</a>
         <a class="nav-link" href="activity.html">8. Activity</a>
@@ -31,31 +31,27 @@
     <div class="page-shell wide-page-shell">
       <header class="hero compact-hero">
         <div>
-          <p class="eyebrow">Due</p>
-          <h1>Due follow-up by month</h1>
-          <p class="hero-copy">Track current due, vacated due, or both month by month.</p>
+          <p class="eyebrow">Tenant tracker</p>
+          <h1>People staying in each unit</h1>
+          <p class="hero-copy">Track how many people are staying in every unit for each month, and save all their names in one place.</p>
         </div>
       </header>
       <main class="layout">
         <section class="panel compact-panel">
           <div class="section-heading">
             <div>
-              <p class="section-label">Collections</p>
-              <h2>Outstanding balances</h2>
+              <p class="section-label">Occupants</p>
+              <h2>Tenant tracker by month</h2>
             </div>
             <div class="toolbar">
-              <select id="dueBuildingFilter">
+              <select id="trackerBuildingFilter">
                 <option value="all">All buildings</option>
               </select>
-              <select id="dueScopeFilter">
-                <option value="all">Both</option>
-                <option value="current">Current due</option>
-                <option value="former">Vacated due</option>
-              </select>
+              <input id="trackerSearch" type="search" placeholder="Search building, unit, tenant, or names">
             </div>
           </div>
-          <div id="dueMonthTabs" class="month-tabs"></div>
-          <div id="dueList" class="building-details-list"></div>
+          <div id="trackerMonthTabs" class="month-tabs"></div>
+          <div id="tenantTrackerList" class="building-details-list"></div>
         </section>
       </main>
     </div>

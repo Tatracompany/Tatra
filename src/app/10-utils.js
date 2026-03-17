@@ -1183,6 +1183,17 @@
     });
   }
 
+  function syncTenantTrackerToDb(payload) {
+    const unitId = String(payload && payload.unitId || '').trim();
+    const monthKey = String(payload && payload.monthKey || '').trim();
+    if (!unitId || !monthKey) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/tenant-tracker-save', {
+      unitId,
+      monthKey,
+      namesText: String(payload && payload.namesText || '').trim()
+    });
+  }
+
   async function refreshSnapshotAndDerivedState(state) {
     if (typeof refreshDbSnapshotFromServer === 'function') {
       await refreshDbSnapshotFromServer();

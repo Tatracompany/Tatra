@@ -304,6 +304,12 @@
       renderTenants(state);
     }
 
+    if (currentPage === 'tenant-tracker') {
+      populateTenantSelectors(state);
+      renderTrackerMonthTabs();
+      renderTenantTracker(state);
+    }
+
     if (currentPage === 'history') {
       renderTenantHistoryPage();
     }
@@ -442,6 +448,8 @@
       const contractBuildingFilter = document.getElementById('contractBuildingFilter');
       const contractSearch = document.getElementById('contractSearch');
       const vacantBuildingFilter = document.getElementById('vacantBuildingFilter');
+      const trackerBuildingFilter = document.getElementById('trackerBuildingFilter');
+      const trackerSearch = document.getElementById('trackerSearch');
       if (tenantSearch) tenantSearch.addEventListener('input', () => renderTenants(state));
       if (statusFilter) statusFilter.addEventListener('change', () => renderTenants(state));
       if (tenantBuildingFilter) tenantBuildingFilter.addEventListener('change', () => {
@@ -472,6 +480,8 @@
       if (paymentMonthFilter) paymentMonthFilter.addEventListener('change', () => renderPayments(state));
       if (paymentSearch) paymentSearch.addEventListener('input', () => renderPayments(state));
       if (vacantBuildingFilter) vacantBuildingFilter.addEventListener('change', () => renderVacantUnits(state));
+      if (trackerBuildingFilter) trackerBuildingFilter.addEventListener('change', () => renderTenantTracker(state));
+      if (trackerSearch) trackerSearch.addEventListener('input', () => renderTenantTracker(state));
     bindAdminActions();
     bindStateExportActions();
     } catch (error) {

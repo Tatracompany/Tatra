@@ -322,6 +322,24 @@ textarea { resize: vertical; }
 .building-filter-bar > * { width: auto; }
 .building-filter-bar input[type='search'] { min-width: 220px; flex: 1 1 220px; }
 .print-building-button { min-width: 92px; }
+.tracker-table {
+  min-width: 980px;
+}
+.tracker-table th:nth-child(6),
+.tracker-table td:nth-child(6),
+.tracker-table th:nth-child(8),
+.tracker-table td:nth-child(8) {
+  text-align: center;
+}
+.tracker-table td {
+  vertical-align: top;
+}
+.tracker-names-input {
+  width: 100%;
+  min-height: 88px;
+  line-height: 1.35;
+  background: #fffdf9;
+}
 .month-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -431,12 +449,12 @@ body[data-page='buildings'] #areaBuildingGrid .building-card-note { margin-top: 
     text-align: center;
     font-family: Georgia, 'Times New Roman', serif;
   }
-  .print-sheet-title {
-    font-size: 14pt;
-    margin-bottom: 0.4mm;
-    font-weight: 700;
-    line-height: 1;
-  }
+.print-sheet-title {
+  font-size: 14pt;
+  margin-bottom: 0.4mm;
+  font-weight: 700;
+  line-height: 1;
+}
   .print-sheet-month {
     font-size: 10pt;
     margin-bottom: 0.8mm;

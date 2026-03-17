@@ -42,6 +42,7 @@ const orderedFiles = [
   '40-tenants.js',
   '41-history.js',
   '50-due-vacant.js',
+  '51-tenant-tracker.js',
   '60-forms.js',
   '70-shell.js'
 ];
