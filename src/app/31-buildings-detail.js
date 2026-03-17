@@ -284,7 +284,7 @@
         : (tenant.baseActualRent || tenant.rentDue || stableContractAmount || 0)
     );
     const storedPrepaidFromBefore = typeof getOpeningCreditOverride === 'function'
-      ? normalizeAmount(getOpeningCreditOverride(state, tenant.id, selectedMonth) || 0)
+      ? normalizeAmount(getOpeningCreditOverride(state, fieldTenantId, selectedMonth) || 0)
       : normalizeAmount(tenant.prepaidFromBefore || 0);
     const markPaidButtonDisabledAttr = (isLockedBaseline || isProtectedBaselinePrepaid) ? ' disabled aria-disabled="true"' : '';
     const protectedFinancialReadOnlyAttr = isProtectedBaselinePrepaid ? ' readonly aria-readonly="true"' : '';
@@ -609,7 +609,7 @@
       getDetailNumericInputValue(
         prepaidFromBeforeInput,
         (typeof getOpeningCreditOverride === 'function'
-          ? getOpeningCreditOverride(state, tenantForDisplay.id, selectedMonth)
+          ? getOpeningCreditOverride(state, fieldTenantId, selectedMonth)
           : tenantForDisplay.prepaidFromBefore) || 0
       ),
       allowDecimalAmounts
