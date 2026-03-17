@@ -383,7 +383,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.previousDue)}</td>
-        <td class="amount">${formatBuildingAmountCell(tenant.prepaidFromBefore)}</td>
+        <td class="amount">${formatBuildingAmountCell(getBuildingStoredPrepaidFromBeforeAmount(state, tenant, selectedMonth))}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.paidCurrent)}</td>
         <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
         <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
@@ -541,6 +541,16 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     return normalizeAmount(getTenantMonthNumericOverride(state, tenant.id, monthKey, 'prepaid_last_month') || 0);
   }
 
+  function getBuildingStoredPrepaidFromBeforeAmount(state, tenant, monthKey) {
+    if (!tenant) return 0;
+    const lookupTenantId = String(tenant.sourceTenantId || tenant.id || '').trim() || String(tenant.id || '').trim();
+    if (typeof getOpeningCreditOverride === 'function') {
+      const storedAmount = getOpeningCreditOverride(state, lookupTenantId, monthKey);
+      if (storedAmount != null) return normalizeAmount(storedAmount || 0);
+    }
+    return normalizeAmount(Number(tenant.prepaidFromBefore || 0));
+  }
+
   function renderBuildingRow(state, tenant, selectedMonth) {
     const badge = STATUS_META[tenant.status] || STATUS_META.upcoming;
     const previousPaid = getTenantDuePaidAmount(state, tenant.id, selectedMonth);
@@ -589,7 +599,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       <td class="amount">${formatBuildingAmountCell(getBuildingVacantAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(getBuildingActualAmount(tenant))}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.previousDue)}</td>
-      <td class="amount">${formatBuildingAmountCell(tenant.prepaidFromBefore)}</td>
+      <td class="amount">${formatBuildingAmountCell(getBuildingStoredPrepaidFromBeforeAmount(state, tenant, selectedMonth))}</td>
       <td class="center">${currentMonthInput}</td>
       <td class="amount">${formatBuildingAmountCell(previousPaid)}</td>
       <td class="amount">${formatBuildingAmountCell(tenant.prepaidNext)}</td>
@@ -776,7 +786,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const unpaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.previousDue || 0), 0);
     const paidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant && tenant.paidCurrent || 0), 0);
     const previousPaidTotal = tenants.reduce((sum, tenant) => sum + Number(getTenantDuePaidAmount(state, tenant.id, selectedMonth) || 0), 0);
-    const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidFromBefore || 0), 0);
+    const prepaidFromBeforeTotal = tenants.reduce((sum, tenant) => sum + getBuildingStoredPrepaidFromBeforeAmount(state, tenant, selectedMonth), 0);
     const prepaidLastMonthTotal = tenants.reduce((sum, tenant) => sum + getBuildingPrepaidLastMonthAmount(state, tenant, selectedMonth), 0);
     const prepaidTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.prepaidNext || 0), 0);
     const unpaidCurrentTotal = tenants.reduce((sum, tenant) => sum + Number(tenant.remainingCurrent || 0), 0);
