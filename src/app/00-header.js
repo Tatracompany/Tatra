@@ -180,6 +180,14 @@
     return getDbSnapshotBuildings().find((building) => building.name === normalizedName) || null;
   }
 
+  function getDbSnapshotAppMetaValue(key) {
+    const snapshot = getDbSnapshot();
+    const normalizedKey = String(key || '').trim();
+    if (!snapshot || !normalizedKey || !Array.isArray(snapshot.appMeta)) return '';
+    const entry = snapshot.appMeta.find((item) => String(item && item.key || '').trim() === normalizedKey);
+    return entry ? String(entry.value == null ? '' : entry.value) : '';
+  }
+
   function getDbSnapshotUnitsForBuilding(buildingName) {
     const snapshot = getDbSnapshot();
     const buildingRecord = getDbSnapshotBuildingByName(buildingName);
