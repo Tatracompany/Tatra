@@ -578,6 +578,24 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     return `<input type="number" class="table-amount-input table-summary-input" step="1" value="${escapeHtml(formatBlankAmountInputValue(normalizedValue, false))}" data-building-footer-edit="${escapeHtml(field)}" data-building-name="${escapeHtml(buildingName)}" data-month-key="${escapeHtml(monthKey)}" data-initial-value="${escapeHtml(String(normalizedValue))}" aria-label="${escapeHtml(field)}">`;
   }
 
+  function setBuildingFooterMetaValueLocally(buildingName, monthKey, value) {
+    if (typeof getDbSnapshot !== 'function' || typeof getDbSnapshotBuildingByName !== 'function') return;
+    const snapshot = getDbSnapshot();
+    const building = getDbSnapshotBuildingByName(buildingName);
+    const metaKey = getBuildingFooterPrepaidFromBeforeMetaKey(building && building.id, monthKey);
+    if (!snapshot || !building || !metaKey) return;
+    if (!Array.isArray(snapshot.appMeta)) snapshot.appMeta = [];
+    const existingEntry = snapshot.appMeta.find((item) => String(item && item.key || '').trim() === metaKey);
+    if (existingEntry) {
+      existingEntry.value = String(value == null ? '' : value);
+      return;
+    }
+    snapshot.appMeta.push({
+      key: metaKey,
+      value: String(value == null ? '' : value)
+    });
+  }
+
   function updateBuildingFooterBankPreview(state, input) {
     if (!input) return;
     const totalsCell = document.querySelector('[data-building-total-in-bank]');
@@ -658,12 +676,10 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         field,
         value: normalizedCurrentValue
       });
+      setBuildingFooterMetaValueLocally(buildingName, monthKey, normalizedCurrentValue);
       input.value = formatBlankAmountInputValue(normalizedCurrentValue, false);
       input.dataset.initialValue = String(normalizedCurrentValue);
-      if (typeof refreshSnapshotAndDerivedState === 'function') {
-        await refreshSnapshotAndDerivedState(state);
-      }
-      renderAll(window.__appState || state, buildingName);
+      updateBuildingFooterBankPreview(state, input);
     } finally {
       delete input.dataset.tableFooterSaving;
     }
