@@ -101,19 +101,6 @@
       return;
     }
     const message = document.getElementById('loginMessage');
-    const quickFillButton = document.getElementById('useDefaultLogin');
-    if (quickFillButton) {
-      quickFillButton.addEventListener('click', () => {
-        const usernameInput = form.querySelector('input[name="username"]');
-        const passwordInput = form.querySelector('input[name="password"]');
-        if (usernameInput) usernameInput.value = ADMIN_USERNAME;
-        if (passwordInput) passwordInput.value = ADMIN_PASSWORD;
-        if (message) {
-          message.textContent = 'Default admin credentials filled in.';
-          message.classList.remove('is-error');
-        }
-      });
-    }
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       const formData = new FormData(form);
