@@ -582,7 +582,9 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     document.querySelectorAll('[data-building-footer-edit]').forEach((input) => {
       if (input.dataset.tableFooterBound === 'true') return;
       input.dataset.tableFooterBound = 'true';
-      ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, stopRowToggleEvent));
+      ['click', 'mousedown', 'mouseup'].forEach((eventName) => input.addEventListener(eventName, (event) => {
+        event.stopPropagation();
+      }));
       input.addEventListener('keydown', async (event) => {
         if (event.key !== 'Enter') return;
         event.preventDefault();
