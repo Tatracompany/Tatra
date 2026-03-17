@@ -258,8 +258,10 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
   }
 
   function getTenantIdentityOverride(state, tenantId, field, monthKey) {
-    if (typeof getDbSnapshotTenantMonthOverride === 'function') {
-      const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, field);
+    if (typeof getDbSnapshotTenantMonthOverride !== 'function') return null;
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    for (const candidateId of candidateTenantIds) {
+      const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, field);
       if (snapshotOverride) return String(snapshotOverride.valueText || '').trim();
     }
     return null;
@@ -267,16 +269,22 @@ function setOpeningCreditOverride(state, tenantId, monthKey, amountOrNull) {
 
   function getTenantMonthNumericOverride(state, tenantId, monthKey, overrideKind) {
     if (typeof getDbSnapshotTenantMonthOverride !== 'function') return null;
-    const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, overrideKind);
-    if (!snapshotOverride) return null;
-    return normalizeAmount(snapshotOverride.valueText);
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    for (const candidateId of candidateTenantIds) {
+      const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, overrideKind);
+      if (snapshotOverride) return normalizeAmount(snapshotOverride.valueText);
+    }
+    return null;
   }
 
   function getTenantMonthTextOverride(state, tenantId, monthKey, overrideKind) {
     if (typeof getDbSnapshotTenantMonthOverride !== 'function') return null;
-    const snapshotOverride = getDbSnapshotTenantMonthOverride(tenantId, monthKey, overrideKind);
-    if (!snapshotOverride) return null;
-    return String(snapshotOverride.valueText || '').trim();
+    const candidateTenantIds = getAdvancePaymentCandidateTenantIds(state, tenantId);
+    for (const candidateId of candidateTenantIds) {
+      const snapshotOverride = getDbSnapshotTenantMonthOverride(candidateId, monthKey, overrideKind);
+      if (snapshotOverride) return String(snapshotOverride.valueText || '').trim();
+    }
+    return null;
   }
 
 function setTenantIdentityOverride(state, tenantId, field, monthKey, value) {
