@@ -1554,7 +1554,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
   }
 
   function getSelectedDueMonth() {
-    return clampMonthToVisible(window.__selectedDueMonth || getActiveMonthKey());
+    return clampMonthToVisible(window.__selectedDueMonth || getLatestCreatedMonthKey());
   }
 
   function getSelectedTenantMonth() {
@@ -1648,7 +1648,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
   }
 
   function getSelectedVacantMonth() {
-    return clampMonthToVisible(window.__selectedVacantMonth || getActiveMonthKey());
+    return clampMonthToVisible(window.__selectedVacantMonth || getLatestCreatedMonthKey());
   }
 
   function renderVacantMonthTabs() {

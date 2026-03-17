@@ -182,7 +182,9 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
   }
 
   function getSelectedBuildingMonth() {
-    return clampMonthToVisibleForBuilding(window.__selectedBuildingMonth || getActiveMonthKey(), window.__selectedBuildingName || '');
+    const buildingName = String(window.__selectedBuildingName || '').trim();
+    const fallbackMonth = getPreferredBuildingMonth(buildingName) || getDefaultActiveMonthKey();
+    return clampMonthToVisibleForBuilding(window.__selectedBuildingMonth || fallbackMonth, buildingName);
   }
 
   function renderBuildingMonthTabs() {
@@ -195,8 +197,8 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       const active = monthKey === selectedMonth ? ' active' : '';
       return `<button type="button" class="month-tab${active}" data-building-month="${escapeHtml(monthKey)}">${escapeHtml(getMonthTabShortLabel(monthKey))}</button>`;
     }).join('');
-    const latestCreatedMonth = getLatestCreatedMonthKey();
-    const nextCreatableMonth = getNextCreatableMonthKey();
+    const latestCreatedMonth = getLatestCreatedMonthKeyForBuilding(window.__selectedBuildingName || '');
+    const nextCreatableMonth = getNextCreatableMonthKeyForBuilding(window.__selectedBuildingName || '');
     container.innerHTML = `${monthButtons}${nextCreatableMonth ? `<button type="button" class="month-tab month-tab-create" data-create-building-month="${escapeHtml(nextCreatableMonth)}">+</button>` : ''}${latestCreatedMonth !== getDefaultActiveMonthKey() ? `<button type="button" class="month-tab month-tab-delete" data-delete-building-month="${escapeHtml(latestCreatedMonth)}">-</button>` : ''}`;
     container.querySelectorAll('[data-building-month]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -208,9 +210,10 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     container.querySelectorAll('[data-create-building-month]').forEach((button) => {
       button.addEventListener('click', async () => {
         const nextMonth = button.getAttribute('data-create-building-month') || '';
-        if (!nextMonth || typeof createMonthTab !== 'function') return;
+        const buildingName = String(window.__selectedBuildingName || '').trim();
+        if (!nextMonth || !buildingName) return;
         try {
-          await createMonthTab(nextMonth);
+          markBuildingMonthAsCreated(buildingName, nextMonth);
           window.__selectedBuildingMonth = nextMonth;
           saveBuildingViewPreference();
           renderAll(window.__appState, window.__selectedBuildingName || '');
@@ -227,10 +230,11 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     container.querySelectorAll('[data-delete-building-month]').forEach((button) => {
       button.addEventListener('click', async () => {
         const monthToDelete = button.getAttribute('data-delete-building-month') || '';
-        if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
+        const buildingName = String(window.__selectedBuildingName || '').trim();
+        if (!monthToDelete || !buildingName) return;
         try {
-          await deleteMonthTab(monthToDelete);
-          window.__selectedBuildingMonth = getLatestCreatedMonthKey();
+          unmarkBuildingMonthAsCreated(buildingName, monthToDelete);
+          window.__selectedBuildingMonth = getLatestCreatedMonthKeyForBuilding(buildingName);
           saveBuildingViewPreference();
           renderAll(window.__appState, window.__selectedBuildingName || '');
           if (typeof showFlashMessage === 'function') {
@@ -995,9 +999,9 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       renderBuildingsEmptyState('No buildings are available for the selected area.');
       return;
     }
-    if (!window.__selectedBuildingMonth) window.__selectedBuildingMonth = getActiveMonthKey();
     window.__selectedBuildingName = chosenBuilding;
     window.__selectedAreaName = chosenBuildingMeta.area || chosenArea;
+    window.__selectedBuildingMonth = getPreferredBuildingMonth(chosenBuilding) || window.__selectedBuildingMonth || getDefaultActiveMonthKey();
     saveBuildingViewPreference();
     renderAreaGrid(state, window.__selectedAreaName, getSelectedBuildingMonth());
     renderAreaBuildingsGrid(state, window.__selectedAreaName, chosenBuilding, getSelectedBuildingMonth());

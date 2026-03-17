@@ -14,6 +14,20 @@
     return 'tatra-created-months-v2';
   }
 
+  function normalizeBuildingMonthStorageToken(buildingName) {
+    return String(buildingName || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function getCreatedMonthsStorageKeyForBuilding(buildingName) {
+    const token = normalizeBuildingMonthStorageToken(buildingName);
+    if (!token) return '';
+    return `tatra-created-months-building-v1::${token}`;
+  }
+
   function getCreatedMonthKeys() {
     const minMonth = getDefaultActiveMonthKey();
     const maxMonth = getPreviewMonthKey();
@@ -39,6 +53,67 @@
   function saveCreatedMonthKeys(monthKeys) {
     const normalized = Array.from(new Set((monthKeys || []).map((monthKey) => String(monthKey || '').trim()).filter(Boolean))).sort(compareMonthKeys);
     window.localStorage.setItem(getCreatedMonthsStorageKey(), JSON.stringify(normalized));
+  }
+
+  function getCreatedMonthKeysForBuilding(buildingName) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return getCreatedMonthKeys();
+    const storageKey = getCreatedMonthsStorageKeyForBuilding(normalizedBuilding);
+    const minMonth = getDefaultActiveMonthKey();
+    const maxMonth = getPreviewMonthKey();
+    let stored = [];
+    try {
+      stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+    } catch (_error) {
+      stored = [];
+    }
+    const monthKeys = new Set([minMonth]);
+    if (Array.isArray(stored)) {
+      stored.forEach((monthKey) => {
+        const normalizedMonth = String(monthKey || '').trim();
+        if (!normalizedMonth) return;
+        if (compareMonthKeys(normalizedMonth, minMonth) < 0) return;
+        if (compareMonthKeys(normalizedMonth, maxMonth) > 0) return;
+        monthKeys.add(normalizedMonth);
+      });
+    }
+    return Array.from(monthKeys).sort(compareMonthKeys);
+  }
+
+  function saveCreatedMonthKeysForBuilding(buildingName, monthKeys) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return;
+    const storageKey = getCreatedMonthsStorageKeyForBuilding(normalizedBuilding);
+    const normalized = Array.from(new Set((monthKeys || []).map((monthKey) => String(monthKey || '').trim()).filter(Boolean))).sort(compareMonthKeys);
+    window.localStorage.setItem(storageKey, JSON.stringify(normalized));
+  }
+
+  function markBuildingMonthAsCreated(buildingName, monthKey) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedBuilding || !normalizedMonth) return;
+    const createdMonths = getCreatedMonthKeysForBuilding(normalizedBuilding);
+    if (createdMonths.includes(normalizedMonth)) return;
+    createdMonths.push(normalizedMonth);
+    saveCreatedMonthKeysForBuilding(normalizedBuilding, createdMonths);
+  }
+
+  function unmarkBuildingMonthAsCreated(buildingName, monthKey) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    const normalizedMonth = String(monthKey || '').trim();
+    if (!normalizedBuilding || !normalizedMonth || normalizedMonth === getDefaultActiveMonthKey()) return;
+    const createdMonths = getCreatedMonthKeysForBuilding(normalizedBuilding).filter((entry) => entry !== normalizedMonth);
+    saveCreatedMonthKeysForBuilding(normalizedBuilding, createdMonths);
+  }
+
+  function getLatestCreatedMonthKeyForBuilding(buildingName) {
+    const createdMonths = getCreatedMonthKeysForBuilding(buildingName);
+    return createdMonths[createdMonths.length - 1] || getDefaultActiveMonthKey();
+  }
+
+  function getNextCreatableMonthKeyForBuilding(buildingName) {
+    const nextMonth = addMonths(getLatestCreatedMonthKeyForBuilding(buildingName), 1);
+    return compareMonthKeys(nextMonth, getPreviewMonthKey()) <= 0 ? nextMonth : '';
   }
 
   function markMonthAsCreated(monthKey) {
@@ -99,7 +174,8 @@
   }
 
   function getBuildingPreviewUpperMonthKey(buildingName) {
-    return getVisibleUpperMonthKey();
+    const normalizedBuilding = String(buildingName || '').trim();
+    return normalizedBuilding ? getLatestCreatedMonthKeyForBuilding(normalizedBuilding) : getVisibleUpperMonthKey();
   }
 
   function getEditableUpperMonthKey() {
@@ -203,7 +279,9 @@
   }
 
   function getVisibleYearMonthKeysForBuilding(year, buildingName) {
-    return getVisibleYearMonthKeys(year);
+    const normalizedBuilding = String(buildingName || '').trim();
+    return (normalizedBuilding ? getCreatedMonthKeysForBuilding(normalizedBuilding) : getCreatedMonthKeys())
+      .filter((monthKey) => monthStart(monthKey).getFullYear() === year);
   }
 
   function ensureCarriedMonthSnapshotsState(state) {
@@ -526,6 +604,12 @@
         area: String(parsed.area || '').trim(),
         building: String(parsed.building || '').trim(),
         month: String(parsed.month || '').trim(),
+        monthByBuilding: parsed.monthByBuilding && typeof parsed.monthByBuilding === 'object'
+          ? Object.keys(parsed.monthByBuilding).reduce((acc, key) => {
+            acc[key] = String(parsed.monthByBuilding[key] || '').trim();
+            return acc;
+          }, {})
+          : {},
         lastByArea: Object.keys(lastByArea).reduce((acc, key) => {
           acc[key] = String(lastByArea[key] || '').trim();
           return acc;
@@ -537,17 +621,32 @@
   }
 
   function saveBuildingViewPreference() {
-    const current = loadBuildingViewPreference() || { lastByArea: {} };
+    const current = loadBuildingViewPreference() || { lastByArea: {}, monthByBuilding: {} };
     const lastByArea = Object.assign({}, current.lastByArea || {});
+    const monthByBuilding = Object.assign({}, current.monthByBuilding || {});
     if (window.__selectedAreaName && window.__selectedBuildingName) {
       lastByArea[window.__selectedAreaName] = window.__selectedBuildingName;
+    }
+    if (window.__selectedBuildingName) {
+      monthByBuilding[window.__selectedBuildingName] = String(window.__selectedBuildingMonth || '').trim();
     }
     safeStorageSet(BUILDING_VIEW_KEY, JSON.stringify({
       area: String(window.__selectedAreaName || ''),
       building: String(window.__selectedBuildingName || ''),
       month: String(window.__selectedBuildingMonth || ''),
+      monthByBuilding,
       lastByArea
     }));
+  }
+
+  function getPreferredBuildingMonth(buildingName) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return '';
+    const savedView = loadBuildingViewPreference();
+    const savedMonth = savedView && savedView.monthByBuilding
+      ? String(savedView.monthByBuilding[normalizedBuilding] || '').trim()
+      : '';
+    return savedMonth;
   }
 
   function loadTenantViewPreference() {

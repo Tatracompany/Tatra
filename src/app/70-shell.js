@@ -57,6 +57,7 @@
         const buildingMeta = state.buildings.find((building) => building.name === selected);
         window.__selectedBuildingName = selected;
         if (buildingMeta) window.__selectedAreaName = buildingMeta.area;
+        window.__selectedBuildingMonth = getPreferredBuildingMonth(selected) || getDefaultActiveMonthKey();
         saveBuildingViewPreference();
         renderAll(state, selected);
       });
@@ -70,6 +71,7 @@
         const preferredBuilding = getPreferredBuildingForArea(state, selectedArea);
         window.__selectedAreaName = selectedArea;
         window.__selectedBuildingName = preferredBuilding;
+        window.__selectedBuildingMonth = getPreferredBuildingMonth(preferredBuilding) || getDefaultActiveMonthKey();
         saveBuildingViewPreference();
         renderAll(state, preferredBuilding);
       });
@@ -412,7 +414,11 @@
       if (savedView) {
         if (savedView.area) window.__selectedAreaName = savedView.area;
         if (savedView.building) window.__selectedBuildingName = savedView.building;
-        if (savedView.month) window.__selectedBuildingMonth = savedView.month;
+        if (savedView.monthByBuilding && savedView.building && savedView.monthByBuilding[savedView.building]) {
+          window.__selectedBuildingMonth = savedView.monthByBuilding[savedView.building];
+        } else if (savedView.month) {
+          window.__selectedBuildingMonth = savedView.month;
+        }
       }
       if (savedTenantView && savedTenantView.building) {
         window.__selectedTenantBuildingFilter = savedTenantView.building;

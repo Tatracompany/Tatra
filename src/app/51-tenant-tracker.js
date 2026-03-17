@@ -1,5 +1,5 @@
   function getSelectedTrackerMonth() {
-    return clampMonthToVisible(window.__selectedTrackerMonth || getActiveMonthKey());
+    return clampMonthToVisible(window.__selectedTrackerMonth || getLatestCreatedMonthKey());
   }
 
   function renderTrackerMonthTabs() {
