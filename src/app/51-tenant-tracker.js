@@ -126,6 +126,13 @@
       .map((node) => String(node.value || '').trim());
   }
 
+  function getTrackerRowByUnitId(container, unitId) {
+    const normalizedUnitId = String(unitId || '').trim();
+    if (!container || !normalizedUnitId) return null;
+    const saveMarker = container.querySelector(`[data-tracker-names="${CSS.escape(normalizedUnitId)}"]`);
+    return saveMarker ? saveMarker.closest('tr') : null;
+  }
+
   function unitIdFromTrackerInput(input) {
     return String(input && input.getAttribute('data-tracker-names') || '').trim();
   }
@@ -178,9 +185,9 @@
       field.addEventListener('input', () => {
         const unitId = String(field.getAttribute('data-tracker-name-slot') || '').trim();
         const countNode = unitId ? container.querySelector(`[data-tracker-count="${CSS.escape(unitId)}"]`) : null;
-        const grid = container.querySelector(`[data-tracker-names="${CSS.escape(unitId)}"]`);
+        const row = getTrackerRowByUnitId(container, unitId);
         if (countNode) {
-          countNode.textContent = String(getTrackerNameSlotsFromContainer(grid).filter(Boolean).length);
+          countNode.textContent = String(getTrackerNameSlotsFromContainer(row).filter(Boolean).length);
         }
       });
       field.addEventListener('keydown', async (event) => {
@@ -202,10 +209,12 @@
     const normalizedUnitId = String(unitId || '').trim();
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedUnitId || !normalizedMonthKey) return;
+    const container = document.getElementById('tenantTrackerList');
     const input = Array.from(document.querySelectorAll('[data-tracker-names]'))
       .find((node) => unitIdFromTrackerInput(node) === normalizedUnitId);
-    if (!input) return;
-    const namesText = serializeTrackerNameSlots(getTrackerNameSlotsFromContainer(input));
+    const row = getTrackerRowByUnitId(container, normalizedUnitId);
+    if (!input || !row) return;
+    const namesText = serializeTrackerNameSlots(getTrackerNameSlotsFromContainer(row));
     const initialValue = String(input.getAttribute('data-initial-value') || '').trim();
     if (namesText === initialValue) return;
     if (typeof syncTenantTrackerToDb !== 'function') return;
