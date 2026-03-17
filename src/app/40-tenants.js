@@ -508,15 +508,38 @@
       previousContractRent > 0 ? `Previous contract rent ${formatCurrency(previousContractRent)}` : '',
       previousActualRent > 0 ? `Previous actual rent ${formatCurrency(previousActualRent)}` : ''
     ].filter(Boolean);
+    const normalizeHistoryText = (value) => String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLocaleLowerCase('ar');
     const savedTenantProfiles = typeof getDbSnapshotTenantProfiles === 'function'
-      ? getDbSnapshotTenantProfiles().slice().sort((left, right) => String(left && left.fullName || '').localeCompare(String(right && right.fullName || ''), 'en'))
+      ? Array.from((getDbSnapshotTenantProfiles() || []).reduce((map, profile) => {
+        const signature = [
+          normalizeHistoryText(profile && profile.fullName),
+          normalizeHistoryText(profile && profile.civilId),
+          normalizeHistoryText(profile && profile.phone)
+        ].join('::');
+        if (!signature.replace(/[:]/g, '')) return map;
+        if (!map.has(signature)) {
+          map.set(signature, profile);
+          return map;
+        }
+        const existing = map.get(signature);
+        const existingUpdated = String(existing && (existing.updatedAt || existing.lastSeenAt || existing.createdAt) || '').trim();
+        const nextUpdated = String(profile && (profile.updatedAt || profile.lastSeenAt || profile.createdAt) || '').trim();
+        if (nextUpdated > existingUpdated) map.set(signature, profile);
+        return map;
+      }, new Map()).values()).sort((left, right) => String(left && left.fullName || '').localeCompare(String(right && right.fullName || ''), 'en'))
       : [];
     const historyOptions = savedTenantProfiles.length
       ? savedTenantProfiles.map((profile) => {
         const labelParts = [
           String(profile && profile.fullName || '').trim() || 'Unnamed tenant',
           String(profile && profile.civilId || '').trim(),
-          String(profile && profile.phone || '').trim()
+          String(profile && profile.phone || '').trim(),
+          String(profile && (profile.lastSeenAt || profile.updatedAt || profile.createdAt) || '').trim()
+            ? `Updated ${formatDate(String(profile.lastSeenAt || profile.updatedAt || profile.createdAt).slice(0, 10))}`
+            : ''
         ].filter(Boolean);
         return `<option value="${escapeHtml(String(profile && profile.id || ''))}">${escapeHtml(labelParts.join(' | '))}</option>`;
       }).join('')

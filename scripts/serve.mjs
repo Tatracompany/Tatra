@@ -146,6 +146,8 @@ async function exportSnapshotToBrowserFile() {
 }
 
 async function ensureRow55OccupiedTenancy() {
+  // Row 55 should stay whatever the live DB says; do not auto-rewrite it on startup.
+  return;
   const database = openDatabase(databasePath);
   try {
     await database.exec('BEGIN');
