@@ -819,7 +819,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const coveredCurrentBeforeArchived = normalizeAmount(
       isPreContractOccupancy
         ? occupancyPaidCurrent
-        : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + prepaidFromBefore)
+        : (paidCurrent + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent)
     );
     const displayPaidCurrent = normalizeAmount(
       coveredCurrentBeforeArchived
@@ -828,7 +828,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const displayPaidCurrentRaw = normalizeAmount(
       (isPreContractOccupancy
         ? occupancyPaidCurrent
-        : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent + prepaidFromBefore))
+        : (paidCurrentRaw + priorAdvanceAppliedCurrent + rowCreditAppliedCurrent))
       + Number(handoverArchivedView && handoverArchivedView.paidCurrentRaw || handoverArchivedView && handoverArchivedView.paidCurrent || 0)
     );
     const handoverVacantBaseAmount = normalizeAmount(
@@ -872,7 +872,7 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
     const paidThroughMonth = prepaidMonths > 0
       ? addMonths(selectedMonth, prepaidMonths)
       : (
-        displayPaidCurrent > 0 || prepaidFromBefore > 0 || previousDue > 0
+        displayPaidCurrent > 0 || previousDue > 0
           ? selectedMonth
           : ''
       );
