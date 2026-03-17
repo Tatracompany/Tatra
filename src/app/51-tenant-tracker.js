@@ -23,6 +23,12 @@
 
   function getTrackerOccupantsMetaKey(unitId, monthKey) {
     const normalizedUnitId = String(unitId || '').trim();
+    if (!normalizedUnitId) return '';
+    return `tenant_tracker_occupants::${normalizedUnitId}`;
+  }
+
+  function getLegacyTrackerOccupantsMetaKey(unitId, monthKey) {
+    const normalizedUnitId = String(unitId || '').trim();
     const normalizedMonthKey = String(monthKey || '').trim();
     if (!normalizedUnitId || !normalizedMonthKey) return '';
     return `tenant_tracker_occupants::${normalizedUnitId}::${normalizedMonthKey}`;
@@ -95,6 +101,8 @@
     if (!metaKey) return String(fallbackText || '').trim();
     const storedValue = getTrackerMetaValue(metaKey);
     if (String(storedValue || '').trim()) return String(storedValue || '').trim();
+    const legacyValue = getTrackerMetaValue(getLegacyTrackerOccupantsMetaKey(unitId, monthKey));
+    if (String(legacyValue || '').trim()) return String(legacyValue || '').trim();
     return String(fallbackText || '').trim();
   }
 
