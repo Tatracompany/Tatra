@@ -1959,14 +1959,15 @@ async function handleApiRequest(request, response, requestUrl) {
     try {
       const payload = await readJsonBody(request);
       const snapshot = await saveBuildingFooterValueToDatabase(payload);
-      return sendJson(response, 200, {
+      sendJson(response, 200, {
         ok: true,
         outputPath: browserSnapshotPath,
         counts: snapshot && snapshot.counts ? snapshot.counts : null
       });
     } catch (error) {
-      return sendJson(response, 400, { ok: false, error: error.message || 'Failed to save building footer value.' });
+      sendJson(response, 400, { ok: false, error: error.message || 'Failed to save building footer value.' });
     }
+    return true;
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/db/vacant-unit-meta') {
