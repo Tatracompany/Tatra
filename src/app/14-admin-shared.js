@@ -40,53 +40,8 @@
   function renderWorkingMonthCard() {
     const sidebar = document.querySelector('.sidebar');
     if (!sidebar) return;
-    let card = sidebar.querySelector('[data-working-month-card]');
-    if (!card) {
-      card = document.createElement('section');
-      card.className = 'sidebar-month-card';
-      card.setAttribute('data-working-month-card', 'true');
-      const sidebarBrand = sidebar.querySelector('.sidebar-brand');
-      if (sidebarBrand && sidebarBrand.nextSibling) {
-        sidebar.insertBefore(card, sidebarBrand.nextSibling);
-      } else {
-        sidebar.appendChild(card);
-      }
-    }
-    const activeMonth = getActiveMonthKey();
-    const minMonth = getDefaultActiveMonthKey();
-    const maxMonth = getVisibleUpperMonthKey();
-    const disablePrev = compareMonthKeys(activeMonth, minMonth) <= 0;
-    const disableNext = compareMonthKeys(activeMonth, maxMonth) >= 0;
-    card.innerHTML = `
-      <p class="section-label">Working month</p>
-      <div class="sidebar-month-head">
-        <strong>${escapeHtml(formatMonth(activeMonth))}</strong>
-        <span class="small-note">January is the active working month.</span>
-      </div>
-      <div class="sidebar-month-controls">
-        <button type="button" class="secondary-action" data-working-month-shift="-1"${disablePrev ? ' disabled' : ''}>Prev</button>
-        <input type="month" value="${escapeHtml(activeMonth)}" min="${escapeHtml(minMonth)}" max="${escapeHtml(maxMonth)}" data-working-month-input>
-        <button type="button" class="secondary-action" data-working-month-shift="1"${disableNext ? ' disabled' : ''}>Next</button>
-      </div>
-    `;
-    const input = card.querySelector('[data-working-month-input]');
-    const prevButton = card.querySelector('[data-working-month-shift="-1"]');
-    const nextButton = card.querySelector('[data-working-month-shift="1"]');
-    if (input) {
-      input.addEventListener('change', () => {
-        handleWorkingMonthChange(input.value);
-      });
-    }
-    if (prevButton) {
-      prevButton.addEventListener('click', () => {
-        handleWorkingMonthChange(addMonths(activeMonth, -1));
-      });
-    }
-    if (nextButton) {
-      nextButton.addEventListener('click', () => {
-        handleWorkingMonthChange(addMonths(activeMonth, 1));
-      });
-    }
+    const card = sidebar.querySelector('[data-working-month-card]');
+    if (card) card.remove();
   }
 
   function renderMonthPhaseBanner() {
