@@ -887,7 +887,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const footerPrepaidFromBefore = getBuildingFooterPrepaidFromBeforeAmount(
       window.__selectedBuildingName || getDefaultBuildingName(state),
       selectedMonth,
-      prepaidFromBeforeTotal
+      0
     );
     const totalInBank = totalCurrentMonth - prepaidLastMonthTotal - footerPrepaidFromBefore - januaryBaselineAdjustment;
     const summaryValueColspan = BUILDING_TABLE_COLUMN_COUNT - 4;
