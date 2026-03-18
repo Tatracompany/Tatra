@@ -212,6 +212,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         const nextMonth = button.getAttribute('data-create-building-month') || '';
         const buildingName = String(window.__selectedBuildingName || '').trim();
         if (!nextMonth || !buildingName) return;
+        if (typeof window.confirm === 'function' && !window.confirm(`Create ${formatMonth(nextMonth)} for ${buildingName}?`)) return;
         try {
           markBuildingMonthAsCreated(buildingName, nextMonth);
           window.__selectedBuildingMonth = nextMonth;
@@ -232,6 +233,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         const monthToDelete = button.getAttribute('data-delete-building-month') || '';
         const buildingName = String(window.__selectedBuildingName || '').trim();
         if (!monthToDelete || !buildingName) return;
+        if (typeof window.confirm === 'function' && !window.confirm(`Delete ${formatMonth(monthToDelete)} for ${buildingName}?`)) return;
         try {
           unmarkBuildingMonthAsCreated(buildingName, monthToDelete);
           window.__selectedBuildingMonth = getLatestCreatedMonthKeyForBuilding(buildingName);
@@ -562,6 +564,38 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     return `building_footer_prepaid_from_before::${normalizedBuildingId}::${normalizedMonthKey}`;
   }
 
+  function getBuildingFooterPrepaidFromBeforeLocalStorageKey(buildingId, monthKey) {
+    const normalizedBuildingId = String(buildingId || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedBuildingId || !normalizedMonthKey) return '';
+    return `tatra.building.footer.prepaid_from_before::${normalizedBuildingId}::${normalizedMonthKey}`;
+  }
+
+  function getBuildingFooterPrepaidFromBeforeLocalValue(buildingId, monthKey) {
+    const storageKey = getBuildingFooterPrepaidFromBeforeLocalStorageKey(buildingId, monthKey);
+    if (!storageKey) return '';
+    try {
+      return String(window.localStorage.getItem(storageKey) || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function setBuildingFooterPrepaidFromBeforeLocalValue(buildingId, monthKey, value) {
+    const storageKey = getBuildingFooterPrepaidFromBeforeLocalStorageKey(buildingId, monthKey);
+    if (!storageKey) return;
+    try {
+      const normalizedValue = String(value == null ? '' : value).trim();
+      if (!normalizedValue) {
+        window.localStorage.removeItem(storageKey);
+        return;
+      }
+      window.localStorage.setItem(storageKey, normalizedValue);
+    } catch (_error) {
+      // Ignore localStorage errors.
+    }
+  }
+
   function getBuildingTenantsForMonth(state, buildingName, monthKey) {
     if (typeof getBuildingDisplayTenants === 'function') {
       return getBuildingDisplayTenants(state, buildingName, monthKey);
@@ -576,7 +610,11 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
       return normalizeAmount(fallbackValue || 0);
     }
     const rawValue = getDbSnapshotAppMetaValue(metaKey);
-    if (String(rawValue || '').trim() === '') return normalizeAmount(fallbackValue || 0);
+    if (String(rawValue || '').trim() === '') {
+      const localValue = getBuildingFooterPrepaidFromBeforeLocalValue(building && building.id, monthKey);
+      if (String(localValue || '').trim() !== '') return normalizeAmount(Number(localValue || 0));
+      return normalizeAmount(fallbackValue || 0);
+    }
     return normalizeAmount(Number(rawValue || 0));
   }
 
@@ -595,6 +633,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
     const building = getDbSnapshotBuildingByName(buildingName);
     const metaKey = getBuildingFooterPrepaidFromBeforeMetaKey(building && building.id, monthKey);
     if (!snapshot || !building || !metaKey) return;
+    setBuildingFooterPrepaidFromBeforeLocalValue(building.id, monthKey, value);
     if (!Array.isArray(snapshot.appMeta)) snapshot.appMeta = [];
     const existingEntry = snapshot.appMeta.find((item) => String(item && item.key || '').trim() === metaKey);
     if (existingEntry) {
@@ -693,6 +732,7 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         value: normalizedCurrentValue
       });
       setBuildingFooterMetaValueLocally(buildingName, monthKey, normalizedCurrentValue);
+      setBuildingFooterPrepaidFromBeforeLocalValue(building.id, monthKey, normalizedCurrentValue);
       input.value = formatBlankAmountInputValue(normalizedCurrentValue, false);
       input.dataset.initialValue = String(normalizedCurrentValue);
       updateBuildingFooterBankPreview(state, input);

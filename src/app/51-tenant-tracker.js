@@ -1,5 +1,25 @@
+  function getTrackerMonthPreferenceKey() {
+    return 'tatra.tracker.selectedMonth';
+  }
+
+  function readTrackerMonthPreference() {
+    try {
+      return String(window.localStorage.getItem(getTrackerMonthPreferenceKey()) || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function writeTrackerMonthPreference(monthKey) {
+    try {
+      window.localStorage.setItem(getTrackerMonthPreferenceKey(), String(monthKey || '').trim());
+    } catch (_error) {
+      // Ignore localStorage errors.
+    }
+  }
+
   function getSelectedTrackerMonth() {
-    return clampMonthToVisible(window.__selectedTrackerMonth || getLatestCreatedMonthKey());
+    return clampMonthToVisible(window.__selectedTrackerMonth || readTrackerMonthPreference() || getLatestCreatedMonthKey());
   }
 
   function renderTrackerMonthTabs() {
@@ -7,6 +27,7 @@
     if (!container) return;
     const selectedMonth = getSelectedTrackerMonth();
     window.__selectedTrackerMonth = selectedMonth;
+    writeTrackerMonthPreference(selectedMonth);
     const year = monthStart(selectedMonth).getFullYear();
     container.innerHTML = getVisibleYearMonthKeys(year).map((monthKey) => {
       const active = monthKey === selectedMonth ? ' active' : '';
@@ -15,6 +36,7 @@
     container.querySelectorAll('[data-tracker-month]').forEach((button) => {
       button.addEventListener('click', () => {
         window.__selectedTrackerMonth = button.getAttribute('data-tracker-month') || getActiveMonthKey();
+        writeTrackerMonthPreference(window.__selectedTrackerMonth);
         renderTrackerMonthTabs();
         renderTenantTracker(window.__appState);
       });
@@ -61,6 +83,38 @@
 
   function itemValue(value) {
     return value == null ? '' : value;
+  }
+
+  function getTrackerLocalStorageKey(unitId, monthKey) {
+    const normalizedUnitId = String(unitId || '').trim();
+    const normalizedMonthKey = String(monthKey || '').trim();
+    if (!normalizedUnitId || !normalizedMonthKey) return '';
+    return `tatra.tracker.names::${normalizedUnitId}::${normalizedMonthKey}`;
+  }
+
+  function getTrackerLocalValue(unitId, monthKey) {
+    const storageKey = getTrackerLocalStorageKey(unitId, monthKey);
+    if (!storageKey) return '';
+    try {
+      return String(window.localStorage.getItem(storageKey) || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function setTrackerLocalValue(unitId, monthKey, valueText) {
+    const storageKey = getTrackerLocalStorageKey(unitId, monthKey);
+    if (!storageKey) return;
+    try {
+      const normalizedValue = String(valueText || '').trim();
+      if (!normalizedValue) {
+        window.localStorage.removeItem(storageKey);
+        return;
+      }
+      window.localStorage.setItem(storageKey, normalizedValue);
+    } catch (_error) {
+      // Ignore localStorage errors.
+    }
   }
 
   function setTrackerMetaValue(metaKey, valueText) {
@@ -113,6 +167,8 @@
     if (!metaKey) return String(fallbackText || '').trim();
     const storedValue = getTrackerMetaValue(metaKey);
     if (String(storedValue || '').trim()) return String(storedValue || '').trim();
+    const localValue = getTrackerLocalValue(unitId, monthKey);
+    if (String(localValue || '').trim()) return String(localValue || '').trim();
     const legacyValue = getTrackerMetaValue(getLegacyTrackerOccupantsMetaKey(unitId, monthKey));
     if (String(legacyValue || '').trim()) return String(legacyValue || '').trim();
     return String(fallbackText || '').trim();
@@ -250,6 +306,7 @@
       namesText
     });
     setTrackerMetaValue(getTrackerOccupantsMetaKey(normalizedUnitId, normalizedMonthKey), namesText);
+    setTrackerLocalValue(normalizedUnitId, normalizedMonthKey, namesText);
     input.setAttribute('data-initial-value', namesText);
     renderTenantTracker(state);
     if (typeof showFlashMessage === 'function') {
