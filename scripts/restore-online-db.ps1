@@ -1,7 +1,7 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$BackupFile,
-  [string]$ServiceUrl = 'https://tatra.onrender.com',
+  [string]$ServiceUrl = 'https://tatra-eu.onrender.com',
   [string]$Token = ''
 )
 

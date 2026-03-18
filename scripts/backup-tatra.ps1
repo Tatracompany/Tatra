@@ -4,10 +4,13 @@ $sourcePath = 'C:\Users\Y PC\Desktop\Tatra'
 $backupRoot = 'C:\Users\Y PC\Desktop\auto backuptatra'
 $desktopPath = 'C:\Users\Y PC\Desktop'
 $maxBackupBytes = 20GB
+$serviceUrl = 'https://tatra-eu.onrender.com'
+$backupToken = [Environment]::GetEnvironmentVariable('TATRA_BACKUP_TOKEN', 'User')
 $timestamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 $destinationPath = Join-Path $backupRoot $timestamp
 $stateBackupPath = Join-Path $destinationPath 'state-json'
 $browserBackupPath = Join-Path $destinationPath 'browser-storage'
+$liveDbDestinationPath = Join-Path $destinationPath 'db\tatra.sqlite'
 
 $browserStorageSources = @(
   @{
@@ -47,6 +50,29 @@ foreach ($storageSource in $browserStorageSources) {
   if ($LASTEXITCODE -gt 7) {
     throw "Browser storage backup failed for $($storageSource.Name) with robocopy exit code $LASTEXITCODE."
   }
+}
+
+if ($backupToken) {
+  try {
+    $downloadUrl = "$($serviceUrl.TrimEnd('/'))/api/db/backup-download"
+    $headers = @{
+      'x-tatra-backup-token' = $backupToken
+    }
+
+    Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $liveDbDestinationPath -UseBasicParsing
+
+    Push-Location $destinationPath
+    try {
+      node .\scripts\export-db-snapshot.mjs db/tatra.sqlite
+      node .\scripts\build-app.mjs
+    } finally {
+      Pop-Location
+    }
+  } catch {
+    Write-Warning "Live DB sync failed for backup snapshot: $($_.Exception.Message)"
+  }
+} else {
+  Write-Warning 'Live DB sync skipped: missing TATRA_BACKUP_TOKEN in user environment.'
 }
 
 function Get-DirectorySizeBytes {

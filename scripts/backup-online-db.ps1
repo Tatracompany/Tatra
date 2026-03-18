@@ -1,5 +1,5 @@
 param(
-  [string]$ServiceUrl = 'https://tatra.onrender.com',
+  [string]$ServiceUrl = 'https://tatra-eu.onrender.com',
   [string]$BackupRoot = 'C:\Users\Y PC\Desktop\online-db-backup-tatra',
   [string]$Token = '',
   [Int64]$MaxBackupBytes = 21474836480

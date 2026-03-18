@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { buildBrowserSnapshotScript, readDatabaseSnapshot } from './lib/db-snapshot.mjs';
-import { ensureDatabaseFileExists, findMatchingTenantProfile, getDefaultDatabasePath, openDatabase, prepareDatabase, repairMissingTenancyProfiles, upsertTenantProfile } from './lib/database.mjs';
+import { ensureDatabaseFileExists, findMatchingTenantProfile, getDefaultDatabasePath, openDatabase, prepareDatabase, repairMissingTenancyProfiles, resetTables, upsertTenantProfile } from './lib/database.mjs';
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -242,6 +242,225 @@ async function restoreDatabaseFromUpload(databaseBuffer) {
   }
 
   return await exportSnapshotToBrowserFile();
+}
+
+async function exportDatabaseToSqliteBackup() {
+  const snapshot = await readDatabaseSnapshot(databasePath);
+  const tempDirectory = path.join(root, 'tmp-live-fix');
+  const tempBackupPath = path.join(tempDirectory, `tatra-online-${Date.now()}.sqlite`);
+  fs.mkdirSync(tempDirectory, { recursive: true });
+  if (fs.existsSync(tempBackupPath)) {
+    fs.unlinkSync(tempBackupPath);
+  }
+
+  await prepareDatabase(tempBackupPath, schemaPath);
+  const backupDatabase = openDatabase(tempBackupPath);
+  try {
+    await resetTables(backupDatabase);
+    await backupDatabase.exec('BEGIN');
+
+    const insertBuilding = backupDatabase.prepare(`
+      INSERT INTO buildings (id, name, area, total_units, source_kind)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const insertUnit = backupDatabase.prepare(`
+      INSERT INTO units (id, building_id, unit_label, floor_label, unit_key, template_position, active_row_position, status_hint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertProfile = backupDatabase.prepare(`
+      INSERT INTO tenant_profiles (
+        id, full_name, civil_id, phone, nationality, normalized_name, normalized_phone,
+        created_at, updated_at, last_seen_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertTenancy = backupDatabase.prepare(`
+      INSERT INTO tenancies (
+        id, profile_id, unit_id, source_tenant_id, tenant_name, phone, civil_id, nationality, move_in_date,
+        contract_start, contract_end, contract_rent, discount, actual_rent, previous_due, prepaid_next_month,
+        insurance_amount, insurance_paid_month, due_day, planned_vacate_date, archived_on, is_active, is_archived,
+        notes, created_at, updated_at, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertVacancy = backupDatabase.prepare(`
+      INSERT INTO unit_vacancy_state (
+        unit_id, is_vacant, vacant_since, last_tenant_name, last_contract_rent,
+        last_actual_rent, last_discount, old_tenant_due_paid, notes, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertRowOrder = backupDatabase.prepare(`
+      INSERT INTO unit_row_order (building_id, month_key, position, order_key, unit_id)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const insertOverride = backupDatabase.prepare(`
+      INSERT INTO tenant_month_overrides (tenancy_id, source_tenant_id, month_key, override_kind, value_text)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const insertPayment = backupDatabase.prepare(`
+      INSERT INTO payments (
+        id, tenancy_id, source_tenant_id, amount, paid_on, rent_month, method, note, created_at, raw_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const insertActivity = backupDatabase.prepare(`
+      INSERT INTO activity_log (id, happened_at, actor, action, detail, raw_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    const insertMeta = backupDatabase.prepare(`
+      INSERT INTO app_meta (key, value)
+      VALUES (?, ?)
+    `);
+
+    for (const row of snapshot.buildings || []) {
+      await insertBuilding.run(
+        String(row.id || '').trim(),
+        String(row.name || '').trim(),
+        String(row.area || '').trim(),
+        Number(row.totalUnits || 0),
+        String(row.sourceKind || '').trim()
+      );
+    }
+
+    for (const row of snapshot.units || []) {
+      await insertUnit.run(
+        String(row.id || '').trim(),
+        String(row.buildingId || '').trim(),
+        String(row.unit || '').trim(),
+        String(row.floor || '').trim(),
+        String(row.unitKey || '').trim(),
+        Number(row.templatePosition || 0),
+        row.activeRowPosition == null ? null : Number(row.activeRowPosition),
+        String(row.statusHint || '').trim()
+      );
+    }
+
+    for (const row of snapshot.tenantProfiles || []) {
+      const fullName = String(row.fullName || '').trim();
+      const phone = String(row.phone || '').trim();
+      await insertProfile.run(
+        String(row.id || '').trim(),
+        fullName,
+        String(row.civilId || '').trim(),
+        phone,
+        String(row.nationality || 'Not set').trim() || 'Not set',
+        fullName.toLowerCase().replace(/\s+/g, ' ').trim(),
+        phone.replace(/\D/g, '').slice(-8),
+        String(row.createdAt || '').trim(),
+        String(row.updatedAt || '').trim(),
+        String(row.lastSeenAt || '').trim()
+      );
+    }
+
+    for (const row of snapshot.tenancyHistory || []) {
+      await insertTenancy.run(
+        String(row.id || '').trim(),
+        row.profileId ? String(row.profileId).trim() : null,
+        String(row.unitId || '').trim(),
+        String(row.sourceTenantId || '').trim(),
+        String(row.tenantName || '').trim(),
+        String(row.phone || '').trim(),
+        String(row.civilId || '').trim(),
+        String(row.nationality || 'Not set').trim() || 'Not set',
+        String(row.moveInDate || '').trim(),
+        String(row.contractStart || '').trim(),
+        String(row.contractEnd || '').trim(),
+        Number(row.contractRent || 0),
+        Number(row.discount || 0),
+        Number(row.actualRent || 0),
+        Number(row.previousDue || 0),
+        Number(row.prepaidNextMonth || 0),
+        Number(row.insuranceAmount || 0),
+        String(row.insurancePaidMonth || '').trim(),
+        Number(row.dueDay || 20),
+        String(row.plannedVacateDate || '').trim(),
+        String(row.archivedOn || '').trim(),
+        row.isActive ? 1 : 0,
+        row.isArchived ? 1 : 0,
+        String(row.notes || '').trim(),
+        String(row.createdAt || '').trim(),
+        String(row.updatedAt || '').trim(),
+        JSON.stringify(row)
+      );
+    }
+
+    for (const row of snapshot.vacancyStates || []) {
+      await insertVacancy.run(
+        String(row.unitId || '').trim(),
+        row.isVacant ? 1 : 0,
+        String(row.vacantSince || '').trim(),
+        String(row.lastTenantName || '').trim(),
+        Number(row.lastContractRent || 0),
+        Number(row.lastActualRent || 0),
+        Number(row.lastDiscount || 0),
+        Number(row.oldTenantDuePaid || 0),
+        String(row.notes || '').trim(),
+        JSON.stringify(row)
+      );
+    }
+
+    for (const row of snapshot.rowOrder || []) {
+      await insertRowOrder.run(
+        String(row.buildingId || '').trim(),
+        String(row.monthKey || '').trim(),
+        Number(row.position || 0),
+        String(row.orderKey || '').trim(),
+        row.unitId ? String(row.unitId).trim() : null
+      );
+    }
+
+    for (const row of snapshot.tenantMonthOverrides || []) {
+      await insertOverride.run(
+        null,
+        String(row.sourceTenantId || '').trim(),
+        String(row.monthKey || '').trim(),
+        String(row.overrideKind || '').trim(),
+        String(row.valueText || '')
+      );
+    }
+
+    for (const row of snapshot.payments || []) {
+      await insertPayment.run(
+        String(row.id || '').trim(),
+        row.tenancyId ? String(row.tenancyId).trim() : null,
+        String(row.tenantId || '').trim(),
+        Number(row.amount || 0),
+        String(row.date || '').trim(),
+        String(row.rentMonth || '').trim(),
+        String(row.method || '').trim(),
+        String(row.note || '').trim(),
+        String(row.createdAt || '').trim(),
+        JSON.stringify(row)
+      );
+    }
+
+    for (const row of snapshot.activity || []) {
+      await insertActivity.run(
+        String(row.id || '').trim(),
+        String(row.when || '').trim(),
+        String(row.actor || '').trim(),
+        String(row.action || '').trim(),
+        String(row.detail || '').trim(),
+        JSON.stringify(row)
+      );
+    }
+
+    for (const row of snapshot.appMeta || []) {
+      await insertMeta.run(
+        String(row.key || '').trim(),
+        String(row.value || '')
+      );
+    }
+
+    await backupDatabase.exec('COMMIT');
+    return tempBackupPath;
+  } catch (error) {
+    try {
+      await backupDatabase.exec('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback errors.
+    }
+    throw error;
+  } finally {
+    await backupDatabase.close();
+  }
 }
 
 async function syncTenantProfileForTenancy(database, tenancyId, profile) {
@@ -845,6 +1064,15 @@ async function createMonthTabInDatabase(payload) {
       const sourceTenantId = String(row && row.sourceTenantId || '').trim();
       if (!sourceTenantId) continue;
       const entries = [
+        ['name', String(row && row.name || '').trim()],
+        ['unit', String(row && row.unit || '').trim()],
+        ['floor', String(row && row.floor || '').trim()],
+        ['moveInDate', String(row && row.moveInDate || '').trim()],
+        ['contractStart', String(row && row.contractStart || '').trim()],
+        ['contractEnd', String(row && row.contractEnd || '').trim()],
+        ['phone', String(row && row.phone || '').trim()],
+        ['civilId', String(row && row.civilId || '').trim()],
+        ['nationality', String(row && row.nationality || 'Not set').trim() || 'Not set'],
         ['contract_rent', String(Number(row && row.contractRent || 0))],
         ['discount', String(Number(row && row.discount || 0))],
         ['actual_rent', String(Number(row && row.actualRent || 0))],
@@ -856,6 +1084,8 @@ async function createMonthTabInDatabase(payload) {
         ['insurance_amount', String(Number(row && row.insuranceAmount || 0))],
         ['insurance_paid_month', String(row && row.insurancePaidMonth || '').trim()],
         ['planned_vacate_date', String(row && row.plannedVacateDate || '').trim()],
+        ['vacated_on', String(row && row.vacatedOn || '').trim()],
+        ['vacancy_notes', String(row && row.notes || '').trim()],
         ['notes', String(row && row.notes || '').trim()],
         ['vacant_amount', String(Number(row && row.vacantAmount || 0))],
         ['old_tenant_due_paid', String(Number(row && row.oldTenantDuePaid || 0))]
@@ -1768,14 +1998,41 @@ async function handleApiRequest(request, response, requestUrl) {
       });
       return true;
     }
-    if (!fs.existsSync(databasePath)) {
+    let downloadPath = databasePath;
+    let cleanupAfterSend = false;
+    if (!String(databasePath || '').trim().toLowerCase().endsWith('.sqlite')) {
+      try {
+        downloadPath = await exportDatabaseToSqliteBackup();
+        cleanupAfterSend = true;
+      } catch (error) {
+        sendJson(response, 500, {
+          ok: false,
+          error: String(error && error.message || error)
+        });
+        return true;
+      }
+    }
+    if (!fs.existsSync(downloadPath)) {
       sendJson(response, 404, {
         ok: false,
         error: 'Database file was not found.'
       });
       return true;
     }
-    sendFile(response, databasePath, `tatra-online-${new Date().toISOString().slice(0, 10)}.sqlite`);
+    if (cleanupAfterSend) {
+      const cleanup = () => {
+        try {
+          if (fs.existsSync(downloadPath)) {
+            fs.unlinkSync(downloadPath);
+          }
+        } catch (_cleanupError) {
+          // Ignore temporary file cleanup failures.
+        }
+      };
+      response.on('finish', cleanup);
+      response.on('close', cleanup);
+    }
+    sendFile(response, downloadPath, `tatra-online-${new Date().toISOString().slice(0, 10)}.sqlite`);
     return true;
   }
 
