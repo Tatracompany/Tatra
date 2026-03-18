@@ -30,7 +30,6 @@
 
   function getCreatedMonthKeys() {
     const minMonth = getDefaultActiveMonthKey();
-    const maxMonth = getPreviewMonthKey();
     let stored = [];
     try {
       stored = JSON.parse(window.localStorage.getItem(getCreatedMonthsStorageKey()) || '[]');
@@ -43,7 +42,6 @@
         const normalizedMonth = String(monthKey || '').trim();
         if (!normalizedMonth) return;
         if (compareMonthKeys(normalizedMonth, minMonth) < 0) return;
-        if (compareMonthKeys(normalizedMonth, maxMonth) > 0) return;
         monthKeys.add(normalizedMonth);
       });
     }
@@ -60,7 +58,6 @@
     if (!normalizedBuilding) return getCreatedMonthKeys();
     const storageKey = getCreatedMonthsStorageKeyForBuilding(normalizedBuilding);
     const minMonth = getDefaultActiveMonthKey();
-    const maxMonth = getPreviewMonthKey();
     let stored = [];
     try {
       stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
@@ -73,7 +70,6 @@
         const normalizedMonth = String(monthKey || '').trim();
         if (!normalizedMonth) return;
         if (compareMonthKeys(normalizedMonth, minMonth) < 0) return;
-        if (compareMonthKeys(normalizedMonth, maxMonth) > 0) return;
         monthKeys.add(normalizedMonth);
       });
     }
