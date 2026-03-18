@@ -113,7 +113,7 @@
 
   function getNextCreatableMonthKeyForBuilding(buildingName) {
     const nextMonth = addMonths(getLatestCreatedMonthKeyForBuilding(buildingName), 1);
-    return compareMonthKeys(nextMonth, getPreviewMonthKey()) <= 0 ? nextMonth : '';
+    return nextMonth;
   }
 
   function markMonthAsCreated(monthKey) {
@@ -139,7 +139,7 @@
 
   function getNextCreatableMonthKey() {
     const nextMonth = addMonths(getLatestCreatedMonthKey(), 1);
-    return compareMonthKeys(nextMonth, getPreviewMonthKey()) <= 0 ? nextMonth : '';
+    return nextMonth;
   }
 
   function normalizeMonthSelectionMode(monthKey, mode) {
@@ -1015,11 +1015,11 @@
     if (typeof getBuildingDisplayTenants === 'function' && Array.isArray(state.buildings)) {
       return state.buildings.flatMap((building) => (
         getBuildingDisplayTenants(state, String(building && building.name || '').trim(), sourceMonth)
-      )).filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
+      )).filter((tenant) => tenant && !tenant.isArchivedSnapshot);
     }
     if (typeof getTenantViews !== 'function') return [];
     return getTenantViews(state, sourceMonth)
-      .filter((tenant) => tenant && !tenant.isVacant && !tenant.isArchivedSnapshot);
+      .filter((tenant) => tenant && !tenant.isArchivedSnapshot);
   }
 
   function getVisibleBuildingMonthSnapshotOverrides() {
@@ -1072,6 +1072,15 @@
       const override = visibleOverrides.get(sourceTenantId) || {};
       return {
         sourceTenantId,
+        name: String(tenant.name || '').trim(),
+        unit: String(tenant.unit || '').trim(),
+        floor: String(tenant.floor || '').trim(),
+        moveInDate: String(tenant.moveInDate || '').trim(),
+        contractStart: String(tenant.contractStart || '').trim(),
+        contractEnd: String(tenant.contractEnd || '').trim(),
+        phone: String(tenant.phone || '').trim(),
+        civilId: String(tenant.civilId || '').trim(),
+        nationality: String(tenant.nationality || 'Not set').trim() || 'Not set',
         contractRent: Number((override.contractRent ?? tenant.contractRent) || 0),
         discount: Number((override.discount ?? tenant.discount) || 0),
         actualRent: Number((override.actualRent ?? tenant.displayActualRent ?? tenant.baseActualRent ?? tenant.rentDue) || 0),
@@ -1088,6 +1097,7 @@
         insurancePaidMonth: String((override.insurancePaidMonth ?? tenant.insurancePaidMonth) || '').trim(),
         prepaidAmount: Number((override.prepaidAmount ?? tenant.prepaidNext) || 0),
         plannedVacateDate: String((override.plannedVacateDate ?? tenant.plannedVacateDate) || '').trim(),
+        vacatedOn: String(tenant.vacatedOn || '').trim(),
         oldTenantDuePaid: Number(
           override.oldTenantDuePaid
           ?? tenant.previousPaid
