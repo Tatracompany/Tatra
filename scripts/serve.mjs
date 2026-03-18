@@ -1296,6 +1296,32 @@ async function saveTenantTrackerToDatabase(payload) {
   return await exportSnapshotToBrowserFile();
 }
 
+async function saveBuildingCreatedMonthsToDatabase(payload) {
+  const buildingName = String(payload && payload.buildingName || '').trim();
+  const monthKeys = Array.isArray(payload && payload.monthKeys) ? payload.monthKeys : [];
+  if (!buildingName) {
+    throw new Error('buildingName is required.');
+  }
+  const normalizedMonthKeys = Array.from(new Set(
+    monthKeys
+      .map((monthKey) => String(monthKey || '').trim())
+      .filter(Boolean)
+      .filter((monthKey) => compareMonthKeys(monthKey, BASELINE_MONTH_KEY) >= 0)
+  )).sort(compareMonthKeys);
+  const metaKey = `building_created_months::${buildingName}`;
+  const database = openDatabase(databasePath);
+  try {
+    await database.prepare(`
+      INSERT INTO app_meta(key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+    `).run(metaKey, JSON.stringify(normalizedMonthKeys));
+  } finally {
+    await database.close();
+  }
+  return await exportSnapshotToBrowserFile();
+}
+
 async function saveViewPresenceToDatabase(payload) {
   const sessionId = String(payload && payload.sessionId || '').trim();
   const page = String(payload && payload.page || '').trim();
@@ -2355,6 +2381,21 @@ async function handleApiRequest(request, response, requestUrl) {
       });
     } catch (error) {
       sendJson(response, 400, { ok: false, error: error.message || 'Failed to save tenant tracker value.' });
+    }
+    return true;
+  }
+
+  if (request.method === 'POST' && requestUrl.pathname === '/api/db/building-created-months-save') {
+    try {
+      const body = await readJsonBody(request);
+      const snapshot = await saveBuildingCreatedMonthsToDatabase(body);
+      sendJson(response, 200, {
+        ok: true,
+        outputPath: browserSnapshotPath,
+        counts: snapshot && snapshot.counts ? snapshot.counts : null
+      });
+    } catch (error) {
+      sendJson(response, 400, { ok: false, error: error.message || 'Failed to save building created months.' });
     }
     return true;
   }

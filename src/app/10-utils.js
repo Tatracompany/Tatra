@@ -28,6 +28,12 @@
     return `tatra-created-months-building-v1::${token}`;
   }
 
+  function getBuildingCreatedMonthsMetaKey(buildingName) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return '';
+    return `building_created_months::${normalizedBuilding}`;
+  }
+
   function getCreatedMonthKeys() {
     const minMonth = getDefaultActiveMonthKey();
     let stored = [];
@@ -56,13 +62,25 @@
   function getCreatedMonthKeysForBuilding(buildingName) {
     const normalizedBuilding = String(buildingName || '').trim();
     if (!normalizedBuilding) return getCreatedMonthKeys();
-    const storageKey = getCreatedMonthsStorageKeyForBuilding(normalizedBuilding);
     const minMonth = getDefaultActiveMonthKey();
+    const metaKey = getBuildingCreatedMonthsMetaKey(normalizedBuilding);
     let stored = [];
-    try {
-      stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
-    } catch (_error) {
-      stored = [];
+    const snapshotValue = typeof getDbSnapshotAppMetaValue === 'function'
+      ? String(getDbSnapshotAppMetaValue(metaKey) || '').trim()
+      : '';
+    if (snapshotValue) {
+      try {
+        stored = JSON.parse(snapshotValue);
+      } catch (_error) {
+        stored = [];
+      }
+    } else {
+      const storageKey = getCreatedMonthsStorageKeyForBuilding(normalizedBuilding);
+      try {
+        stored = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+      } catch (_error) {
+        stored = [];
+      }
     }
     const monthKeys = new Set([minMonth]);
     if (Array.isArray(stored)) {
@@ -84,7 +102,16 @@
     window.localStorage.setItem(storageKey, JSON.stringify(normalized));
   }
 
-  function markBuildingMonthAsCreated(buildingName, monthKey) {
+  function syncBuildingCreatedMonthsToDb(buildingName, monthKeys) {
+    const normalizedBuilding = String(buildingName || '').trim();
+    if (!normalizedBuilding) return Promise.resolve(null);
+    return postToLocalDbApi('/api/db/building-created-months-save', {
+      buildingName: normalizedBuilding,
+      monthKeys: Array.from(new Set((monthKeys || []).map((monthKey) => String(monthKey || '').trim()).filter(Boolean))).sort(compareMonthKeys)
+    });
+  }
+
+  async function markBuildingMonthAsCreated(buildingName, monthKey) {
     const normalizedBuilding = String(buildingName || '').trim();
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedBuilding || !normalizedMonth) return;
@@ -92,14 +119,16 @@
     if (createdMonths.includes(normalizedMonth)) return;
     createdMonths.push(normalizedMonth);
     saveCreatedMonthKeysForBuilding(normalizedBuilding, createdMonths);
+    await syncBuildingCreatedMonthsToDb(normalizedBuilding, createdMonths);
   }
 
-  function unmarkBuildingMonthAsCreated(buildingName, monthKey) {
+  async function unmarkBuildingMonthAsCreated(buildingName, monthKey) {
     const normalizedBuilding = String(buildingName || '').trim();
     const normalizedMonth = String(monthKey || '').trim();
     if (!normalizedBuilding || !normalizedMonth || normalizedMonth === getDefaultActiveMonthKey()) return;
     const createdMonths = getCreatedMonthKeysForBuilding(normalizedBuilding).filter((entry) => entry !== normalizedMonth);
     saveCreatedMonthKeysForBuilding(normalizedBuilding, createdMonths);
+    await syncBuildingCreatedMonthsToDb(normalizedBuilding, createdMonths);
   }
 
   function getLatestCreatedMonthKeyForBuilding(buildingName) {

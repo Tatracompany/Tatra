@@ -217,7 +217,10 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
           if (typeof createMonthTab === 'function') {
             await createMonthTab(nextMonth);
           }
-          markBuildingMonthAsCreated(buildingName, nextMonth);
+          await markBuildingMonthAsCreated(buildingName, nextMonth);
+          if (typeof refreshSnapshotAndDerivedState === 'function') {
+            await refreshSnapshotAndDerivedState(window.__appState);
+          }
           window.__selectedBuildingMonth = nextMonth;
           saveBuildingViewPreference();
           renderAll(window.__appState, window.__selectedBuildingName || '');
@@ -238,7 +241,10 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         if (!monthToDelete || !buildingName) return;
         if (typeof window.confirm === 'function' && !window.confirm(`Delete ${formatMonth(monthToDelete)} for ${buildingName}?`)) return;
         try {
-          unmarkBuildingMonthAsCreated(buildingName, monthToDelete);
+          await unmarkBuildingMonthAsCreated(buildingName, monthToDelete);
+          if (typeof refreshSnapshotAndDerivedState === 'function') {
+            await refreshSnapshotAndDerivedState(window.__appState);
+          }
           window.__selectedBuildingMonth = getLatestCreatedMonthKeyForBuilding(buildingName);
           saveBuildingViewPreference();
           renderAll(window.__appState, window.__selectedBuildingName || '');
