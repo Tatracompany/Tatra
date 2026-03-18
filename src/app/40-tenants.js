@@ -719,6 +719,35 @@
 
       refreshBuildingTenantOrder(state, tenant.building);
       saveState(state);
+    } else {
+      const futureVacant = typeof ensureVacantUnitRecord === 'function'
+        ? ensureVacantUnitRecord(state, {
+          id: tenant.id,
+          sourceTenantId,
+          unitId: String(tenant.unitId || '').trim(),
+          building: tenant.building,
+          unit: String(effectiveProfile.unit || tenant.unit || '').trim(),
+          floor: String(effectiveProfile.floor || tenant.floor || '').trim(),
+          notes: `Vacated on ${vacateDate}. Last tenant: ${tenant.name}`,
+          vacatedOn: vacateDate,
+          lastActualRent: Number(tenant.actualRent || 0),
+          lastContractRent: Number(tenant.contractRent || 0),
+          seedOrder: Number(tenant.seedOrder || 0)
+        }, selectedMonth)
+        : null;
+      if (futureVacant) {
+        futureVacant.sourceTenantId = sourceTenantId;
+        futureVacant.unitId = String(tenant.unitId || futureVacant.unitId || '').trim();
+        futureVacant.name = 'Available unit';
+        futureVacant.notes = `Vacated on ${vacateDate}. Last tenant: ${tenant.name}`;
+        futureVacant.vacatedOn = vacateDate;
+        futureVacant.lastActualRent = Number(tenant.actualRent || 0);
+        futureVacant.lastContractRent = Number(tenant.contractRent || 0);
+        futureVacant.isVacant = true;
+        futureVacant.isArchived = false;
+      }
+      saveState(state);
+      renderAll(state, tenant.building);
     }
     try {
       if (typeof syncVacateTenantToDb === 'function') {
@@ -739,8 +768,11 @@
         });
       }
       logActivity(state, 'Tenant removed', `${tenant.building} ${tenant.unit} ${tenant.name} removed from tenant page.`);
-      showFlashMessage(`${isFutureMonth ? 'Saved future-month vacancy' : 'Removed'} ${tenant.building} ${tenant.unit}. Refreshing...`);
-      setTimeout(() => window.location.reload(), 200);
+      if (typeof refreshSnapshotAndDerivedState === 'function') {
+        await refreshSnapshotAndDerivedState(state);
+      }
+      renderAll(state, tenant.building);
+      showFlashMessage(`${isFutureMonth ? 'Saved future-month vacancy' : 'Removed'} ${tenant.building} ${tenant.unit}.`);
     } catch (error) {
       showFlashMessage(String(error && error.message || 'Remove tenant failed.'));
       renderAll(state, tenant.building);
