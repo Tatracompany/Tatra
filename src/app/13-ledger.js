@@ -1679,11 +1679,11 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
         const nextMonth = button.getAttribute('data-create-tenant-month') || '';
         if (!nextMonth || typeof createMonthTab !== 'function') return;
         try {
+          await createMonthTab(nextMonth);
           if (buildingName) {
             markBuildingMonthAsCreated(buildingName, nextMonth);
             window.__selectedTenantMonthByBuilding[buildingName] = nextMonth;
           } else {
-            await createMonthTab(nextMonth);
             window.__selectedTenantMonth = nextMonth;
           }
           saveTenantViewPreference(window.__selectedTenantBuildingFilter || buildingFilter || 'all');
