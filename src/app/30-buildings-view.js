@@ -214,6 +214,9 @@ const BUILDING_TABLE_COLUMN_COUNT = 19;
         if (!nextMonth || !buildingName) return;
         if (typeof window.confirm === 'function' && !window.confirm(`Create ${formatMonth(nextMonth)} for ${buildingName}?`)) return;
         try {
+          if (typeof createMonthTab === 'function') {
+            await createMonthTab(nextMonth);
+          }
           markBuildingMonthAsCreated(buildingName, nextMonth);
           window.__selectedBuildingMonth = nextMonth;
           saveBuildingViewPreference();
