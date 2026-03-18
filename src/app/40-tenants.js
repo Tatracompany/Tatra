@@ -581,15 +581,13 @@
     const tenant = state.tenants.find((item) => item.id === tenantId);
     const selectedMonth = getSelectedTenantMonth();
     const rowContextTarget = findTenantProfileTargetByRowContext(state, row, selectedMonth);
-    const vacantView = !tenant
-      ? (rowContextTarget && rowContextTarget.isVacant
-        ? rowContextTarget
-        : ((typeof getAllVisibleUnitRows === 'function'
-            ? getAllVisibleUnitRows(state, selectedMonth)
-            : getTenantViews(state, selectedMonth))
-          .find((item) => item.id === tenantId && item.isVacant)))
-      : null;
-    const targetTenant = tenant || vacantView || rowContextTarget;
+    const vacantView = rowContextTarget && rowContextTarget.isVacant
+      ? rowContextTarget
+      : ((typeof getAllVisibleUnitRows === 'function'
+          ? getAllVisibleUnitRows(state, selectedMonth)
+          : getTenantViews(state, selectedMonth))
+        .find((item) => item.id === tenantId && item.isVacant));
+    const targetTenant = vacantView || rowContextTarget || tenant;
     if (!targetTenant) return;
     if (targetTenant.isVacant) {
       const detailRow = document.createElement('tr');
@@ -603,37 +601,40 @@
       }
       return;
     }
-    const profile = getEffectiveTenantProfile(state, tenant, selectedMonth);
-    const isLockedBaseline = isTenantMonthLocked(tenant, selectedMonth);
+    const sourceTenant = tenant
+      || state.tenants.find((item) => String(item && (item.sourceTenantId || item.id) || '').trim() === String(targetTenant && (targetTenant.sourceTenantId || targetTenant.id) || '').trim())
+      || targetTenant;
+    const profile = getEffectiveTenantProfile(state, sourceTenant, selectedMonth);
+    const isLockedBaseline = isTenantMonthLocked(sourceTenant, selectedMonth);
     const readOnlyAttr = isLockedBaseline ? ' readonly aria-readonly="true"' : '';
     const disabledAttr = isLockedBaseline ? ' disabled aria-disabled="true"' : '';
-    const detailName = profile ? profile.name : String(tenant.name || '');
-    const detailMoveInDate = profile ? profile.moveInDate : String(tenant.moveInDate || tenant.contractStart || '');
-    const detailPhone = profile ? profile.phone : String(tenant.phone || '');
-    const detailCivilId = profile ? profile.civilId : String(tenant.civilId || '');
-    const detailNationality = profile ? profile.nationality : (tenant.nationality || 'Not set');
+    const detailName = profile ? profile.name : String(sourceTenant.name || '');
+    const detailMoveInDate = profile ? profile.moveInDate : String(sourceTenant.moveInDate || sourceTenant.contractStart || '');
+    const detailPhone = profile ? profile.phone : String(sourceTenant.phone || '');
+    const detailCivilId = profile ? profile.civilId : String(sourceTenant.civilId || '');
+    const detailNationality = profile ? profile.nationality : (sourceTenant.nationality || 'Not set');
     const detailRow = document.createElement('tr');
     detailRow.setAttribute('data-tenant-profile-detail', tenantId);
     detailRow.innerHTML = `<td colspan="13" class="building-row-detail tenant-profile-detail">
       <div class="detail-grid">
-        <div class="detail-item detail-item-wide"><span class="label">Tenant name</span><input type="text" value="${escapeHtml(detailName)}" data-tenant-name="${escapeHtml(tenant.id)}" placeholder="Tenant name"${readOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Move in</span><input type="date" value="${escapeHtml(detailMoveInDate)}" data-tenant-move-in="${escapeHtml(tenant.id)}"${readOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Phone</span><input type="text" value="${escapeHtml(detailPhone)}" data-tenant-phone="${escapeHtml(tenant.id)}" placeholder="+965 55551111"${readOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Civil ID</span><input type="text" value="${escapeHtml(detailCivilId)}" data-tenant-civil="${escapeHtml(tenant.id)}" placeholder="Civil ID"${readOnlyAttr}></div>
-        <div class="detail-item"><span class="label">Nationality</span><select data-tenant-nationality="${escapeHtml(tenant.id)}"${disabledAttr}>${NATIONALITY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}"${detailNationality === option ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select></div>
-        <div class="detail-item"><span class="label">Save profile</span><button type="button" class="tenant-save-button" data-save-tenant-profile-detail="${escapeHtml(tenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save tenant info'}</button></div>
-        <div class="detail-item"><span class="label">Remove tenant</span><button type="button" class="tenant-save-button secondary-action" data-remove-tenant-profile="${escapeHtml(tenant.id)}"${disabledAttr}>Remove tenant</button></div>
-        ${isLockedBaseline ? `<div class="detail-item detail-item-wide"><span class="label">Baseline lock</span><strong>${escapeHtml(getBuildingMonthLockMessage(tenant.building, selectedMonth))}</strong></div>` : ''}
+        <div class="detail-item detail-item-wide"><span class="label">Tenant name</span><input type="text" value="${escapeHtml(detailName)}" data-tenant-name="${escapeHtml(sourceTenant.id)}" placeholder="Tenant name"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Move in</span><input type="date" value="${escapeHtml(detailMoveInDate)}" data-tenant-move-in="${escapeHtml(sourceTenant.id)}"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Phone</span><input type="text" value="${escapeHtml(detailPhone)}" data-tenant-phone="${escapeHtml(sourceTenant.id)}" placeholder="+965 55551111"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Civil ID</span><input type="text" value="${escapeHtml(detailCivilId)}" data-tenant-civil="${escapeHtml(sourceTenant.id)}" placeholder="Civil ID"${readOnlyAttr}></div>
+        <div class="detail-item"><span class="label">Nationality</span><select data-tenant-nationality="${escapeHtml(sourceTenant.id)}"${disabledAttr}>${NATIONALITY_OPTIONS.map((option) => `<option value="${escapeHtml(option)}"${detailNationality === option ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select></div>
+        <div class="detail-item"><span class="label">Save profile</span><button type="button" class="tenant-save-button" data-save-tenant-profile-detail="${escapeHtml(sourceTenant.id)}"${disabledAttr}>${isLockedBaseline ? 'Locked baseline' : 'Save tenant info'}</button></div>
+        <div class="detail-item"><span class="label">Remove tenant</span><button type="button" class="tenant-save-button secondary-action" data-remove-tenant-profile="${escapeHtml(sourceTenant.id)}"${disabledAttr}>Remove tenant</button></div>
+        ${isLockedBaseline ? `<div class="detail-item detail-item-wide"><span class="label">Baseline lock</span><strong>${escapeHtml(getBuildingMonthLockMessage(sourceTenant.building, selectedMonth))}</strong></div>` : ''}
       </div>
     </td>`;
     row.insertAdjacentElement('afterend', detailRow);
     const saveButton = detailRow.querySelector('[data-save-tenant-profile-detail]');
     if (saveButton) {
-      saveButton.addEventListener('click', () => saveTenantProfile(state, tenantId));
+      saveButton.addEventListener('click', () => saveTenantProfile(state, sourceTenant.id));
     }
     const removeButton = detailRow.querySelector('[data-remove-tenant-profile]');
     if (removeButton) {
-      removeButton.addEventListener('click', () => void removeTenantFromTenantsPage(state, tenantId));
+      removeButton.addEventListener('click', () => void removeTenantFromTenantsPage(state, sourceTenant.id));
     }
   }
 
