@@ -1678,6 +1678,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       button.addEventListener('click', async () => {
         const nextMonth = button.getAttribute('data-create-tenant-month') || '';
         if (!nextMonth || typeof createMonthTab !== 'function') return;
+        const ok = window.confirm(`Create ${formatMonth(nextMonth)} for this building?`);
+        if (!ok) return;
         try {
           await createMonthTab(nextMonth);
           if (buildingName) {
@@ -1704,6 +1706,8 @@ function setNotesOverride(state, tenantId, monthKey, noteText) {
       button.addEventListener('click', async () => {
         const monthToDelete = button.getAttribute('data-delete-tenant-month') || '';
         if (!monthToDelete || typeof deleteMonthTab !== 'function') return;
+        const ok = window.confirm(`Delete ${formatMonth(monthToDelete)} for this building?`);
+        if (!ok) return;
         try {
           if (buildingName) {
             unmarkBuildingMonthAsCreated(buildingName, monthToDelete);

@@ -29,8 +29,6 @@
   }
 
   function getTrackerRowStorageKey(tenant) {
-    const directUnitId = String(tenant && tenant.unitId || '').trim();
-    if (directUnitId) return directUnitId;
     const building = String(tenant && tenant.building || '').trim().toLowerCase();
     const unit = String(tenant && tenant.unit || '').trim().toLowerCase();
     const floor = String(tenant && tenant.floor || '').trim().toLowerCase();
@@ -42,6 +40,10 @@
     const normalizedUnitId = String(unitId || '').trim();
     if (!normalizedUnitId) return '';
     return `tenant_tracker_occupants::${normalizedUnitId}`;
+  }
+
+  function getLegacyTrackerUnitId(tenant) {
+    return String(tenant && tenant.unitId || '').trim();
   }
 
   function getTrackerAppMetaEntries() {
@@ -129,11 +131,16 @@
       .map((tenant) => {
         const trackerStorageKey = getTrackerRowStorageKey(tenant);
         const namesText = getTrackerStoredNamesText(trackerStorageKey, selectedMonth, '');
-        const names = parseTrackerNames(namesText);
+        const legacyUnitId = getLegacyTrackerUnitId(tenant);
+        const legacyNamesText = !namesText && legacyUnitId
+          ? getTrackerStoredNamesText(legacyUnitId, selectedMonth, '')
+          : '';
+        const resolvedNamesText = namesText || legacyNamesText;
+        const names = parseTrackerNames(resolvedNamesText);
         const trackerNameSlots = normalizeTrackerNameSlots(names, tenant.isVacant ? '' : tenant.name);
         return Object.assign({}, tenant, {
           trackerStorageKey,
-          trackerNamesText: namesText,
+          trackerNamesText: resolvedNamesText,
           trackerNames: names,
           trackerNameSlots,
           trackerCount: trackerNameSlots.filter(Boolean).length
