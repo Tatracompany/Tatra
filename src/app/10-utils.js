@@ -81,6 +81,17 @@
       } catch (_error) {
         stored = [];
       }
+      if (Array.isArray(stored) && stored.length && typeof syncBuildingCreatedMonthsToDb === 'function') {
+        const normalizedStored = Array.from(new Set(
+          stored
+            .map((monthKey) => String(monthKey || '').trim())
+            .filter(Boolean)
+            .filter((monthKey) => compareMonthKeys(monthKey, minMonth) >= 0)
+        )).sort(compareMonthKeys);
+        if (normalizedStored.length) {
+          Promise.resolve().then(() => syncBuildingCreatedMonthsToDb(normalizedBuilding, normalizedStored)).catch(() => null);
+        }
+      }
     }
     const monthKeys = new Set([minMonth]);
     if (Array.isArray(stored)) {
